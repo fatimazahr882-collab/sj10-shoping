@@ -1,96 +1,153 @@
-"use client";
+// 🔥 FIX: 'OpenGraph' ko yahan se hata dein
+import { Metadata, ResolvingMetadata } from "next"; 
+import { notFound, permanentRedirect } from "next/navigation";
+import ProductDetailClient from "@/components/ProductDetailClient";
+import ProductCard, { type Product } from "@/components/ProductCard";
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import ProductDetailClient from '@/components/ProductDetailClient';
-import ProductCard, { type Product } from '@/components/ProductCard';
-import ProductPageSkeleton from "@/components/ProductPageSkeleton";
+// --- Configuration ---
+export const revalidate = 3600; 
+export const dynamicParams = true; 
 
-export default function ProductDetailPage() {
-    // FIX: We tell TypeScript that 'slug' exists and is a string
-    const params = useParams<{ slug: string }>();
-    const router = useRouter();
+type Props = {
+  params: Promise<{ slug: string }>;
+};
 
-    // Now 'params.slug' is guaranteed to be a string, no red line.
-    const rawSlug = params.slug; 
-
-    // State
-    const [product, setProduct] = useState<any | null>(null);
-    const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
-
-    useEffect(() => {
-        if (!rawSlug) return;
-
-        async function fetchProductData() {
-            try {
-                // 1. Decode and Encode Slug to handle special characters correctly
-                const productSlug = decodeURIComponent(rawSlug);
-                const encodedSlug = encodeURIComponent(productSlug);
-                
-                // 2. Fetch Product
-                const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/slug/${encodedSlug}`, { 
-                    headers: { 'Cache-Control': 'no-cache' } 
-                });
-                
-                if (!res.ok) throw new Error('Product not found');
-                
-                const productData = await res.json();
-                if (!productData || !productData.id) throw new Error('Product invalid');
-
-                setProduct(productData);
-
-                // 3. Fetch Related Products (Non-blocking)
-                if (productData.category_id) {
-                    try {
-                        const relatedRes = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products?category=${productData.category_id}&limit=8`);
-                        if (relatedRes.ok) {
-                            const relatedData = await relatedRes.json();
-                            if (relatedData && Array.isArray(relatedData.products)) {
-                                setRelatedProducts(relatedData.products.filter((p: Product) => p.id !== productData.id));
-                            }
-                        }
-                    } catch (e) { console.error(e); }
-                }
-
-            } catch (err) {
-                console.error(err);
-                setError(true);
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchProductData();
-    }, [rawSlug]);
-
-    // Use Skeleton for Instant Load feel
-    if (loading) {
-        return <ProductPageSkeleton />;
-    }
-
-    if (error || !product) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-                <i className="fas fa-exclamation-circle text-4xl text-gray-300 mb-4"></i>
-                <h2 className="text-xl font-bold text-gray-800">Product Not Found</h2>
-                <p className="text-gray-500 mb-6">The product you are looking for might have been removed.</p>
-                <button
-                    onClick={() => router.push('/')}
-                    className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                    Back to Home
-                </button>
-            </div>
-        );
-    }
-
-    return (
-        <ProductDetailClient product={product}>
-            {relatedProducts.length > 0 && relatedProducts.map((p: Product) => (
-                <ProductCard key={p.id} product={p} />
-            ))}
-        </ProductDetailClient>
+// --- Helper Functions (No Change) ---
+async function getProduct(slug: string): Promise<any | null> {
+  if (!slug || slug === 'undefined') return null;
+  const decodedSlug = decodeURIComponent(slug);
+  const encodedSlug = encodeURIComponent(decodedSlug);
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/slug/${encodedSlug}`,
+      { next: { revalidate: 3600 } }
     );
+    return res.ok ? await res.json() : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function getRelatedProducts(categoryId: string | number, currentProductId: string | number) {
+  if (!categoryId) return [];
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products?category=${categoryId}&limit=8`,
+      { next: { revalidate: 3600 } }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.products) 
+      ? data.products.filter((p: Product) => p.id !== currentProductId) 
+      : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+// --- SEO: Generate Metadata ---
+export async function generateMetadata(
+  { params }: Props,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProduct(slug);
+
+  if (!product) {
+    return { title: "Product Not Found", robots: { index: false } };
+  }
+
+  const title = `${product.title} - ${product.sku || 'Best Price'} | SJ10`;
+  const description = product.description 
+    ? product.description.substring(0, 160).replace(/\n/g, ' ') 
+    : `Buy ${product.title} at the best price in Pakistan.`;
+  
+  const mainImage = Array.isArray(product.image_urls) 
+    ? product.image_urls[0] 
+    : (JSON.parse(product.image_urls || '[]')[0] || '/placeholder.jpg');
+
+  const cleanSlug = product.sku ? `${product.slug}-${product.sku}` : product.slug;
+  const canonicalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/products/${cleanSlug}`;
+
+  // 🔥 YEH RAHA FINAL FIX! Humne :OpenGraph type hata di hai 🔥
+  const openGraphData = {
+      title: title,
+      description: description,
+      url: canonicalUrl,
+      images: [{ url: mainImage }],
+      type: "website",
+      siteName: "SJ10"
+  };
+
+  return {
+    title: title,
+    description: description,
+    openGraph: openGraphData,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+  };
+}
+
+
+// --- Main Page Component (No Change) ---
+export default async function ProductDetailPage({ params }: Props) {
+  const resolvedParams = await params;
+  const currentSlug = resolvedParams.slug;
+
+  if (!currentSlug || currentSlug === 'undefined') notFound();
+
+  const product = await getProduct(currentSlug);
+  if (!product) notFound();
+
+  if (product.sku) {
+    const decodedCurrent = decodeURIComponent(currentSlug);
+    const expectedSlug = `${product.slug}-${product.sku}`;
+    if (decodedCurrent !== expectedSlug && !decodedCurrent.endsWith(product.sku)) {
+      permanentRedirect(`/products/${expectedSlug}`);
+    }
+  }
+
+  const relatedProducts = await getRelatedProducts(product.category_id, product.id);
+
+  const mainImage = Array.isArray(product.image_urls) 
+    ? product.image_urls[0] 
+    : (JSON.parse(product.image_urls || '[]')[0] || '/placeholder.jpg');
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    image: mainImage,
+    description: product.description,
+    sku: product.sku || product.id,
+    brand: { "@type": "Brand", name: product.supplier?.name || "SJ10 Store" },
+    offers: {
+      "@type": "Offer",
+      url: `${process.env.NEXT_PUBLIC_SITE_URL}/products/${currentSlug}`,
+      priceCurrency: "PKR",
+      price: product.discounted_price || product.price,
+      availability: product.quantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
+    aggregateRating: product.avg_rating ? {
+      "@type": "AggregateRating",
+      ratingValue: product.avg_rating,
+      reviewCount: product.total_reviews_count || 0
+    } : undefined
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <ProductDetailClient product={product}>
+        {relatedProducts.length > 0 && relatedProducts.map((p: Product) => (
+          <ProductCard key={p.id} product={p} />
+        ))}
+      </ProductDetailClient>
+    </>
+  );
 }

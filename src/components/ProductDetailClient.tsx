@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import ProductCard, { type Product } from './ProductCard';
-import SjLoader from './SjLoader';
+import ProductCard, { type Product } from './ProductCard'; // Ensure path is correct
+import SjLoader from './SjLoader'; // Ensure path is correct
 
 // --- TypeScript Fix for Navigator Share ---
 interface NavigatorWithShare {
@@ -14,7 +14,8 @@ interface NavigatorWithShare {
 }
 
 // --- Types ---
-type Variant = { 
+// Re-exporting these if needed by other components, though mostly internal now
+export type Variant = { 
   id: string | number; 
   name?: string; 
   price: string; 
@@ -46,6 +47,7 @@ type Review = {
     image_url?: string | null;
 };
 
+// Merged definition for the full prop object
 type ProductWithDetails = Product & {
   description: string;
   video_url?: string;
@@ -133,7 +135,7 @@ const VerificationBadge = ({ status }: { status?: string }) => {
 
 export default function ProductDetailClient({ product, children }: Props) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user } = useAuth(); // Assuming AuthProvider is set up correctly in layout
   
   const [activeAccordion, setActiveAccordion] = useState<string | null>('details');
   const [isMediaLoading, setIsMediaLoading] = useState(false); 
@@ -189,6 +191,7 @@ export default function ProductDetailClient({ product, children }: Props) {
     setActiveMediaIndex((prev) => (prev - 1 + mediaItems.length) % mediaItems.length);
   };
 
+  // Sync client-side specific status (favorites/follows) that relies on local token
   useEffect(() => {
     if (product.supplier) setFollowerCount(product.supplier.followers_count || 0);
     const syncStatus = async () => {
@@ -234,6 +237,7 @@ export default function ProductDetailClient({ product, children }: Props) {
       try { return typeof product.attributes === 'object' ? product.attributes : JSON.parse(product.attributes); } catch (e) { return null; }
   }, [product.attributes]);
 
+  // Fetch more products from same seller (client side lazy load is fine for this)
   useEffect(() => {
     const fetchSellerProducts = async () => {
       if (!product.supplier?.id) return;
@@ -327,6 +331,7 @@ export default function ProductDetailClient({ product, children }: Props) {
   return (
     <>
       <style jsx global>{`
+        /* Keeping all original styles exactly as they were */
         .main-image-container { position: relative; width: 100%; height: 400px; background-color: #fff; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; border: 1px solid #eee; }
         .pdp-main-image { width: 100%; height: 100%; object-fit: contain; display: block; }
         @media (max-width: 768px) { .main-image-container { height: 350px; } }
