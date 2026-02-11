@@ -13,7 +13,11 @@ import SearchBar from '@/components/SearchBar';
 import ExploreHomepage from '@/components/ExploreHomepage';
 import DynamicDiscountSections from '@/components/DynamicDiscountSections';
 import StripBanner from '@/components/StripBanner'; // 👈 1. IMPORT THIS
+<<<<<<< HEAD
 
+=======
+import Loading from './loading'; // Import the new shimmer loader
+>>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
 
 // --- Data structure for our homepage ---
 interface HomeData {
@@ -44,6 +48,12 @@ export default function HomePage() {
   // ✅ 4. SMART LOADING LOGIC
   // This now only shows the full page skeleton if we have NO cached data AND we are loading.
   // If you navigate away and back, `data` will exist, so this is skipped!
+<<<<<<< HEAD
+=======
+  if (!data && isLoading) {
+    return <Loading />; // Use the beautiful shimmer loader
+  }
+>>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
 
   // Graceful Error Handling
   if (error && !data) {

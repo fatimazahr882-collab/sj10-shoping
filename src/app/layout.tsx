@@ -1,7 +1,11 @@
 import "./globals.css";
 import { Poppins } from "next/font/google";
 import { Suspense, type ReactNode } from 'react';
+<<<<<<< HEAD
 import { GoogleOAuthProvider } from '@react-oauth/google';
+=======
+import { GoogleOAuthProvider } from '@react-oauth/google'; // New Import
+>>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
 
 // Components
 import Header from "@/components/Header";
@@ -13,6 +17,7 @@ import NotificationManager from "@/components/NotificationManager";
 import { AuthProvider } from "@/components/AuthProvider";
 import { CartProvider } from "@/context/CartContext";
 
+<<<<<<< HEAD
 // 1. Font Optimization: Variable font reduces network requests
 const poppins = Poppins({
   subsets: ["latin"],
@@ -61,14 +66,43 @@ export const metadata = {
     index: true,
     follow: true,
   }
+=======
+// Font Optimization (Subsets reduce file size = Faster Load)
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"], // Added 300 for light text
+  display: "swap",
+  variable: "--font-poppins",
+});
+
+// SEO & Metadata (Advanced)
+export const metadata = {
+  title: "SJ10 - Saman Junction | Pakistan's #1 Online Shopping",
+  description: "Shop the best fashion, electronics, and home goods in Pakistan with fast delivery.",
+  icons: {
+    icon: '/favicon.ico', // Make sure you have a favicon
+  },
+  openGraph: {
+    title: "SJ10 Shopping Center",
+    description: "Premium Shopping Experience in Pakistan.",
+    url: 'https://sj10.com', // Replace with real URL later
+    siteName: 'SJ10',
+    locale: 'en_US',
+    type: 'website',
+  },
+>>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
 };
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+<<<<<<< HEAD
   userScalable: false,
   themeColor: '#ffffff',
+=======
+  userScalable: false, // Prevents input zooming on mobile for "App-like" feel
+>>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -77,12 +111,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${poppins.variable} scroll-smooth`}>
       <head>
+<<<<<<< HEAD
         {/* 3. Preconnect to critical domains for speed */}
         <link rel="preconnect" href="https://res.cloudinary.com" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
         
         {/* FontAwesome - Loading this is blocking, but necessary for your icons. 
             Ideally, replace with React Icons to remove this link for max speed. */}
+=======
+        {/* Performance: Connect to CDN early */}
+        <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+        
+        {/* Icons */}
+>>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
         <link 
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
@@ -91,6 +132,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       
+<<<<<<< HEAD
       <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-indigo-500 selection:text-white font-sans">
         
         <GoogleOAuthProvider clientId={googleClientId}>
@@ -106,11 +148,49 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
               <Header />
 
+=======
+      {/* 
+         antialiased: Makes text sharper
+         selection: Custom highlight color
+      */}
+      <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-indigo-500 selection:text-white">
+        
+        {/* 1. Google Provider (Wraps everything) */}
+        <GoogleOAuthProvider clientId={googleClientId}>
+          
+          {/* 2. Auth Provider */}
+          <AuthProvider>
+            
+            {/* 3. Cart Provider */}
+            <CartProvider>
+              
+              {/* Top Bar (Suspense prevents blocking) */}
+              <Suspense fallback={<div className="h-10 bg-gray-100 w-full animate-pulse" />}>
+                <ConditionalTopBar />
+              </Suspense>
+
+              {/* Global Notifications */}
+              <NotificationManager />
+
+              {/* Main Header */}
+              <Suspense fallback={<div className="h-20 bg-white w-full border-b border-gray-200" />}>
+                <Header />
+              </Suspense>
+
+              {/* Page Content */}
+>>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
               <main className="page-container relative z-0 min-h-[70vh] flex flex-col">
                 {children}
               </main>
 
+<<<<<<< HEAD
               <Footer />
+=======
+              {/* Footer */}
+              <Suspense fallback={<div className="h-64 bg-gray-900 w-full" />}>
+                <Footer />
+              </Suspense>
+>>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
 
             </CartProvider>
           </AuthProvider>
