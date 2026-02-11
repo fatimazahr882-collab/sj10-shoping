@@ -16,12 +16,8 @@ function VerticalSlide({ src, alt }: { src: string; alt: string }) {
                 alt={alt} 
                 fill 
                 style={{ objectFit: 'cover' }} 
-<<<<<<< HEAD
                   unoptimized={true} // Keep unoptimized for GIFs if needed, otherwise remove
                 priority={true} // <--- ADD THIS to the first slide for LCP optimization
-=======
-                unoptimized
->>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
                 className={isLoading ? 'image-loading' : 'image-loaded'}
                 onLoad={() => setIsLoading(false)}
             />

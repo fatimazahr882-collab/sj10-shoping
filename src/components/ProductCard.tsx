@@ -113,16 +113,10 @@ export default function ProductCard({ product }: { product: Product | null }) {
                     src={firstImage} 
                     alt={product.title} 
                     fill 
-<<<<<<< HEAD
                     sizes="(max-width: 768px) 50vw, 25vw" // Helps browser pick the right size
     quality={75} // Default is 75, lower to 60-70 for speed
                     className={`main-img ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
                     
-=======
-                    sizes="(max-width: 768px) 50vw, 20vw" 
-                    className={`main-img ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
-                    unoptimized={true} 
->>>>>>> 0285b10bb2bf0f627fc886f916872e67d590239a
                     onLoad={() => setImgLoading(false)} 
                 />
                 {firstImage !== secondImage && <Image src={secondImage} alt={product.title} fill className="img-back" unoptimized={true} />}
