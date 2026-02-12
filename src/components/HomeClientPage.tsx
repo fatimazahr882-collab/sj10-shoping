@@ -1,7 +1,7 @@
 // src/components/HomeClientPage.tsx
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 
@@ -22,8 +22,6 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 export default function HomeClientPage({ initialData }: { initialData: HomeData }) {
   
   // 1. HYBRID DATA STRATEGY
-  // - We use 'initialData' (Server 4-day cache) as the fallbackData -> INSTANT LOAD
-  // - We use SWR to check for updates in the background without layout shift
   const { data } = useSWR<HomeData>(
     `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/homepage-data`,
     fetcher,
@@ -34,8 +32,19 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
     }
   );
 
-  // Use the data (either cached from server or updated from SWR)
   const safeData = data || initialData;
+
+  // 2. DEFER LOADING OF HEAVY SECTIONS
+  // This prevents the "Timeout" error by letting the top of the page load first
+  const [loadHeavyContent, setLoadHeavyContent] = useState(false);
+
+  useEffect(() => {
+    // Wait for the main thread to be free, then load the rest
+    const timer = setTimeout(() => {
+      setLoadHeavyContent(true);
+    }, 100); // 100ms delay allows the browser to paint the Banners first
+    return () => clearTimeout(timer);
+  }, []);
 
   // Inline styles for the horizontal sliders
   const sliderStyle: React.CSSProperties = {
@@ -56,11 +65,11 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
         <SearchBar />
       </div>
 
-      {/* 2. BANNERS LAYOUT (Desktop Split / Mobile Full) */}
+      {/* 2. BANNERS LAYOUT */}
       <div className="desktop-banner-layout">
-        <VerticalBanner /> {/* SSG (Hardcoded) */}
+        <VerticalBanner /> 
         <div className="main-banner-wrapper">
-          <Banners banners={safeData.banners} priority={true} /> {/* ISR (4 Days) */}
+          <Banners banners={safeData.banners} priority={true} />
         </div>
       </div>
       
@@ -71,10 +80,12 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
       {/* 3. STRIP BANNER */}
       <StripBanner />
 
-      {/* 4. SUBCATEGORIES ROW 1 */}
-        {safeData.subCatRow1?.length > 0 && (
+      {/* 4. SUBCATEGORIES ROW 1 - CRITICAL FIX APPLIED HERE */}
+      {safeData.subCatRow1?.length > 0 && (
         <HomeSubcategories 
-          subcategories={safeData.subCatRow1} 
+          // FIX: Only render the first 18 items. Rendering 283 items crashes performance.
+          // The user can view more via a "View All" link inside the component if needed.
+          subcategories={safeData.subCatRow1.slice(0, 18)} 
           title="Explore Categories" 
           priority={true} 
         />
@@ -86,7 +97,6 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
           <div className="flex justify-between px-4 mb-2">
             <h2 className="section-title text-lg font-bold text-gray-800">Promoted</h2>
           </div>
-          {/* Using inline styles to match your original scrolling behavior exactly */}
           <div className="hide-scrollbar" style={sliderStyle}>
             {safeData.promotedTop50.map((p) => (
               <div key={`promo-${p.id}`} style={sliderItemStyle} className="md:w-[220px]">
@@ -97,48 +107,54 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
         </section>
       )}
 
-      {/* 6. DYNAMIC DISCOUNT SECTIONS */}
-      <DynamicDiscountSections />
+      {/* --- HEAVY CONTENT BOUNDARY --- */}
+      {/* We only render the rest of the page after the initial paint is done */}
+      {loadHeavyContent && (
+        <>
+          {/* 6. DYNAMIC DISCOUNT SECTIONS */}
+          <DynamicDiscountSections />
 
-      {/* 7. POPULAR PRODUCTS GRID */}
-      <section className="py-4 px-4 bg-white border-t-8 border-gray-100">
-        <h2 className="section-title text-lg font-bold mb-4 text-gray-800">Popular Products</h2>
-        <div className="product-grid">
-          {safeData.popularMixed.map((p) => (
-            <ProductCard key={`pop-${p.id}`} product={p} />
-          ))}
-        </div>
-      </section>
+          {/* 7. POPULAR PRODUCTS GRID */}
+          <section className="py-4 px-4 bg-white border-t-8 border-gray-100">
+            <h2 className="section-title text-lg font-bold mb-4 text-gray-800">Popular Products</h2>
+            <div className="product-grid">
+              {safeData.popularMixed.map((p) => (
+                <ProductCard key={`pop-${p.id}`} product={p} />
+              ))}
+            </div>
+          </section>
 
-      {/* 8. SUBCATEGORIES ROW 2 */}
-      {safeData.subCatRow2?.length > 0 && (
-        <div className="border-t-8 border-gray-100 py-4 bg-white">
-          <HomeSubcategories 
-            subcategories={safeData.subCatRow2} 
-            title="Trending Categories" 
-            priority={false} 
-          />
-        </div>
+          {/* 8. SUBCATEGORIES ROW 2 - LIMITED */}
+          {safeData.subCatRow2?.length > 0 && (
+            <div className="border-t-8 border-gray-100 py-4 bg-white">
+              <HomeSubcategories 
+                subcategories={safeData.subCatRow2.slice(0, 15)} 
+                title="Trending Categories" 
+                priority={false} 
+              />
+            </div>
+          )}
+
+          {/* 9. CATEGORY ROWS */}
+          <CategoryRows />
+
+          {/* 10. SUBCATEGORIES ROW 3 - LIMITED */}
+          {safeData.subCatRow3?.length > 0 && (
+            <div className="border-t-8 border-gray-100 py-4 bg-white">
+              <HomeSubcategories 
+                subcategories={safeData.subCatRow3.slice(0, 15)} 
+                title="More to Explore" 
+                priority={false} 
+              />
+            </div>
+          )}
+
+          {/* 11. INFINITE SCROLL EXPLORE */}
+          <section className="border-t-8 border-gray-100 mt-4 min-h-screen" id="explore-section">
+            <ExploreHomepage />
+          </section>
+        </>
       )}
-
-      {/* 9. CATEGORY ROWS (Electronics, Fashion, etc.) */}
-      <CategoryRows />
-
-      {/* 10. SUBCATEGORIES ROW 3 */}
-      {safeData.subCatRow3?.length > 0 && (
-        <div className="border-t-8 border-gray-100 py-4 bg-white">
-          <HomeSubcategories 
-            subcategories={safeData.subCatRow3} 
-            title="More to Explore" 
-            priority={false} 
-          />
-        </div>
-      )}
-
-      {/* 11. INFINITE SCROLL EXPLORE */}
-      <section className="border-t-8 border-gray-100 mt-4 min-h-screen" id="explore-section">
-        <ExploreHomepage />
-      </section>
 
       <style jsx global>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
