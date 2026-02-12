@@ -1,22 +1,23 @@
-// next.config.js (FINAL & CORRECTED)
+// next.config.js
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    // You can keep your formats and sizes, they are good optimizations
+    // These sizes help Next.js generate the best image for different devices
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    
+    // Serve modern formats like AVIF and WebP which are much smaller
     formats: ['image/avif', 'image/webp'],
     
-    // The critical fix is in remotePatterns
+    // Allow images from your specific cloud storage domains
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
-        // ✅ CORRECTED: Allow any image path from your Cloudinary account.
-        // This is the most robust and common configuration.
         pathname: '/**', 
       },
       {
-        // This pattern for your other host is also correct.
         protocol: 'https',
         hostname: 'pub-1390981b409c46698da5dc6c45e08eaa.r2.dev',
         pathname: '/**',
