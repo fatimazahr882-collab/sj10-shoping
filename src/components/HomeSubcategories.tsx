@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import SjLoader from './SjLoader';
 
 type Subcategory = {
   id: string;
@@ -11,9 +10,7 @@ type Subcategory = {
   slug: string;
 };
 
-// --- 1. SPEED HELPERS ---
-
-// A. Shimmer Effect (The "Low Quality" Blur placeholder)
+// Shimmer (Low Quality Placeholder)
 const shimmer = (w: number, h: number) => `
 <svg width="${w}" height="${h}" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs>
@@ -33,52 +30,29 @@ const toBase64 = (str: string) =>
     ? Buffer.from(str).toString('base64')
     : window.btoa(str);
 
-// B. Cloudinary Optimizer (Compresses image BEFORE it reaches the browser)
 const getOptimizedUrl = (url: string | null) => {
   if (!url) return '/placeholder.jpg';
-  
-  // If it's a Cloudinary URL, we inject parameters for speed:
-  // w_200: Resize to 200px (perfect for small thumbnails)
-  // f_auto: Use WebP/AVIF automatically
-  // q_auto: Intelligent quality compression
   if (url.includes('cloudinary.com') && url.includes('/upload/')) {
     return url.replace('/upload/', '/upload/w_200,f_auto,q_auto:good/');
   }
   return url;
 };
 
-// --- 2. COMPONENT ---
-
 function SubcategoryItem({ cat, priority }: { cat: Subcategory, priority: boolean }) {
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Pre-calculate the optimized URL
   const optimizedSrc = getOptimizedUrl(cat.image_url);
 
   return (
     <Link href={`/category/${cat.slug}`} className="explore-item">
       <div className="img-wrapper">
-        {/* Keep your existing loader as an overlay */}
-        {isLoading && <SjLoader />}
-        
         <Image
           src={optimizedSrc}
           alt={cat.name}
           fill
           style={{ objectFit: 'contain' }}
           sizes="(max-width: 768px) 33vw, 150px"
-          
-          // 🔥 PERFORMANCE SETTINGS 🔥
           priority={priority}
-          
-          // We set unoptimized=true to STOP the server timeouts you were getting.
-          // BUT, we used 'getOptimizedUrl' above so the image IS compressed by Cloudinary.
+          // 🔥 CRITICAL FIX: Bypass Next.js server processing
           unoptimized={true} 
-          
-          className={isLoading ? 'image-loading' : 'image-loaded'}
-          onLoad={() => setIsLoading(false)} 
-          
-          // Instant Loading Blur Effect
           placeholder="blur"
           blurDataURL={`data:image/svg+xml;base64,${toBase64(shimmer(150, 150))}`}
         />
@@ -113,7 +87,6 @@ export default function HomeSubcategories({
           <SubcategoryItem 
             key={cat.id} 
             cat={cat} 
-            // Only prioritize the first 6 images to save bandwidth
             priority={priority && index < 6} 
           />
         ))}

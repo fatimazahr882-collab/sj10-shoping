@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link'; // ✅ Import Next.js Link
+import Link from 'next/link';
 
 type Banner = {
   id: number;
   image_url: string;
-  link_url?: string; // This will now be used
+  link_url?: string;
 };
 
 type Props = {
@@ -15,106 +15,79 @@ type Props = {
   priority?: boolean;
 };
 
-// --- SPEED HELPER ---
-// This function creates a tiny, blurred placeholder from the original image URL.
-const getLowQualityPlaceholder = (url: string): string => {
-  if (!url || !url.includes('cloudinary.com')) {
-    // A fallback pixel if the image isn't from Cloudinary
-    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkqAcAAIUAgchljQYAAAAASUVORK5CYII=';
+const getSpeedOptimizedUrl = (url: string) => {
+  if (!url) return '/placeholder.jpg';
+  if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+    return url.replace('/upload/', '/upload/w_800,q_auto:low,f_auto/');
   }
-  return url.replace('/upload/', '/upload/w_20,q_10,e_blur:1000/');
+  return url;
 };
 
-// --- SKELETON LOADER ---
-// A shimmer skeleton that perfectly matches the banner's shape.
-const BannerSkeleton = () => (
-    <div className="banner-container">
-        <div className="w-full h-full bg-gray-200 relative overflow-hidden">
-            <div 
-                className="shimmer-effect" 
-                style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
-                    animation: 'shimmer 1.5s infinite'
-                }}
-            />
-        </div>
-        <style jsx>{`
-            @keyframes shimmer {
-                0% { transform: translateX(-100%); }
-                100% { transform: translateX(100%); }
-            }
-        `}</style>
-    </div>
-);
-
-
-export default function Banners({ banners, priority = false }: Props) {
+export default function Banners({ banners, priority = true }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    if (banners.length <= 1) return;
+    if (!banners || banners.length <= 1) return;
     const intervalId = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % banners.length);
-    }, 5000);
+      setCurrentIndex((prev) => (prev + 1) % banners.length);
+    }, 4000); 
     return () => clearInterval(intervalId);
   }, [banners.length]);
 
   if (!banners || banners.length === 0) {
-    return <BannerSkeleton />;
+    return <div className="w-full h-full bg-gray-100 rounded-xl animate-pulse" />;
   }
 
   return (
-    <div className="banner-container">
+    <div className="banner-container relative w-full h-full overflow-hidden rounded-xl bg-gray-50">
       <div 
-        className="banner-slider"
+        className="banner-slider flex h-full w-full transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}
       >
-        {banners.map((banner, index) => (
-          // ✅ THIS IS THE FIX: Replaced the 'Wrapper' variable with a direct ternary operator.
-          // If banner.link_url exists, it renders a <Link>. Otherwise, it renders a <div>.
-          banner.link_url ? (
-            <Link key={banner.id} href={banner.link_url} className="slide">
-              <Image 
-                src={banner.image_url} 
-                alt="Promotional Banner" 
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                style={{ objectFit: 'cover' }}
-                priority={priority && index === 0}
-                quality={75}
-                placeholder="blur"
-                blurDataURL={getLowQualityPlaceholder(banner.image_url)}
-              />
-            </Link>
-          ) : (
-            <div key={banner.id} className="slide">
-              <Image 
-                src={banner.image_url} 
-                alt="Promotional Banner" 
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                style={{ objectFit: 'cover' }}
-                priority={priority && index === 0}
-                quality={75}
-                placeholder="blur"
-                blurDataURL={getLowQualityPlaceholder(banner.image_url)}
-              />
+        {banners.map((banner, index) => {
+          const isLCP = priority && index === 0;
+          const optimizedSrc = getSpeedOptimizedUrl(banner.image_url);
+
+          return (
+            <div key={banner.id} className="slide relative min-w-full h-full">
+              {banner.link_url ? (
+                <Link href={banner.link_url} className="block w-full h-full relative">
+                  <Image 
+                    src={optimizedSrc} 
+                    alt="Offer" 
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    style={{ objectFit: 'cover' }}
+                    priority={isLCP}
+                    // 🔥 CRITICAL FIX: Bypass Next.js server processing
+                    unoptimized={true}
+                  />
+                </Link>
+              ) : (
+                <Image 
+                  src={optimizedSrc} 
+                  alt="Offer" 
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  style={{ objectFit: 'cover' }}
+                  priority={isLCP}
+                  // 🔥 CRITICAL FIX: Bypass Next.js server processing
+                  unoptimized={true}
+                />
+              )}
             </div>
-          )
-        ))}
+          );
+        })}
       </div>
 
       {banners.length > 1 && (
-        <div className="banner-dots">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10">
           {banners.map((_, index) => (
             <div
               key={index}
-              className={`dot ${currentIndex === index ? 'active' : ''}`}
+              className={`h-2 w-2 rounded-full transition-all duration-300 shadow-sm cursor-pointer ${
+                currentIndex === index ? 'bg-white w-6' : 'bg-white/60 hover:bg-white/80'
+              }`}
               onClick={() => setCurrentIndex(index)}
             />
           ))}

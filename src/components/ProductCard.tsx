@@ -114,7 +114,7 @@ export default function ProductCard({ product }: { product: Product | null }) {
                     alt={product.title} 
                     fill 
                     sizes="(max-width: 768px) 50vw, 25vw" // Helps browser pick the right size
-    quality={55} // Default is 75, lower to 60-70 for speed
+unoptimized={true} // 🔥 CRITICAL FIX: Bypass Next.js server processing for faster loads, especially for external URLs
                     className={`main-img ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
                     
                     onLoad={() => setImgLoading(false)} 
