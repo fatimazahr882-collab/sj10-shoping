@@ -1,11 +1,9 @@
+// src/components/DynamicDiscountSections.tsx
 "use client";
 
 import React from 'react';
 import Link from 'next/link';
-import useSWR from 'swr';
 import ProductCard, { type Product } from '@/components/ProductCard';
-
-const CART_API_BASE = 'https://sj10-cart.vercel.app/api';
 
 interface DiscountSection {
     section_id: number;
@@ -13,53 +11,20 @@ interface DiscountSection {
     products: Product[];
 }
 
-// Faster Fetcher
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-export default function DynamicDiscountSections() {
-    // SWR Magic: Handles caching, revalidation, and loading states automatically
-    const { data: sections, error } = useSWR<DiscountSection[]>(
-        `${CART_API_BASE}/discount-sections`,
-        fetcher,
-        {
-            revalidateOnFocus: false, // Don't re-fetch just because user clicked window
-            revalidateIfStale: false, // Keep data fresh for longer
-            dedupingInterval: 60000,  // Cache for 1 minute minimum
-        }
-    );
-
-    if (error) return null;
-    // Show a small skeleton ONLY if we have no data at all
-    if (!sections) {
-        return (
-            <div className="px-4 mt-6 space-y-4">
-                <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-2" />
-                <div className="flex gap-4 overflow-hidden">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="w-[180px] h-[260px] bg-gray-100 rounded-lg animate-pulse" />
-                    ))}
-                </div>
-            </div>
-        );
-    }
+export default function DynamicDiscountSections({ sections }: { sections: DiscountSection[] }) {
     
-    if (sections.length === 0) return null;
+    // If no data passed from server, don't render anything
+    if (!sections || sections.length === 0) return null;
 
+    // Inline styles for performance
     const sliderStyle: React.CSSProperties = {
-        display: 'flex',
-        overflowX: 'auto',
-        gap: '16px',
-        padding: '12px 4px 20px 4px',
-        scrollSnapType: 'x mandatory',
-        WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'none',
-        msOverflowStyle: 'none',
+        display: 'flex', overflowX: 'auto', gap: '16px', padding: '12px 4px 20px 4px',
+        scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none', msOverflowStyle: 'none',
     };
 
     const itemStyle: React.CSSProperties = {
-        flex: '0 0 auto',
-        width: '180px',
-        scrollSnapAlign: 'start',
+        flex: '0 0 auto', width: '180px', scrollSnapAlign: 'start',
     };
 
     return (

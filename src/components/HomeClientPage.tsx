@@ -4,48 +4,44 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-// --- PHASE 1 IMPORTS (Instant Load) ---
+// --- INSTANT IMPORTS (Phase 1) ---
 import Banners from '@/components/Banners';
 import VerticalBanner from '@/components/VerticalBanner';
 import SearchBar from '@/components/SearchBar';
 import StripBanner from '@/components/StripBanner';
 import HomeSubcategories from '@/components/HomeSubcategories';
-import ProductCard from '@/components/ProductCard';
+import PromotedSection from '@/components/PromotedSection'; 
 import DynamicDiscountSections from '@/components/DynamicDiscountSections';
 import { HomeData } from '@/lib/home-data';
 
-// --- PHASE 2 IMPORTS (Lazy Load Code) ---
-// We import these dynamically so their JS code isn't even downloaded until needed
+// --- LAZY IMPORTS (Phase 2 - On Scroll) ---
 import LazySection from '@/components/LazySection';
 
+// These components will NOT download until the user scrolls near them
 const PopularProducts = dynamic(() => import('@/components/PopularProducts'));
 const CategoryRows = dynamic(() => import('@/components/CategoryRows'));
 const ExploreHomepage = dynamic(() => import('@/components/ExploreHomepage'), { ssr: false });
 
 export default function HomeClientPage({ initialData }: { initialData: HomeData }) {
   
-  // Inline styles for sliders (matching your original UI)
+  // Inline styles for sliders
   const sliderStyle: React.CSSProperties = {
     display: 'flex', overflowX: 'auto', gap: '12px', padding: '10px 15px 25px 15px',
     scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
     scrollbarWidth: 'none', msOverflowStyle: 'none',
   };
 
-  const sliderItemStyle: React.CSSProperties = {
-    flex: '0 0 auto', width: '160px', scrollSnapAlign: 'start', position: 'relative'
-  };
-
   return (
     <div className="homepage-wrapper bg-gray-50 pb-10">
 
-      {/* === PHASE 1: CRITICAL RENDER (Loads Instantly) === */}
+      {/* ========================================= */}
+      {/* === PHASE 1: INSTANT LOAD (Top View)  === */}
+      {/* ========================================= */}
       
-      {/* 1. Sticky Search */}
       <div className="sticky top-[70px] z-40 bg-white/95 backdrop-blur-sm px-4 py-3 border-b border-gray-100 shadow-sm transition-all">
         <SearchBar />
       </div>
 
-      {/* 2. Banners */}
       <div className="desktop-banner-layout">
         <VerticalBanner /> 
         <div className="main-banner-wrapper">
@@ -59,7 +55,7 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
 
       <StripBanner />
 
-      {/* 3. Subcategories (Limited to 18 for performance) */}
+      {/* Subcategories (Instant) */}
       {initialData.subCatRow1?.length > 0 && (
         <HomeSubcategories 
           subcategories={initialData.subCatRow1} 
@@ -68,34 +64,23 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
         />
       )}
 
-      {/* 4. Promoted Products */}
-      {initialData.promotedTop50?.length > 0 && (
-        <section className="bg-white my-4 py-4 border-t-8 border-gray-100 relative z-0">
-          <div className="flex justify-between px-4 mb-2">
-            <h2 className="section-title text-lg font-bold text-gray-800">Promoted</h2>
-          </div>
-          <div className="hide-scrollbar" style={sliderStyle}>
-            {initialData.promotedTop50.map((p) => (
-              <div key={`promo-${p.id}`} style={sliderItemStyle} className="md:w-[220px]">
-                <ProductCard product={p} />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Promoted Products (Instant) */}
+      <PromotedSection products={initialData.promotedTop50} />
 
-      {/* 5. Discount Sections */}
-      <DynamicDiscountSections />
+      {/* Discount Sections (Instant) */}
+      <DynamicDiscountSections sections={initialData.discountSections} />
 
 
-      {/* === PHASE 2: LAZY LOAD (Loads on Scroll) === */}
-      {/* The browser will NOT render or fetch data for these sections until the user scrolls down */}
+      {/* ========================================= */}
+      {/* === PHASE 2: LAZY LOAD (On Scroll)    === */}
+      {/* ========================================= */}
 
+      {/* 1. Popular Products (Loads when scrolled near) */}
       <LazySection height="400px" offset="200px">
         <PopularProducts />
       </LazySection>
 
-      {/* Subcats Row 2 */}
+      {/* 2. Subcats Row 2 */}
       {initialData.subCatRow2?.length > 0 && (
         <LazySection height="150px">
           <div className="border-t-8 border-gray-100 py-4 bg-white">
@@ -104,11 +89,12 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
         </LazySection>
       )}
 
-      <LazySection height="500px" offset="300px">
+      {/* 3. Category Rows */}
+      <LazySection height="600px" offset="300px">
         <CategoryRows />
       </LazySection>
 
-      {/* Subcats Row 3 */}
+      {/* 4. Subcats Row 3 */}
       {initialData.subCatRow3?.length > 0 && (
         <LazySection height="150px">
           <div className="border-t-8 border-gray-100 py-4 bg-white">
@@ -117,7 +103,7 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
         </LazySection>
       )}
 
-      {/* Explore Section (Heavy) - Last priority */}
+      {/* 5. Explore - Loads last */}
       <LazySection height="800px" offset="100px">
         <section className="border-t-8 border-gray-100 mt-4 min-h-screen" id="explore-section">
           <ExploreHomepage />
