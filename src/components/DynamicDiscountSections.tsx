@@ -5,26 +5,29 @@ import React from 'react';
 import Link from 'next/link';
 import ProductCard, { type Product } from '@/components/ProductCard';
 
+// Define the shape of the data this component expects
 interface DiscountSection {
     section_id: number;
     title: string;
     products: Product[];
 }
 
+// This component is now also "dumb" and only displays the data it's given.
 export default function DynamicDiscountSections({ sections }: { sections: DiscountSection[] }) {
     
-    // If no data passed from server, don't render anything
-    if (!sections || sections.length === 0) return null;
+    // If no sections are passed from the server, render nothing.
+    if (!sections || sections.length === 0) {
+        return null;
+    }
 
-    // Inline styles for performance
     const sliderStyle: React.CSSProperties = {
-        display: 'flex', overflowX: 'auto', gap: '16px', padding: '12px 4px 20px 4px',
+        display: 'flex', overflowX: 'auto', gap: '16px', padding: '12px 4px 20px 16px',
         scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'none', msOverflowStyle: 'none',
+        scrollbarWidth: 'none',
     };
 
     const itemStyle: React.CSSProperties = {
-        flex: '0 0 auto', width: '180px', scrollSnapAlign: 'start',
+        flex: '0 0 180px', scrollSnapAlign: 'start',
     };
 
     return (
@@ -48,14 +51,13 @@ export default function DynamicDiscountSections({ sections }: { sections: Discou
                             </div>
                         ))}
                         
+                        {/* "See More" card at the end of the slider */}
                         <div style={itemStyle} className="see-more-container">
                             <Link href={`/discount/${section.section_id}`} className="see-more-card">
                                 <div className="icon-circle">
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                    </svg>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
                                 </div>
-                                <span className="see-more-text">View All</span>
+                                <span className="see-more-text">View All Products</span>
                             </Link>
                         </div>
                     </div>
@@ -64,21 +66,18 @@ export default function DynamicDiscountSections({ sections }: { sections: Discou
 
             <style jsx>{`
                 .dynamic-sections-container { display: flex; flex-direction: column; gap: 24px; margin-top: 16px; margin-bottom: 24px; }
-                .discount-section { position: relative; z-index: 0; }
+                .discount-section { position: relative; background: #fff; padding-top: 16px; border-top: 8px solid #f3f4f6; }
                 .section-header { display: flex; justify-content: space-between; align-items: center; padding: 0 16px 12px 16px; }
                 .title-container { display: flex; align-items: center; gap: 10px; }
-                .title-marker { width: 4px; height: 24px; background-color: #007bff; border-radius: 2px; }
+                .title-marker { width: 4px; height: 24px; background-color: #f97316; border-radius: 2px; }
                 .section-title { font-family: 'Poppins', sans-serif; font-size: 20px; font-weight: 700; color: #1e293b; letter-spacing: -0.3px; margin: 0; }
-                .view-all-link { font-size: 13px; font-weight: 600; color: #64748b; text-decoration: none; transition: color 0.2s ease; }
-                .view-all-link:hover { color: #007bff; text-decoration: underline; }
+                .view-all-link { font-size: 13px; font-weight: 600; color: #64748b; text-decoration: none; }
                 .products-slider::-webkit-scrollbar { display: none; }
-                .see-more-container { display: flex; flex-direction: column; height: 100%; min-height: 280px; }
-                .see-more-card { height: 100%; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background-color: #fff; border: 1px solid #e2e8f0; border-radius: 12px; text-decoration: none; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-                .see-more-card:hover { border-color: #007bff; transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0, 123, 255, 0.1); }
-                .icon-circle { width: 48px; height: 48px; background-color: #f0f9ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform 0.2s ease; }
-                .see-more-card:hover .icon-circle { transform: scale(1.1); background-color: #e0f2fe; }
+                .see-more-container { display: flex; }
+                .see-more-card { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border: 1px dashed #d1d5db; border-radius: 12px; text-decoration: none; transition: all 0.2s; }
+                .see-more-card:hover { border-color: #f97316; background-color: #fff7ed; }
+                .icon-circle { width: 48px; height: 48px; background-color: #fff; border: 1px solid #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
                 .see-more-text { font-size: 14px; font-weight: 600; color: #334155; }
-                .see-more-card:hover .see-more-text { color: #007bff; }
             `}</style>
         </div>
     );
