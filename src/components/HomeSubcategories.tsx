@@ -1,7 +1,8 @@
 "use client";
-
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import SjLoader from './SjLoader';
 
 type Subcategory = {
   id: string;
@@ -12,7 +13,7 @@ type Subcategory = {
 
 // --- 1. SPEED HELPERS ---
 
-// A. Shimmer Effect (Instant visual feedback without JS loader)
+// A. Shimmer Effect (The "Low Quality" Blur placeholder)
 const shimmer = (w: number, h: number) => `
 <svg width="${w}" height="${h}" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs>
@@ -32,16 +33,16 @@ const toBase64 = (str: string) =>
     ? Buffer.from(str).toString('base64')
     : window.btoa(str);
 
-// B. AGGRESSIVE OPTIMIZER
-// Reduces 2MB images to ~5KB for instant mobile loading
-const getAggressiveOptimizedUrl = (url: string | null) => {
+// B. Cloudinary Optimizer (Compresses image BEFORE it reaches the browser)
+const getOptimizedUrl = (url: string | null) => {
   if (!url) return '/placeholder.jpg';
   
+  // If it's a Cloudinary URL, we inject parameters for speed:
+  // w_200: Resize to 200px (perfect for small thumbnails)
+  // f_auto: Use WebP/AVIF automatically
+  // q_auto: Intelligent quality compression
   if (url.includes('cloudinary.com') && url.includes('/upload/')) {
-    // w_150: Resize to 150px (Small enough for icon, big enough for retina)
-    // q_auto:low: Aggressive compression. It's an icon, we don't need HD details.
-    // f_auto: Force WebP/AVIF
-    return url.replace('/upload/', '/upload/w_150,q_auto:low,f_auto/');
+    return url.replace('/upload/', '/upload/w_200,f_auto,q_auto:good/');
   }
   return url;
 };
@@ -49,35 +50,35 @@ const getAggressiveOptimizedUrl = (url: string | null) => {
 // --- 2. COMPONENT ---
 
 function SubcategoryItem({ cat, priority }: { cat: Subcategory, priority: boolean }) {
+  const [isLoading, setIsLoading] = useState(true);
+  
   // Pre-calculate the optimized URL
-  const optimizedSrc = getAggressiveOptimizedUrl(cat.image_url);
+  const optimizedSrc = getOptimizedUrl(cat.image_url);
 
   return (
     <Link href={`/category/${cat.slug}`} className="explore-item">
       <div className="img-wrapper">
-        {/* 
-           REMOVED: SjLoader and useState. 
-           WHY: To achieve "Daraz-like" speed, we render the image immediately 
-           with a blur placeholder. No waiting for JS to load.
-        */}
+        {/* Keep your existing loader as an overlay */}
+        {isLoading && <SjLoader />}
         
         <Image
           src={optimizedSrc}
           alt={cat.name}
           fill
           style={{ objectFit: 'contain' }}
-          // Sizes: Tells browser this image is never wider than 150px
-          sizes="(max-width: 768px) 150px, 150px" 
+          sizes="(max-width: 768px) 33vw, 150px"
           
-          // Priority: First 10 items load instantly (Preload)
+          // 🔥 PERFORMANCE SETTINGS 🔥
           priority={priority}
           
-          // Optimization: We manually optimized the URL above, so we can turn off Next.js processing
-          // to save server CPU, OR keep it if we want Next.js to handle caching. 
-          // Keeping unoptimized={false} allows Next.js to cache it further.
+          // We set unoptimized=true to STOP the server timeouts you were getting.
+          // BUT, we used 'getOptimizedUrl' above so the image IS compressed by Cloudinary.
           unoptimized={true} 
           
-          // Visual: Blur effect instead of spinner
+          className={isLoading ? 'image-loading' : 'image-loaded'}
+          onLoad={() => setIsLoading(false)} 
+          
+          // Instant Loading Blur Effect
           placeholder="blur"
           blurDataURL={`data:image/svg+xml;base64,${toBase64(shimmer(150, 150))}`}
         />
@@ -107,18 +108,13 @@ export default function HomeSubcategories({
     <div className="home-subcat-container" style={{ background: 'var(--background-color)' }}>
       <h2 className="section-title">{title}</h2>
       
-      {/* 
-         UI PRESERVATION:
-         The IDs and Classes ('explore-grid', 'home-subcategories') match 
-         your globals.css exactly to ensure the UI looks identical.
-      */}
       <div className="explore-grid" id="home-subcategories">
         {subcategories.map((cat, index) => (
           <SubcategoryItem 
             key={cat.id} 
             cat={cat} 
-            // Priority true for first 10 items to make above-the-fold instant
-            priority={priority || index < 10} 
+            // Only prioritize the first 6 images to save bandwidth
+            priority={priority && index < 6} 
           />
         ))}
       </div>
