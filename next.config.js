@@ -30,6 +30,20 @@ const nextConfig = {
       },
     ],
   },
+   // ⚡ ADD THIS FOR CLOUDFLARE CDN CACHING ⚡
+  async headers() {
+    return [
+      {
+        source: '/products/:slug*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=3600, stale-while-revalidate=59', // 1 Hour CDN Cache
+          },
+        ],
+      },
+    ];
+  },
   
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",

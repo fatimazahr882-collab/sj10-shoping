@@ -4,17 +4,15 @@ import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import ProductCard, { type Product } from './ProductCard'; // Ensure path is correct
-import SjLoader from './SjLoader'; // Ensure path is correct
+import ProductCard, { type Product } from './ProductCard';
+import SjLoader from './SjLoader';
 
-// --- TypeScript Fix for Navigator Share ---
+// --- TypeScript Interface Fixes ---
 interface NavigatorWithShare {
   canShare?: (data?: ShareData) => boolean;
   share?: (data: ShareData) => Promise<void>;
 }
 
-// --- Types ---
-// Re-exporting these if needed by other components, though mostly internal now
 export type Variant = { 
   id: string | number; 
   name?: string; 
@@ -47,7 +45,7 @@ type Review = {
     image_url?: string | null;
 };
 
-// Merged definition for the full prop object
+// Expanded Product Type
 type ProductWithDetails = Product & {
   description: string;
   video_url?: string;
@@ -62,15 +60,16 @@ type ProductWithDetails = Product & {
   imported_region?: string | null;
 };
 
+// Props now include server-fetched lists
 type Props = {
   product: ProductWithDetails;
-  children: ReactNode;
+  relatedProducts: Product[]; // Passed from Server
+  sellerProducts: Product[];  // Passed from Server
 };
 
-// --- Constants ---
 const PLACEHOLDER_IMAGE = '/placeholder.jpg';
 
-// --- Helpers ---
+// --- Helper Functions ---
 const getYouTubeId = (url: string) => {
     if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -96,7 +95,7 @@ const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', options);
 };
 
-// --- Helper Components ---
+// --- Sub-Components ---
 const StarRatingHTML = ({ rating, reviewCount }: { rating: number | null; reviewCount: number | null }) => {
   if (!rating || rating === 0) return <div style={{ height: '21px', marginTop: '5px' }}></div>;
   const fullStars = Math.floor(rating);
@@ -133,18 +132,20 @@ const VerificationBadge = ({ status }: { status?: string }) => {
     }
 };
 
-export default function ProductDetailClient({ product, children }: Props) {
+export default function ProductDetailClient({ product, relatedProducts, sellerProducts }: Props) {
   const router = useRouter();
-  const { user } = useAuth(); // Assuming AuthProvider is set up correctly in layout
+  const { user } = useAuth();
   
+  // UI States
   const [activeAccordion, setActiveAccordion] = useState<string | null>('details');
   const [isMediaLoading, setIsMediaLoading] = useState(false); 
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [zoomImageSrc, setZoomImageSrc] = useState<string>('');
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-  const [sellerProducts, setSellerProducts] = useState<Product[]>([]);
   const [isSharing, setIsSharing] = useState(false);
   const [isDescriptionCopied, setIsDescriptionCopied] = useState(false);
+  
+  // Data/Action States
   const [isFollowing, setIsFollowing] = useState(product.supplier?.is_following || false);
   const [followerCount, setFollowerCount] = useState(product.supplier?.followers_count || 0);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
@@ -158,6 +159,7 @@ export default function ProductDetailClient({ product, children }: Props) {
       setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
   };
 
+  // --- Image Processing ---
   const images = useMemo(() => {
     try {
       let parsedImages: string[] = [];
@@ -191,7 +193,7 @@ export default function ProductDetailClient({ product, children }: Props) {
     setActiveMediaIndex((prev) => (prev - 1 + mediaItems.length) % mediaItems.length);
   };
 
-  // Sync client-side specific status (favorites/follows) that relies on local token
+  // --- Client Side Sync (Favorites/Follows) ---
   useEffect(() => {
     if (product.supplier) setFollowerCount(product.supplier.followers_count || 0);
     const syncStatus = async () => {
@@ -237,21 +239,6 @@ export default function ProductDetailClient({ product, children }: Props) {
       try { return typeof product.attributes === 'object' ? product.attributes : JSON.parse(product.attributes); } catch (e) { return null; }
   }, [product.attributes]);
 
-  // Fetch more products from same seller (client side lazy load is fine for this)
-  useEffect(() => {
-    const fetchSellerProducts = async () => {
-      if (!product.supplier?.id) return;
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products?supplierId=${product.supplier.id}&limit=15`);
-        if (res.ok) { 
-            const data = await res.json(); 
-            if (data.products) setSellerProducts(data.products.filter((p: Product) => p.id !== product.id)); 
-        }
-      } catch (error) {}
-    };
-    fetchSellerProducts();
-  }, [product.id, product.supplier?.id]);
-
   const handleVisitStore = () => product.supplier?.id && router.push(`/suppliers/${product.supplier.id}`);
   const handleAccordionClick = (itemName: string) => setActiveAccordion(prev => (prev === itemName ? null : itemName));
   const handleZoomImage = (src: string) => { setZoomImageSrc(src); setIsImageModalOpen(true); };
@@ -273,18 +260,13 @@ export default function ProductDetailClient({ product, children }: Props) {
     if (product.variants?.length && !selectedVariant) { showToast("Please select a variant option", "fa-exclamation-circle", "#ff9800"); return; }
     
     const params = new URLSearchParams();
-    
-    // --- FIX START: Use Slug from URL instead of ID ---
-    // We get the last part of the current URL (e.g., 'mahnur-hit-article')
     const currentSlug = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null;
-    
-    // If we found a slug, use it. Otherwise, fall back to ID.
     params.set('productId', currentSlug || String(product.id));
-    // --- FIX END ---
 
     if (selectedVariant) params.set('variantId', String(selectedVariant.id));
     router.push(`/place-order?${params.toString()}`);
   };
+
   const handleFollow = async () => {
     if (!getToken()) { router.push(getLoginRedirectUrl()); return; }
     if (!product.supplier?.id || isFollowLoading) return;
@@ -339,10 +321,11 @@ export default function ProductDetailClient({ product, children }: Props) {
   return (
     <>
       <style jsx global>{`
-        /* Keeping all original styles exactly as they were */
+        /* Global & Reset */
         .main-image-container { position: relative; width: 100%; height: 400px; background-color: #fff; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; border: 1px solid #eee; }
         .pdp-main-image { width: 100%; height: 100%; object-fit: contain; display: block; }
         @media (max-width: 768px) { .main-image-container { height: 350px; } }
+        
         .verified-badge-container { display: inline-flex; align-items: center; gap: 6px; background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; box-shadow: 0 2px 5px rgba(255, 165, 0, 0.3); margin-top: 5px; position: relative; overflow: hidden; }
         .verified-badge-container i { font-size: 12px; }
         .animated-shine::after { content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); animation: shine 2s infinite; }
@@ -363,6 +346,14 @@ export default function ProductDetailClient({ product, children }: Props) {
         .copy-desc-btn { margin-top: 10px; padding: 8px 16px; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; }
         .copy-desc-btn:hover { background: #dcfce7; }
         .copy-desc-btn.copied { background: #166534; color: white; border-color: #166534; }
+
+        /* --- Slider Styles --- */
+        .pdp-related-section { margin-top: 40px; margin-bottom: 40px; padding: 0 15px; overflow: visible; }
+        .section-title { font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 15px; border-left: 4px solid #ff7f00; padding-left: 10px; }
+        .product-slider-container { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 20px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .product-slider-container::-webkit-scrollbar { display: none; }
+        .slider-card { flex: 0 0 160px; scroll-snap-align: start; }
+        @media (min-width: 768px) { .slider-card { flex: 0 0 220px; } }
       `}</style>
 
       <div id="product-detail-page">
@@ -373,6 +364,8 @@ export default function ProductDetailClient({ product, children }: Props) {
         
         <div id="product-detail-content">
           <div className="pdp-desktop-layout">
+            
+            {/* LEFT: IMAGES */}
             <div className="pdp-left-column">
               <div className="pdp-image-gallery">
                 <div className="main-image-container" onClick={() => activeMedia.type === 'image' && handleZoomImage(activeMedia.url)}>
@@ -387,9 +380,9 @@ export default function ProductDetailClient({ product, children }: Props) {
                   ) : ( <Image src={activeMedia.url} alt={product.title} className="pdp-main-image" fill style={{ objectFit: 'contain', opacity: isMediaLoading ? 0 : 1 }} priority={true} quality={70} unoptimized onLoad={() => setIsMediaLoading(false)} /> )}
                 </div>
                 <div className="thumbnail-container">
-                  {mediaItems.map((media, index) => (
+                  {mediaItems.map((media: any, index: number) => (
                     <div key={index} className={`thumbnail ${activeMediaIndex === index ? 'active' : ''}`} onClick={() => setActiveMediaIndex(index)}>
-                      <Image src={media.type === 'video' ? (images[0] ?? PLACEHOLDER_IMAGE) : media.url} alt={`Thumbnail ${index + 1}`} fill style={{ objectFit: 'cover' }} unoptimized/>
+                      <Image src={media.type === 'video' ? images[0] : media.url} alt="thumb" fill style={{objectFit:'cover'}} unoptimized/>
                       {media.type === 'video' && <div className="video-thumbnail-overlay"><i className="fas fa-play"></i></div>}
                     </div>
                   ))}
@@ -400,9 +393,10 @@ export default function ProductDetailClient({ product, children }: Props) {
               </div>
             </div>
 
+            {/* RIGHT: INFO */}
             <div className="pdp-right-column">
                 <div className="pdp-main-info">
-                    <h2 className="title">{product.title}</h2>
+                    <h1 className="title">{product.title}</h1>
                     <StarRatingHTML rating={ratingData.avg_rating} reviewCount={ratingData.review_count} />
                     <div className="price-container" style={{display:'flex', alignItems:'center', gap:'10px'}}>
                         <span className="price">Rs. {price.toLocaleString()}</span>
@@ -410,6 +404,7 @@ export default function ProductDetailClient({ product, children }: Props) {
                         {regionFlag && (<span style={{ display:'inline-flex', alignItems:'center', gap:'6px', fontSize:'12px', fontWeight:'600', color:'#555', background:'#fff', padding:'4px 8px', borderRadius:'12px', border:'1px solid #e5e7eb', boxShadow:'0 1px 2px rgba(0,0,0,0.05)' }}><Image src={regionFlag.icon} alt={regionFlag.label} width={20} height={20} style={{objectFit:'contain'}} unoptimized /><span>{regionFlag.label}</span></span>)}
                     </div>
                 </div>
+                
                 <div style={{display:'flex', gap:'15px', margin:'10px 0', fontSize:'12px', color:'#555'}}>
                     <span style={{display:'flex', alignItems:'center', gap:'5px'}}><i className="fas fa-shield-alt" style={{color:'#00b862'}}></i> 100% Secure</span>
                     <span style={{display:'flex', alignItems:'center', gap:'5px'}}><i className="fas fa-undo" style={{color:'#00b862'}}></i> 7 Days Return</span>
@@ -466,12 +461,45 @@ export default function ProductDetailClient({ product, children }: Props) {
                         <div className="supplier-actions-row"><button className={`btn-supplier-action btn-follow ${isFollowing ? 'following' : ''}`} onClick={handleFollow} disabled={isFollowLoading}>{isFollowing ? <><i className="fas fa-check"></i> Following</> : <><i className="fas fa-plus"></i> Follow</>}</button><button className="btn-supplier-action btn-visit" onClick={handleVisitStore}>Visit Store</button></div>
                     </div>
                 )}
+                
                 <div className="pdp-desktop-actions"><div className="pdp-action-buttons"><button className="share-now-btn" style={{backgroundColor: '#e0f2f1', color: '#00796b', border: 'none'}} onClick={handleShareButton}>{isSharing ? <i className="fas fa-spinner fa-spin"></i> : <><i className="fas fa-share-alt"></i> Share</>}</button><button className={`buy-now-btn ${isOutOfStock ? 'out-of-stock' : ''}`} onClick={handleBuyNow} disabled={isOutOfStock}>{isOutOfStock ? <><i className="fas fa-ban"></i> Out of Stock</> : <><i className="fas fa-shopping-bag"></i> Buy Now</>}</button></div></div>
             </div>
           </div>
-          {sellerProducts.length > 0 && (<div className="pdp-related-section"><h2 className="section-title">More from {product.supplier?.name}</h2><div className="product-grid">{sellerProducts.map((p) => (<ProductCard key={p.id} product={p} />))}</div></div>)}
-          <div className="pdp-related-section"><h2 className="section-title">You May Also Like</h2><div className="product-grid">{children}</div></div>
+
+          {/* ============================================================== */}
+          {/* 🔥 1. MORE FROM THIS SELLER (SLIDER) - 25 PRODUCTS 🔥 */}
+          {/* ============================================================== */}
+          {sellerProducts && sellerProducts.length > 0 && (
+            <div className="pdp-related-section">
+                <h2 className="section-title">More from this seller</h2>
+                <div className="product-slider-container">
+                    {sellerProducts.map((p) => (
+                        <div key={p.id} className="slider-card">
+                            <ProductCard product={p} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* 🔥 2. RELATED PRODUCTS (SLIDER) - 15 PRODUCTS 🔥      */}
+          {/* ============================================================== */}
+          {relatedProducts && relatedProducts.length > 0 && (
+            <div className="pdp-related-section">
+                <h2 className="section-title">Related Products</h2>
+                <div className="product-slider-container">
+                    {relatedProducts.map((p) => (
+                        <div key={p.id} className="slider-card">
+                            <ProductCard product={p} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
+
         </div>
+        
         <div className="pdp-bottom-bar"><div className="pdp-action-buttons"><button className="share-now-btn" style={{backgroundColor: '#e0f2f1', color: '#00796b', border: 'none'}} onClick={handleShareButton}>{isSharing ? <i className="fas fa-spinner fa-spin"></i> : <><i className="fas fa-share-alt"></i> Share</>}</button><button className={`buy-now-btn ${isOutOfStock ? 'out-of-stock' : ''}`} onClick={handleBuyNow} disabled={isOutOfStock}>{isOutOfStock ? <><i className="fas fa-ban"></i> Out of Stock</> : <><i className="fas fa-shopping-bag"></i> Buy Now</>}</button></div></div>
       </div>
       {isImageModalOpen && <ImageZoomModal src={zoomImageSrc || activeMedia.url} onClose={() => setIsImageModalOpen(false)} />}
