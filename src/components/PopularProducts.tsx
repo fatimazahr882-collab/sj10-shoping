@@ -1,27 +1,14 @@
 // src/components/PopularProducts.tsx
 "use client";
 
-// NO LONGER NEEDS useEffect!
-import useSWR from 'swr';
+import React from 'react';
 import ProductCard, { type Product } from '@/components/ProductCard';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+// Now accepts products as props directly from the cached page data
+export default function PopularProducts({ products }: { products: Product[] }) {
 
-// REMOVED the 'onLoaded' prop from the interface
-export default function PopularProducts() {
-  const { data, isLoading } = useSWR(
-    `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/homepage-data`,
-    fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 3000000 }
-  );
-
-  const products: Product[] = data?.popularMixed || [];
-
-  // This component now ONLY cares about rendering its own data.
-  // It no longer tells the parent when it's done.
-
-  if (isLoading || products.length === 0) {
-    return null; // Return nothing while loading or if empty. The parent handles the loader UI.
+  if (!products || products.length === 0) {
+    return null;
   }
 
   return (
