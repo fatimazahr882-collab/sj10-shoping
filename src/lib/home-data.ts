@@ -1,7 +1,7 @@
 // src/lib/home-data.ts
 import { Product } from '@/components/ProductCard';
 
-const API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL || 'https://sj10-cart.vercel.app/api';
+const API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL;
 const CART_API_BASE = process.env.NEXT_PUBLIC_CART_API_URL || 'https://sj10-cart.vercel.app/api';
 
 export interface HomeData {

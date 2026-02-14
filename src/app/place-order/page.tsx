@@ -11,7 +11,14 @@ import {
     Banknote, Palette, Ruler, AlertCircle, 
     Sparkles, Zap, PackageCheck, Info, Star, Check
 } from 'lucide-react';
-
+// 1. ADD THIS HELPER FUNCTION (Copy from your ProductDetailClient)
+const getToken = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('user_token') || 
+           localStorage.getItem('token') || 
+           localStorage.getItem('authToken') ||
+           sessionStorage.getItem('user_token');
+};
 // --- TYPES ---
 type Variant = {
     id: string | number;
@@ -162,13 +169,31 @@ function PlaceOrderContent() {
         const productId = searchParams.get('productId');
         if (!productId) { router.push('/'); return; }
 
-        const fetchProductData = async () => {
+       const fetchProductData = async () => {
             setLoading(true);
             try {
                 // Short wait to ensure DOM is ready for skeleton transition
                 await new Promise(r => setTimeout(r, 100)); 
-                const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/${productId}`);
-                if (!res.ok) throw new Error("Failed");
+
+                // --- NEW CODE: ADD HEADERS & TOKEN ---
+                const token = getToken();
+                const headers: Record<string, string> = { 
+                    'Content-Type': 'application/json' 
+                };
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+
+                const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/${productId}`, {
+                    headers: headers 
+                });
+                // --------------------------------------
+
+                if (!res.ok) {
+                    console.error("API Error Status:", res.status);
+                    throw new Error("Failed to load product");
+                }
+
                 const data: Product = await res.json();
                 if (typeof data.variants === 'string') {
                     try { data.variants = JSON.parse(data.variants); } 
@@ -176,8 +201,10 @@ function PlaceOrderContent() {
                 }
                 setProduct(data);
             } catch (error) {
-                console.error(error);
-                router.back();
+                console.error("Detailed Error:", error);
+                // --- FIX: STOP REDIRECTING BACK ---
+                // router.back(); // I commented this out so you can see the error
+                alert("Could not load product. Check console for details.");
             } finally {
                 setLoading(false);
             }

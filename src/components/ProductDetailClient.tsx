@@ -271,12 +271,20 @@ export default function ProductDetailClient({ product, children }: Props) {
     if (isOutOfStock) return;
     if (!getToken()) { router.push(getLoginRedirectUrl()); return; }
     if (product.variants?.length && !selectedVariant) { showToast("Please select a variant option", "fa-exclamation-circle", "#ff9800"); return; }
-    const params = new URLSearchParams(); 
-    params.set('productId', String(product.id));
+    
+    const params = new URLSearchParams();
+    
+    // --- FIX START: Use Slug from URL instead of ID ---
+    // We get the last part of the current URL (e.g., 'mahnur-hit-article')
+    const currentSlug = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : null;
+    
+    // If we found a slug, use it. Otherwise, fall back to ID.
+    params.set('productId', currentSlug || String(product.id));
+    // --- FIX END ---
+
     if (selectedVariant) params.set('variantId', String(selectedVariant.id));
     router.push(`/place-order?${params.toString()}`);
   };
-
   const handleFollow = async () => {
     if (!getToken()) { router.push(getLoginRedirectUrl()); return; }
     if (!product.supplier?.id || isFollowLoading) return;

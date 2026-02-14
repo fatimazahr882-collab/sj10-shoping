@@ -22,6 +22,12 @@ const nextConfig = {
         hostname: 'media.sj10.pk',
         pathname: '/**',
       },
+        {
+        protocol: 'https',
+        hostname: 'pub-1390981b409c46698da5dc6c45e08eaa.r2.dev',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   
