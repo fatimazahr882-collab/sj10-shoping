@@ -73,6 +73,7 @@ async function getSellerProducts(supplierId: string | number, currentId: string 
 
 // --- SEO: GENERATE METADATA FOR WHATSAPP/GOOGLE ---
 export async function generateMetadata(
+  
   { params }: Props,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
@@ -84,12 +85,29 @@ export async function generateMetadata(
   }
 
   // Parse Images for Metadata
-  let mainImage = '/placeholder.jpg';
+  let mainImage = `${SITE_URL}/placeholder.jpg`;
+
   try {
     const imgs = typeof product.image_urls === 'string' 
       ? JSON.parse(product.image_urls) 
       : product.image_urls;
-    if (Array.isArray(imgs) && imgs.length > 0) mainImage = imgs[0];
+   if (Array.isArray(imgs) && imgs.length > 0) {
+  const img = imgs[0];
+
+  // Already full URL (CDN / R2 / Cloudinary)
+  if (img.startsWith("http")) {
+    mainImage = img;
+
+  // Local image
+  } else if (img.startsWith("/")) {
+    mainImage = `${SITE_URL}${img}`;
+
+  // R2 filename only
+  } else {
+    mainImage = `${R2_URL}/${img}`;
+  }
+}
+
   } catch(e) {}
 
   // Calculate Price for Display
@@ -110,7 +128,8 @@ export async function generateMetadata(
   }
   description += `. ${product.description ? product.description.substring(0, 120).replace(/\n/g, ' ') : 'Buy now at the best price in Pakistan.'}...`;
 
-  const canonicalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/products/${product.slug}`;
+ const canonicalUrl = `${SITE_URL}/products/${product.slug}`;
+
 
   return {
     title: title,
@@ -123,8 +142,9 @@ export async function generateMetadata(
       images: [
         {
           url: mainImage,
-          width: 800,
-          height: 800,
+         width: 1200,
+height: 630,
+
           alt: product.title,
         },
       ],
@@ -146,6 +166,8 @@ export async function generateMetadata(
     },
   };
 }
+const SITE_URL = "https://www.sj10.pk";
+const R2_URL = "https://media.sj10.pk";
 
 // --- MAIN PAGE COMPONENT ---
 export default async function ProductDetailPage({ params }: Props) {
