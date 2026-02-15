@@ -18,10 +18,10 @@ export async function getStaticHomeData(): Promise<HomeData> {
     // Promoted (Active Only) and Popular products on the backend.
     const [homeRes, discountRes] = await Promise.all([
       fetch(`${API_BASE}/products/homepage-data`, { 
-        next: { revalidate: 21600 } // 6 Hour Cache at Fetch level
+        next: { revalidate: 36000 } // 6 Hour Cache at Fetch level
       }),
       fetch(`${CART_API_BASE}/discount-sections`, { 
-        next: { revalidate: 21600 } 
+        next: { revalidate: 36000 } // 6 Hour Cache at Fetch level
       })
     ]);
 
