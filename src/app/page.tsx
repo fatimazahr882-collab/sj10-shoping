@@ -5,7 +5,9 @@ import HomeClientPage from '@/components/HomeClientPage';
 // --- ISR CONFIGURATION ---
 // 345600 seconds = 4 Days.
 // This tells the server: "Only rebuild this page once every 4 days."
-export const revalidate = 14400; // 4 hours ✅
+// New: 1 hour
+export const revalidate = 3600; // 1 hour in seconds
+
 
 
 
