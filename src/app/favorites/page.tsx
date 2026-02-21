@@ -6,12 +6,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 
+// Force this page to be dynamic (No Caching)
+export const dynamic = "force-dynamic";
+
 // --- TYPES ---
 type FavoriteItem = {
   id: string | number;
   title: string;
-  price: string | number; // This is the CUT PRICE (as per your logic)
-  discounted_price?: string | number; // This is the REAL PRICE
+  price: number; 
+  discounted_price?: number; 
   image_urls: any;
   slug: string;
   favorited_at: string;
@@ -33,6 +36,7 @@ export default function FavoritesPage() {
     if (authLoading) return;
 
     if (!token && !user) {
+        // Only redirect if we are sure auth has finished loading
         setTimeout(() => router.push("/auth?view=login"), 1000);
         return;
     }
@@ -46,8 +50,11 @@ export default function FavoritesPage() {
 
   const fetchFavorites = async (token: string) => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/social/favorites`, {
+        // 🔥 FIXED: Correct Endpoint (/me) + No Cache
+        const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/social/favorites/me`, {
           headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+          next: { revalidate: 0 }
         });
         
         const rawData = await res.json();
@@ -71,11 +78,12 @@ export default function FavoritesPage() {
   };
 
   const handleRemove = async (e: React.MouseEvent, productId: string | number) => {
-    e.preventDefault(); // Prevent opening product page
+    e.preventDefault(); 
     e.stopPropagation(); 
     
     setRemovingId(productId);
 
+    // Optimistic UI Update
     setTimeout(async () => {
         const prev = [...favorites];
         setFavorites(curr => curr.filter(i => i.id !== productId));
@@ -90,6 +98,7 @@ export default function FavoritesPage() {
                 });
             }
         } catch(e) {
+            // Revert on error
             setFavorites(prev);
         }
     }, 400); 
@@ -108,7 +117,7 @@ export default function FavoritesPage() {
         }
         
         .fav-content-width {
-            max-width: 1600px; /* Wide for 6 items */
+            max-width: 1600px; 
             margin: 0 auto;
         }
 
@@ -143,20 +152,17 @@ export default function FavoritesPage() {
             animation: heartbeat 1.5s infinite;
         }
 
-        /* --- GRID SYSTEM (The 6 vs 2 Logic) --- */
+        /* --- GRID SYSTEM --- */
         .fav-grid {
             display: grid;
             gap: 12px;
-            /* Mobile: 2 items per row */
             grid-template-columns: repeat(2, 1fr);
         }
-        
-        /* Desktop: 6 items per row */
+        @media (min-width: 768px) {
+            .fav-grid { grid-template-columns: repeat(4, 1fr); }
+        }
         @media (min-width: 1024px) {
-            .fav-grid {
-                grid-template-columns: repeat(6, 1fr);
-                gap: 15px;
-            }
+            .fav-grid { grid-template-columns: repeat(6, 1fr); gap: 15px; }
         }
 
         /* PRODUCT CARD */
@@ -167,7 +173,7 @@ export default function FavoritesPage() {
             border: 1px solid #eee;
             transition: all 0.3s ease;
             position: relative;
-            display: block; /* It's a link */
+            display: block; 
             text-decoration: none;
         }
         .fav-card:hover {
@@ -185,7 +191,7 @@ export default function FavoritesPage() {
         .image-container {
             position: relative;
             width: 100%;
-            aspect-ratio: 3/4; /* Standard Portrait */
+            aspect-ratio: 3/4; 
             background: #f9f9f9;
             overflow: hidden;
         }
@@ -213,7 +219,7 @@ export default function FavoritesPage() {
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #ff0000; /* Red Heart */
+            color: #ff0000;
             cursor: pointer;
             z-index: 10;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -233,19 +239,17 @@ export default function FavoritesPage() {
         .date-badge {
             font-size: 10px;
             color: #888;
-            font-weight: 800; /* BOLD DATE */
+            font-weight: 800; 
             text-transform: uppercase;
             margin-bottom: 4px;
             display: block;
         }
         .prod-title {
             font-size: 13px;
-            font-weight: 700; /* BOLD TITLE */
+            font-weight: 700; 
             color: #222;
             line-height: 1.3;
             margin-bottom: 8px;
-            
-            /* Truncate to 2 lines */
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -264,10 +268,9 @@ export default function FavoritesPage() {
             display: flex;
             flex-direction: column;
         }
-        /* LOGIC: discounted_price is main, price is cut */
         .price-main {
             font-size: 15px;
-            font-weight: 900; /* EXTRA BOLD */
+            font-weight: 900; 
             color: #000;
         }
         .price-cut {
@@ -354,19 +357,16 @@ export default function FavoritesPage() {
         {/* GRID */}
         <div className="fav-grid">
             {!isFetching && favorites.map((product) => {
-                // Image Logic
                 const imgFront = product.image_urls[0] || "/placeholder.jpg";
                 const imgBack = product.image_urls[1] || imgFront;
 
-                // --- PRICING LOGIC AS REQUESTED ---
-                // discounted_price = The selling price (BOLD)
-                // price = The cutmark price (SMALL)
-                const sellingPrice = Number(product.discounted_price || product.price);
-                const cutPrice = Number(product.price);
-                const hasCutPrice = product.discounted_price && (cutPrice > sellingPrice);
+                // --- PRICE LOGIC (FIXED) ---
+                // We default to price if discounted_price is 0 or null
+                const sellingPrice = product.discounted_price || product.price;
+                const cutPrice = product.price;
+                const hasCutPrice = cutPrice > sellingPrice;
 
                 return (
-                    // 1. The whole card is a Link
                     <Link 
                         href={`/products/${product.slug}`} 
                         key={product.id} 
@@ -377,7 +377,7 @@ export default function FavoritesPage() {
                                 src={imgFront}
                                 alt={product.title}
                                 fill
-                                priority={true}
+                                priority={false}
                                 unoptimized={true}
                                 className="img-main"
                                 sizes="(max-width: 768px) 50vw, 16vw"
@@ -390,37 +390,29 @@ export default function FavoritesPage() {
                                 className="img-hover"
                             />
 
-                            {/* 2. Top Right: Heart Icon (Remove) */}
                             <button 
                                 onClick={(e) => handleRemove(e, product.id)}
                                 className="btn-heart-remove"
                                 title="Remove from Favorites"
                             >
-                                {/* Solid Red Heart */}
                                 <i className="fas fa-heart"></i>
                             </button>
                         </div>
 
                         <div className="card-body">
-                            {/* 3. Bold Date */}
                             <span className="date-badge">
                                 {product.favorited_at ? new Date(product.favorited_at).toLocaleDateString() : 'RECENT'}
                             </span>
 
-                            {/* 4. Bold Title */}
                             <h3 className="prod-title">{product.title}</h3>
 
                             <div className="price-row">
                                 <div className="price-block">
-                                    {/* 5. Bold Selling Price */}
                                     <span className="price-main">Rs. {sellingPrice.toLocaleString()}</span>
-                                    {/* 6. Cut Price */}
                                     {hasCutPrice && (
                                         <span className="price-cut">Rs. {cutPrice.toLocaleString()}</span>
                                     )}
                                 </div>
-                                
-                                {/* 7. Bottom Right: Bag Icon */}
                                 <div className="cart-icon-btn">
                                     <i className="fas fa-shopping-bag"></i>
                                 </div>
@@ -430,7 +422,6 @@ export default function FavoritesPage() {
                 );
             })}
         </div>
-
       </div>
     </div>
   );
