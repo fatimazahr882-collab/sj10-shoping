@@ -10,7 +10,7 @@ import {
 } from 'react-icons/fa';
 
 // --- CONFIG & HELPERS ---
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://products.sj10.pk'; // Fallback API URL
 const PLACEHOLDER_IMG = "https://via.placeholder.com/400x400.png?text=No+Image";
 
 const getSafeImage = (image_urls: any) => {
