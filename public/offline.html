@@ -1,0 +1,157 @@
+<!-- public/offline.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Lost - SJ10</title>
+    <style>
+        /* This is a self-contained file. All CSS and JS are inside. */
+        :root {
+            --color-blue-deep: #0A1E40;
+            --color-orange-vibrant: #FF7F00;
+            --color-text-light: #64748B;
+            --color-bg: #f8fafc;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+        body {
+            margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--color-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            animation: fadeIn 1s ease-out;
+        }
+
+        /* The SVG Animation */
+        .illustration {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 30px;
+        }
+
+        .satellite {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        .signal-wave {
+            stroke-dasharray: 10;
+            stroke-dashoffset: 20;
+            animation: pulse-signal 2s ease-in-out infinite;
+            opacity: 0;
+        }
+
+        .signal-wave.wave-1 { animation-delay: 0s; }
+        .signal-wave.wave-2 { animation-delay: 0.3s; }
+        .signal-wave.wave-3 { animation-delay: 0.6s; }
+
+        /* Typography */
+        h1 {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--color-blue-deep);
+            margin: 0 0 10px;
+        }
+
+        p {
+            font-size: 15px;
+            color: var(--color-text-light);
+            max-width: 320px;
+            margin: 0 auto 30px;
+            line-height: 1.6;
+        }
+
+        /* Button */
+        .reload-btn {
+            background-color: var(--color-orange-vibrant);
+            color: #fff;
+            border: none;
+            padding: 14px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 127, 0, 0.3);
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .reload-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255, 127, 0, 0.4);
+        }
+
+        .reload-btn:active {
+            transform: translateY(-1px);
+        }
+        
+        /* Keyframe Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        @keyframes pulse-signal {
+            0% { opacity: 0; transform: scale(0.8); }
+            50% { opacity: 0.7; }
+            100% { opacity: 0; transform: scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+
+    <main class="container">
+        
+        <!-- Beautiful, Animated SVG Icon -->
+        <div class="illustration">
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <g class="satellite">
+                    <!-- Satellite Body -->
+                    <rect x="40" y="45" width="20" height="20" rx="5" fill="#3B82F6"/>
+                    <!-- Solar Panels -->
+                    <rect x="10" y="50" width="25" height="10" rx="3" fill="#60A5FA"/>
+                    <rect x="65" y="50" width="25" height="10" rx="3" fill="#60A5FA"/>
+                    <!-- Antenna -->
+                    <path d="M50 45 L50 35" stroke="#3B82F6" stroke-width="2"/>
+                    <circle cx="50" cy="32" r="3" fill="#FF7F00"/>
+                </g>
+                <!-- Broken Signal Animation -->
+                <g transform="translate(50, 80)">
+                    <path class="signal-wave wave-1" d="M -15 0 A 15 10 0 0 1 15 0" stroke="#FF7F00" stroke-width="2" fill="none"/>
+                    <path class="signal-wave wave-2" d="M -25 0 A 25 15 0 0 1 25 0" stroke="#FF7F00" stroke-width="2" fill="none"/>
+                    <path class="signal-wave wave-3" d="M -35 0 A 35 20 0 0 1 35 0" stroke="#FF7F00" stroke-width="2" fill="none"/>
+                </g>
+            </svg>
+        </div>
+
+        <h1>Connection Lost</h1>
+        <p>It seems your device has lost its connection to the internet. Please check your network and try again.</p>
+
+        <button class="reload-btn" onclick="window.location.reload()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            Try Again
+        </button>
+
+    </main>
+
+</body>
+</html>
