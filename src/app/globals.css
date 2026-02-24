@@ -11,7 +11,20 @@ body{margin:0;padding-bottom:75px;padding-top:80px;font-family:-apple-system,Bli
   === FINAL FIX FOR UNWANTED TEXT UNDERLINES ====
   ===============================================
 */
+/* src/app/globals.css */
 
+/* Utility to hide elements visually but keep them accessible for SEO/Screen Readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
 /* This rule targets any link, anywhere on your site */
 a {
   color: inherit; /* Makes links use the text color of their parent */
