@@ -52,6 +52,7 @@ type ProductWithDetails = Product & {
   video_url?: string;
   variants: Variant[];
   supplier: Supplier | null;
+ supplier_id?: string | number; // <--- ✅ ADD THIS LINE HERE
   quantity: number;
   attributes?: string | Record<string, any>;
   is_favorite?: boolean;
@@ -326,7 +327,15 @@ export default function ProductDetailClient({ product, relatedProducts, sellerPr
   const isOfficialSupplier = product.supplier?.id === OFFICIAL_SUPPLIER_ID;
 
   // --- Handlers ---
-  const handleVisitStore = () => product.supplier?.id && router.push(`/suppliers/${product.supplier.id}`);
+  const handleVisitStore = () => {
+    const targetSupplierId = product.supplier?.id || product.supplier_id;
+    
+    if (targetSupplierId) {
+        router.push(`/suppliers/${targetSupplierId}`);
+    } else {
+        alert("Supplier details are currently unavailable.");
+    }
+};
   const handleAccordionClick = (itemName: string) => setActiveAccordion(prev => (prev === itemName ? null : itemName));
   const handleZoomImage = (src: string) => { setZoomImageSrc(src); setIsImageModalOpen(true); };
   
