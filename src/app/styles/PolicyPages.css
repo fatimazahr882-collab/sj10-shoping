@@ -1,0 +1,209 @@
+/* src/app/styles/PolicyPages.css */
+
+.policy-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-bottom: 100px;
+    font-family: 'Poppins', 'Inter', -apple-system, sans-serif;
+    color: #374151;
+}
+
+/* --- Hero Section --- */
+.policy-hero {
+    background: linear-gradient(135deg, #00b862 0%, #00522c 100%); /* SJ10 Green Theme */
+    border-radius: 24px;
+    padding: 60px 30px;
+    text-align: center;
+    color: white;
+    margin-bottom: 40px;
+    box-shadow: 0 20px 40px -10px rgba(0, 184, 98, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.policy-hero::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+}
+
+.policy-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0 0 10px 0;
+    letter-spacing: -1px;
+}
+
+.policy-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.95;
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+/* --- Content Layout --- */
+.policy-content-wrapper {
+    display: flex;
+    gap: 30px;
+    position: relative;
+}
+
+/* Sticky Sidebar */
+.toc-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 100px;
+    height: fit-content;
+}
+
+.toc-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    border: 1px solid #f3f4f6;
+}
+
+.toc-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #9ca3af;
+    font-weight: 700;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+}
+
+.toc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.toc-item {
+    padding: 10px 0;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: #4b5563;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+    padding-left: 12px;
+    margin-bottom: 2px;
+}
+
+.toc-item:hover {
+    color: #00b862;
+    background-color: #f9fafb;
+}
+
+.toc-item.active {
+    color: #00b862;
+    border-left-color: #00b862;
+    font-weight: 600;
+    background-color: #f0fdf4;
+}
+
+/* Main Text Area */
+.policy-text-area {
+    flex-grow: 1;
+    background: white;
+    padding: 40px;
+    border-radius: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    border: 1px solid #f3f4f6;
+}
+
+.policy-section {
+    margin-bottom: 50px;
+    scroll-margin-top: 120px;
+    opacity: 0;
+    animation: fadeInUp 0.6s forwards;
+}
+
+.section-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.section-icon {
+    font-size: 1.3rem;
+    background: #ecfdf5;
+    color: #00b862;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+}
+
+.policy-text-area p {
+    line-height: 1.8;
+    margin-bottom: 16px;
+    font-size: 1rem;
+    color: #4b5563;
+    text-align: justify;
+}
+
+.policy-text-area ul {
+    margin-bottom: 20px;
+    padding-left: 20px;
+}
+
+.policy-text-area li {
+    margin-bottom: 10px;
+    line-height: 1.7;
+    position: relative;
+    padding-left: 5px;
+}
+
+.policy-text-area strong {
+    color: #111827;
+}
+
+.last-updated {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-down { animation: fadeInDown 0.8s ease-out; }
+.slide-in-up { animation: fadeInUp 0.8s ease-out; }
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .policy-content-wrapper { flex-direction: column; }
+    .toc-sidebar { width: 100%; position: relative; top: 0; margin-bottom: 20px; }
+    .policy-text-area { padding: 25px; }
+    .policy-title { font-size: 1.8rem; }
+    .policy-hero { padding: 40px 20px; }
+}

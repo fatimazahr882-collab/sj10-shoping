@@ -4,8 +4,8 @@
 import { useAuth } from '@/components/AuthProvider';
 import Link from 'next/link';
 import { useState } from 'react';
-import apiClient from '@/lib/apiClient'; // Our new API client for backend communication
-import DashboardStats from '@/components/DashboardStats'; // Your existing component
+import apiClient from '@/lib/apiClient';
+import DashboardStats from '@/components/DashboardStats';
 
 // Define the User type to match what our useAuth hook provides
 type UserProfile = {
@@ -221,7 +221,6 @@ export default function ProfilePage() {
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
 
-          {/* ✅ ADDED: My Favorites Link */}
           <Link href="/favorites" className="profile-option-item">
             <i className="fas fa-heart" style={{color: '#ff0000'}}></i>
             <span>My Favorites</span>
@@ -229,26 +228,40 @@ export default function ProfilePage() {
           </Link>
           
           <Link href="/profile/followed-shops" className="profile-option-item">
-    <i className="fas fa-store-alt" style={{color: '#9333ea'}}></i> {/* Purple Icon */}
-    <span>Followed Shops</span>
-    <i className="fas fa-chevron-right chevron"></i>
-</Link>
+            <i className="fas fa-store-alt" style={{color: '#9333ea'}}></i>
+            <span>Followed Shops</span>
+            <i className="fas fa-chevron-right chevron"></i>
+          </Link>
 
+          {/* --- HELP & SUPPORT SECTION UPDATED --- */}
           <h4>Help & Support</h4>
+
+          <Link href="/about-us" className="profile-option-item">
+            <i className="fas fa-info-circle" style={{color: '#3b82f6'}}></i>
+            <span>About Us</span>
+            <i className="fas fa-chevron-right chevron"></i>
+          </Link>
+
           <Link href="/shipping-policy" className="profile-option-item">
-            <i className="fas fa-truck-fast"></i>
+            <i className="fas fa-truck-fast" style={{color: '#f59e0b'}}></i>
             <span>Shipping Policy</span>
+            <i className="fas fa-chevron-right chevron"></i>
+          </Link>
+
+          <Link href="/return-policy" className="profile-option-item">
+            <i className="fas fa-undo" style={{color: '#ef4444'}}></i>
+            <span>Return Policy</span>
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
           
           <Link href="/terms" className="profile-option-item">
-            <i className="fas fa-file-alt"></i>
-            <span>Terms & conditions</span>
+            <i className="fas fa-file-contract" style={{color: '#6b7280'}}></i>
+            <span>Terms & Conditions</span>
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
           
           <Link href="/privacy" className="profile-option-item">
-            <i className="fas fa-user-shield"></i>
+            <i className="fas fa-user-shield" style={{color: '#10b981'}}></i>
             <span>Privacy Policy</span>
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
