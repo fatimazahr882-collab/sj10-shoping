@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import '../../styles/PolicyPages.css'; // Adjust path if needed
+import '../styles/PolicyPages.css';
 
 const AboutUs = () => {
     const [activeSection, setActiveSection] = useState('story');

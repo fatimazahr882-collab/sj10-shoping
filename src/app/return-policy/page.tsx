@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import '../../styles/PolicyPages.css';
+import '../styles/PolicyPages.css';
 
 const ReturnPolicy = () => {
     const [activeSection, setActiveSection] = useState('overview');
