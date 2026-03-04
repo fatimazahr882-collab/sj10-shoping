@@ -1,4 +1,3 @@
-// src/app/profile/page.tsx
 "use client";
 
 import { useAuth } from '@/components/AuthProvider';
@@ -236,30 +235,35 @@ export default function ProfilePage() {
           {/* --- HELP & SUPPORT SECTION UPDATED --- */}
           <h4>Help & Support</h4>
 
+          {/* About Us Link */}
           <Link href="/about-us" className="profile-option-item">
             <i className="fas fa-info-circle" style={{color: '#3b82f6'}}></i>
             <span>About Us</span>
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
 
+          {/* Shipping Policy Link */}
           <Link href="/shipping-policy" className="profile-option-item">
             <i className="fas fa-truck-fast" style={{color: '#f59e0b'}}></i>
             <span>Shipping Policy</span>
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
 
+          {/* Return Policy Link */}
           <Link href="/return-policy" className="profile-option-item">
             <i className="fas fa-undo" style={{color: '#ef4444'}}></i>
             <span>Return Policy</span>
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
           
+          {/* Terms Link */}
           <Link href="/terms" className="profile-option-item">
             <i className="fas fa-file-contract" style={{color: '#6b7280'}}></i>
             <span>Terms & Conditions</span>
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
           
+          {/* Privacy Link */}
           <Link href="/privacy" className="profile-option-item">
             <i className="fas fa-user-shield" style={{color: '#10b981'}}></i>
             <span>Privacy Policy</span>
