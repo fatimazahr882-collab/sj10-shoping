@@ -18,6 +18,6 @@ export default function robots(): MetadataRoute.Robots {
         '/search', // Prevent indexing search results pages to save crawl budget
       ],
     },
-    sitemap: `${baseUrl}/sitemap-index.xml`,
+    sitemap: `${baseUrl}/sitemap.xml`,
   };
 }
