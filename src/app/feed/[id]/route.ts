@@ -7,7 +7,7 @@ const LIMIT = 1000;
 // Helper to clean text for XML
 function escapeXml(unsafe: string): string {
   if (!unsafe) return "";
-  return String(unsafe).replace(/[<>&'"]/g, (c) => {
+  return unsafe.replace(/[<>&'"]/g, (c) => {
     switch (c) {
       case '<': return '&lt;';
       case '>': return '&gt;';
@@ -24,12 +24,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  
-  // Clean the ID (remove .xml if present)
   const cleanId = id.replace('.xml', '');
   const page = Number(cleanId) + 1;
 
-  // Fetch exactly 1000 products (Fast and safe)
+  // Fetch Rich Data from Backend
   const res = await fetch(
     `${API_URL}/products/shopping-feed?limit=${LIMIT}&page=${page}`,
     { cache: 'no-store' }
