@@ -77,15 +77,21 @@ export async function GET(
       <priority>0.8</priority>
       ${safeImageUrl ? `
       <image:image>
-        <image:loc>${safeImageUrl}</image:loc>
-        <image:title>${safeTitle}</image:title>
-      </image:image>` : ''}
+  <image:loc>${safeImageUrl}</image:loc>
+  <image:title>${safeTitle}</image:title>
+  <!-- ADD THIS LINE: -->
+  <image:caption>Buy ${safeTitle} online in Pakistan at SJ10.pk</image:caption>
+</image:image>` : ''}
     </url>`;
   });
 
   xml += `</urlset>`;
 
   return new Response(xml, {
-    headers: { "Content-Type": "application/xml" },
-  });
+  headers: { 
+    "Content-Type": "application/xml",
+    // Cache for 1 hour, but serve stale version for up to 1 day while updating in background
+    "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400"
+  },
+});
 }
