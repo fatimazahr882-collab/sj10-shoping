@@ -137,7 +137,16 @@ export default function ExploreHomepage() {
                     box-shadow: 0 4px 20px rgba(0,0,0,0.02); 
                     transition: all 0.3s ease;
                 }
-                .filter-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 2px; align-items: center; scrollbar-width: none; }
+                filter-scroll { 
+    display: flex; 
+    gap: 10px; 
+    overflow-x: auto; 
+    padding-bottom: 5px; /* Give room for shadow */
+    align-items: center; 
+    scrollbar-width: none; 
+    width: 100%; /* Fix width */
+    flex-wrap: nowrap; /* Prevent wrapping, allow horizontal scroll */
+}
                 .filter-scroll::-webkit-scrollbar { display: none; }
                 
                 .chip { 
