@@ -18,7 +18,7 @@ body{margin:0;padding-bottom:75px;padding-top:80px;font-family:-apple-system,Bli
 
 html, body {
   max-width: 100%;
-  overflow-x: hidden; /* This stops the page from moving left-to-right */
+  overflow-x: clip; /* 'clip' stops the shaking but KEEPS the sticky working! */
   margin: 0;
   padding: 0;
 }
