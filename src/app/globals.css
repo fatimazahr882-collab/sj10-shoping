@@ -12,7 +12,29 @@ body{margin:0;padding-bottom:75px;padding-top:80px;font-family:-apple-system,Bli
   ===============================================
 */
 /* src/app/globals.css */
+* {
+  box-sizing: border-box;
+}
 
+html, body {
+  max-width: 100%;
+  overflow-x: hidden; /* This stops the page from moving left-to-right */
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+/* Ensure images never break layout */
+img {
+  max-width: 100%;
+  height: auto;
+}
 /* Utility to hide elements visually but keep them accessible for SEO/Screen Readers */
 .sr-only {
   position: absolute;
@@ -84,6 +106,36 @@ a {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }/*
+
+/* --- THEME COLORS (Dark/Light Mode) --- */
+/* Light Mode (Default) */
+:root {
+  --background-color: #f4f5f9; 
+  --text-dark: #111827;
+  --text-medium: #6b7280;
+  --card-bg: #ffffff;
+  --border-color: #f0f0f0;
+}
+
+/* Dark Mode */
+html.dark {
+  --background-color: #0d1117;
+  --text-dark: #e6edf3;
+  --text-medium: #8b949e;
+  --card-bg: #161b22;
+  --border-color: #21262d;
+}
+
+/* Apply the variables */
+body {
+    background-color: var(--background-color);
+    color: var(--text-dark);
+}
+.product-card, .auth-modal-content, .sj10-topbar, .global-sticky-header {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+}
+/* You can add more selectors here to apply theme colors */
 /*
   ======================================================
   === NEW, MORE BEAUTIFUL SJ LOADER STYLES           ===
