@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 // Define the shape of your user profile
 export type UserProfile = {
+  profile_pic: string;
   id: string;
   email: string;
   full_name: string;

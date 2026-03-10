@@ -39,10 +39,7 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
   return (
     <div className="homepage-wrapper bg-gray-50 pb-20 overflow-x-hidden">
       
-      {/* Search Bar */}
-      <div className="sticky top-[70px] z-40 bg-white/95 backdrop-blur-sm px-4 py-3 border-b border-gray-100 shadow-sm">
-        <SearchBar />
-      </div>
+      
       
       {/* Banners */}
       <div className="desktop-banner-layout">
