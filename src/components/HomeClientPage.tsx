@@ -6,7 +6,9 @@ import dynamic from 'next/dynamic';
 import Banners from '@/components/Banners';
 import VerticalBanner from '@/components/VerticalBanner';
 // SearchBar is not used here, so it can be removed if you want
-
+// import SearchBar from '@/components/SearchBar';
+import StripBanner from '@/components/StripBanner';
+import MobileStripBanner from '@/components/MobileStripBanner';
 import SmartBanner from '@/components/SmartBanner'; // ✅ Import the new smart component
 import HomeSubcategories from '@/components/HomeSubcategories';
 import PromotedSection from '@/components/PromotedSection';
@@ -57,8 +59,12 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
         This isolates them from the "overflow-x-hidden" bug.
         =========================================================
       */}
-          <SmartBanner />
-    
+      
+      <div>
+        <StripBanner key="desktop-banner" />
+        <MobileStripBanner key="mobile-banner" />  
+      </div>
+      
       {/* Sub Categories 1 */}
       {initialData.subCatRow1?.length > 0 && (
         <HomeSubcategories subcategories={initialData.subCatRow1} title="Explore Categories" priority={true} />
