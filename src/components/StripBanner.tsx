@@ -1,46 +1,35 @@
-// src/components/StripBanner.tsx
 "use client";
 import Image from 'next/image';
 import Link from 'next/link';
 
 export default function StripBanner() {
   return (
-    <div className="desktop-strip-wrapper">
-      <Link href="/explore" className="strip-link">
+    <div className="desktop-strip-only">
+      <Link href="/explore" className="block w-full">
         <Image
-          src="/banners/animated-strip.gif"
-          alt="SJ10 Grand Sale"
+          src="/banners/animated-strip.gif" 
+          alt="SJ10 Animated Promotion"
           width={1200}
           height={170}
-          className="banner-img"
+          className="w-full h-auto block"
           priority={true}
           unoptimized={true}
         />
       </Link>
 
       <style jsx>{`
-        /* 1. HIDE ON MOBILE, SHOW ON DESKTOP */
-        .desktop-strip-wrapper { display: none; }
+        /* This hides the desktop banner on everything less than 768px BEFORE React loads */
+        .desktop-strip-only {
+          display: none; 
+        }
 
+        /* Only show on tablets/desktop */
         @media (min-width: 768px) {
-          .desktop-strip-wrapper {
+          .desktop-strip-only {
             display: block !important;
             width: 100%;
-            margin-bottom: 20px;
+            margin: 15px 0;
           }
-        }
-
-        .strip-link {
-          display: block;
-          width: 100%;
-          border-radius: 0; /* Changed to 0 if you want it full edge-to-edge */
-          overflow: hidden;
-        }
-
-        .banner-img {
-          width: 100%;
-          height: auto;
-          display: block;
         }
       `}</style>
     </div>
