@@ -5,12 +5,14 @@ import dynamic from 'next/dynamic';
 
 import Banners from '@/components/Banners';
 import VerticalBanner from '@/components/VerticalBanner';
-import SearchBar from '@/components/SearchBar';
+// SearchBar is not used here, so it can be removed if you want
+// import SearchBar from '@/components/SearchBar';
 import StripBanner from '@/components/StripBanner';
+import MobileStripBanner from '@/components/MobileStripBanner';
 import HomeSubcategories from '@/components/HomeSubcategories';
 import PromotedSection from '@/components/PromotedSection';
 import PopularProducts from '@/components/PopularProducts';
-import LatestProducts from '@/components/LatestProducts'; // ✅ IMPORT THE NEW COMPONENT
+import LatestProducts from '@/components/LatestProducts';
 import DynamicDiscountSections from '@/components/DynamicDiscountSections';
 import { HomeData } from '@/lib/home-data';
 
@@ -39,8 +41,6 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
   return (
     <div className="homepage-wrapper bg-gray-50 pb-20 overflow-x-hidden">
       
-      
-      
       {/* Banners */}
       <div className="desktop-banner-layout">
         <VerticalBanner />
@@ -52,7 +52,16 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
         <Banners banners={initialData.banners} priority={true} />
       </div>
       
-      <StripBanner />
+      {/* 
+        =========================================================
+        ✅ THE FIX: Wrap both banners in a neutral container.
+        This isolates them from the "overflow-x-hidden" bug.
+        =========================================================
+      */}
+      <div>
+        <StripBanner key="desktop-banner" />
+        <MobileStripBanner key="mobile-banner" />  
+      </div>
       
       {/* Sub Categories 1 */}
       {initialData.subCatRow1?.length > 0 && (
@@ -65,12 +74,12 @@ export default function HomeClientPage({ initialData }: { initialData: HomeData 
       {/* Discount Sections */}
       <DynamicDiscountSections sections={initialData.discountSections} />
 
-      {/* 🔥 1. POPULAR PRODUCTS (Top Reviews/Views) */}
+      {/* Popular Products */}
       {initialData.popularProducts?.length > 0 && (
          <PopularProducts products={initialData.popularProducts} />
       )}
 
-      {/* 🔥 2. NEW LATEST PRODUCTS (Strictly Newest 50 with Horizontal Scroll) */}
+      {/* Latest Products */}
       {initialData.latestProducts?.length > 0 && (
          <LatestProducts products={initialData.latestProducts} />
       )}

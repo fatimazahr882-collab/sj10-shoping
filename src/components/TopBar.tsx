@@ -29,18 +29,39 @@ export default function TopBar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [mounted, setMounted] = useState(false);
+  const[mounted, setMounted] = useState(false);
   const[isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const[searchQuery, setSearchQuery] = useState('');
   
   // Search Suggestions & Animation State
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const[suggestions, setSuggestions] = useState<any[]>([]);
   const[showSuggestions, setShowSuggestions] = useState(false);
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const[placeholderIndex, setPlaceholderIndex] = useState(0);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // --- SMART SCROLL LOGIC ---
+  const [showFullHeader, setShowFullHeader] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY < 50) {
+        setShowFullHeader(true);
+      } else if (currentScrollY > lastScrollY.current + 10) {
+        setShowFullHeader(false); // Hide on scroll down
+      } else if (currentScrollY < lastScrollY.current - 10) {
+        setShowFullHeader(true);  // Show on scroll up
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  },[]);
 
   // Hydration fix
   useEffect(() => { setMounted(true); },[]);
@@ -72,7 +93,7 @@ export default function TopBar() {
   useEffect(() => {
     const timer = setTimeout(() => fetchSuggestions(searchQuery), 200);
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchSuggestions]);
+  },[searchQuery, fetchSuggestions]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -101,26 +122,57 @@ export default function TopBar() {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
-        .global-sticky-header { position: fixed !important; top: 0 !important; left: 0; width: 100%; height: 70px !important; z-index: 9999 !important; border-bottom: none !important; }
-        .sj10-master-topbar { position: fixed; top: 70px; left: 0; width: 100%; z-index: 9998; }
+        /* TOPBAR SITS EXACTLY BELOW HEADER (70px) */
+        .sj10-master-topbar { 
+          position: fixed; 
+          top: 70px; 
+          left: 0; 
+          width: 100%; 
+          z-index: 9998; 
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sj10-master-topbar.header-visible {
+          transform: translateY(0);
+        }
+
+        .sj10-master-topbar.header-hidden {
+          /* Translates up exactly by (70px header + 40px utility strip) = 110px. 
+             This forces the Orange Bar to stick perfectly at 0px! */
+          transform: translateY(-110px);
+        }
+        
         body { padding-top: 175px !important; }
-        @media (max-width: 768px) { body { padding-top: 145px !important; } }
+        
+        @media (max-width: 768px) { 
+          body { padding-top: 145px !important; } 
+          .sj10-master-topbar.header-hidden {
+            /* Mobile hides Utility Strip, so we only translate by the 70px header */
+            transform: translateY(-70px);
+          }
+        }
+        
         .container { max-width: 1350px; margin: 0 auto; padding: 0 15px; width: 100%; box-sizing: border-box; }
 
-        /* 1. UTILITY STRIP (Lightened Blue: #1E3A8A) */
-        .utility-strip { background-color: #1E3A8A; padding: 10px 0; color: white; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .utility-content { display: flex; justify-content: space-between; align-items: center; }
+        /* 1. UTILITY STRIP (Lighter, Vibrant Royal Blue: #1e40af) */
+        .utility-strip { 
+          background-color: #1e40af; 
+          height: 40px; 
+          display: flex; align-items: center;
+          color: white; border-bottom: 1px solid rgba(255,255,255,0.08); 
+        }
+        .utility-content { display: flex; justify-content: space-between; align-items: center; width: 100%; }
 
         /* Enhanced Sell Button */
         .sell-badge {
           display: inline-flex; align-items: center; gap: 8px;
           background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.3);
-          color: #ffffff; padding: 6px 18px; border-radius: 25px;
-          font-size: 14px; font-weight: 800; text-decoration: none;
+          color: #ffffff; padding: 4px 18px; border-radius: 25px;
+          font-size: 13px; font-weight: 800; text-decoration: none;
           transition: all 0.3s ease; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .sell-badge i { color: #ff9f43; font-size: 16px; }
-        .sell-badge:hover { background: #ffffff; color: #f85606; box-shadow: 0 4px 15px rgba(255,255,255,0.4); transform: translateY(-2px); }
+        .sell-badge:hover { background: #ffffff; color: #f85606; box-shadow: 0 4px 15px rgba(255,255,255,0.4); transform: translateY(-1px); }
         .sell-badge:hover i { color: #f85606; }
 
         /* 2. MAIN ORANGE NAV AREA */
@@ -223,13 +275,13 @@ export default function TopBar() {
         }
       `}} />
 
-      <div className="sj10-master-topbar">
+      <div className={`sj10-master-topbar ${showFullHeader ? 'header-visible' : 'header-hidden'}`}>
         
-        {/* TOP UTILITY STRIP */}
+        {/* TOP UTILITY STRIP (Now a Lighter, Vibrant Blue) */}
         <div className="utility-strip hidden md-block">
           <div className="container utility-content">
             <div className="left-links">
-              <a href="https://sj10suppliers.netlify.app/" target="_blank" rel="noreferrer" className="sell-badge">
+              <a href="https://sj10seller.online" target="_blank" rel="noreferrer" className="sell-badge">
                 <i className="fas fa-store-alt"></i> Sell on SJ10 & Earn
               </a>
             </div>
