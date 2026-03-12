@@ -119,18 +119,24 @@ export async function generateMetadata(
     ? product.description.substring(0, 160).replace(/\n/g, ' ') 
     : `Buy ${product.title} online at the best price in Pakistan. Fast shipping and cash on delivery available.`;
 
+  // ✅ CRITICAL FIX: Ensure Metadata URLs securely contain the SKU for SEO
+  const exactSlug = product.sku && String(product.sku).trim() !== '' 
+    ? `${product.slug}-${product.sku}` 
+    : product.slug;
+  const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
+
   return {
     title: title,
     description: description,
     // Canonical URL prevents duplicate content issues
     alternates: {
-      canonical: `${SITE_URL}/products/${product.slug}`,
+      canonical: fullProductUrl, // Updated URL
     },
     // Open Graph = What shows on WhatsApp/Facebook
     openGraph: {
       title: product.title,
       description: description,
-      url: `${SITE_URL}/products/${product.slug}`,
+      url: fullProductUrl, // Updated URL
       siteName: 'SJ10 Shopping',
       images: [
         {
@@ -172,13 +178,15 @@ export default async function ProductDetailPage({ params }: Props) {
   if (!product) notFound();
 
   // B. Handle SKU Redirect (Self-Healing URLs)
-  if (product.sku) {
+  // ✅ CRITICAL FIX: Properly redirect Google bots/users if SKU is missing from the URL
+  if (product.sku && String(product.sku).trim() !== '') {
     const decodedCurrent = decodeURIComponent(currentSlug);
-    // If slug doesn't contain SKU but product has one, redirect to SEO friendly URL
     const expectedSlugEnd = `-${product.sku}`;
-    if (!decodedCurrent.endsWith(expectedSlugEnd) && !decodedCurrent.includes(product.sku)) {
-       // Only redirect if completely missing. 
-       // Note: Be careful with infinite loops here.
+    
+    // If the current URL does not end with the SKU, trigger a 301 Permanent Redirect
+    if (!decodedCurrent.endsWith(expectedSlugEnd)) {
+       // This fixes the Google Crawl issue immediately by telling Google the true URL
+       permanentRedirect(`/products/${product.slug}-${product.sku}`);
     }
   }
 
@@ -193,6 +201,12 @@ export default async function ProductDetailPage({ params }: Props) {
   const priceVal = parseFloat(String(product.discounted_price || product.price));
   const mainImageAbsolute = getAbsoluteImageUrl(product.image_urls);
   
+  // ✅ CRITICAL FIX: Use the exact URL with SKU for the Schema offer
+  const exactSlug = product.sku && String(product.sku).trim() !== '' 
+    ? `${product.slug}-${product.sku}` 
+    : product.slug;
+  const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -207,7 +221,7 @@ export default async function ProductDetailPage({ params }: Props) {
     },
     "offers": {
       "@type": "Offer",
-      "url": `${SITE_URL}/products/${product.slug}`,
+      "url": fullProductUrl, // Updated Schema URL
       "priceCurrency": "PKR",
       "price": priceVal,
       "priceValidUntil": "2026-12-31", // Future date ensures price looks valid to Google
