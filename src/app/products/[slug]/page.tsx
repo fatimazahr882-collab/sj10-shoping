@@ -4,7 +4,6 @@ import ProductDetailClient from "@/components/ProductDetailClient";
 import { Product } from "@/components/ProductCard";
 
 // ⚡ ISR CONFIGURATION
-// Revalidate every hour to keep prices fresh in cache
 export const revalidate = 3600; 
 export const dynamicParams = true; 
 
@@ -20,10 +19,7 @@ type Props = {
 
 async function getProduct(slug: string) {
   if (!slug || slug === 'undefined') return null;
-  
-  // Handle SKU logic in URL (e.g., product-name-SKU123)
   const encodedSlug = encodeURIComponent(decodeURIComponent(slug));
-  
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/slug/${encodedSlug}`,
@@ -61,40 +57,27 @@ async function getSellerProducts(supplierId: string | number, currentId: string 
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?supplierId=${supplierId}&limit=25`,
       { next: { revalidate: 3600 } }
     );
-    
     if (!res.ok) return [];
     const data = await res.json();
     const list = Array.isArray(data) ? data : (data.products || []);
-    
     return list.filter((p: Product) => String(p.id) !== String(currentId));
   } catch (error) {
     return [];
   }
 }
 
-// --- 2. IMAGE URL HELPER (Critical for WhatsApp) ---
+// --- 2. IMAGE URL HELPER ---
 function getAbsoluteImageUrl(imageInput: any): string {
-  let imageUrl = `${SITE_URL}/placeholder.jpg`; // Default fallback
-
+  let imageUrl = `${SITE_URL}/placeholder.jpg`; 
   try {
-    const rawImgs = typeof imageInput === 'string' 
-      ? JSON.parse(imageInput) 
-      : imageInput;
-    
+    const rawImgs = typeof imageInput === 'string' ? JSON.parse(imageInput) : imageInput;
     if (Array.isArray(rawImgs) && rawImgs.length > 0) {
       const img = rawImgs[0];
-      if (img.startsWith("http")) {
-        imageUrl = img;
-      } else if (img.startsWith("/")) {
-        imageUrl = `${SITE_URL}${img}`;
-      } else {
-        // Assume it's a relative path on R2 if it doesn't start with / or http
-        imageUrl = `${R2_URL}/${img}`;
-      }
+      if (img.startsWith("http")) imageUrl = img;
+      else if (img.startsWith("/")) imageUrl = `${SITE_URL}${img}`;
+      else imageUrl = `${R2_URL}/${img}`;
     }
-  } catch(e) {
-    // If parsing fails, use fallback
-  }
+  } catch(e) {}
   return imageUrl;
 }
 
@@ -110,38 +93,50 @@ export async function generateMetadata(
     return { title: "Product Not Found | SJ10", robots: { index: false } };
   }
 
-  // Optimize Data for Meta Tags
+  // A. Core Data Extraction
   const mainImage = getAbsoluteImageUrl(product.image_urls);
   const price = product.discounted_price || product.price;
+  const formattedPrice = new Intl.NumberFormat('en-PK').format(price);
   const currency = "PKR";
-  const title = `${product.title} - Best Price in Pakistan | SJ10`;
-  const description = product.description 
-    ? product.description.substring(0, 160).replace(/\n/g, ' ') 
-    : `Buy ${product.title} online at the best price in Pakistan. Fast shipping and cash on delivery available.`;
-
-  // ✅ CRITICAL FIX: Ensure Metadata URLs securely contain the SKU for SEO
+  
+  // SEO Exact URL (slug-sku)
   const exactSlug = product.sku && String(product.sku).trim() !== '' 
     ? `${product.slug}-${product.sku}` 
     : product.slug;
   const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
 
+  // B. Google SEO Description (Clean text, no emojis)
+  const seoTitle = `${product.title} - Best Price in Pakistan | SJ10`;
+  const baseDescription = product.description 
+    ? product.description.substring(0, 150).replace(/\n/g, ' ') 
+    : `Buy ${product.title} online at the best price in Pakistan. Fast shipping and cash on delivery available.`;
+
+  // 🔥 C. Social Media Rich Description (Injects Stars & Price for WhatsApp/FB)
+  let socialStats = `💰 Rs. ${formattedPrice}`;
+  if (product.avg_rating && product.avg_rating > 0) {
+    // Generates stars: e.g., 4.5 rating -> ⭐⭐⭐⭐⭐ (Rounds up for visual impact)
+    const starCount = Math.round(product.avg_rating);
+    const stars = '⭐'.repeat(starCount > 5 ? 5 : starCount);
+    socialStats += ` | ${stars} ${product.avg_rating}/5 (${product.review_count || 0} Reviews)`;
+  }
+  const richSocialDescription = `${socialStats} | ${baseDescription}`;
+
   return {
-    title: title,
-    description: description,
-    // Canonical URL prevents duplicate content issues
+    title: seoTitle,
+    description: baseDescription, // Clean text for Google Bot
     alternates: {
-      canonical: fullProductUrl, // Updated URL
+      canonical: fullProductUrl, 
     },
     // Open Graph = What shows on WhatsApp/Facebook
     openGraph: {
       title: product.title,
-      description: description,
-      url: fullProductUrl, // Updated URL
+      description: richSocialDescription, // 🔥 Shows Stars + Price in WhatsApp preview
+      url: fullProductUrl, 
       siteName: 'SJ10 Shopping',
       images: [
         {
           url: mainImage,
-          width: 1200, // Standard size for social cards
+          width: 1200, 
           height: 630,
           alt: product.title,
         },
@@ -149,14 +144,12 @@ export async function generateMetadata(
       locale: 'en_PK',
       type: 'website', 
     },
-    // Twitter Card
     twitter: {
       card: 'summary_large_image',
       title: product.title,
-      description: description,
+      description: richSocialDescription, // 🔥 Shows Stars + Price in Twitter/X preview
       images: [mainImage],
     },
-    // Extended Product Metadata (For Facebook/Instagram Catalogs)
     other: {
       "product:price:amount": price,
       "product:price:currency": currency,
@@ -173,35 +166,32 @@ export default async function ProductDetailPage({ params }: Props) {
 
   if (!currentSlug || currentSlug === 'undefined') notFound();
 
-  // A. Fetch Main Product
   const product = await getProduct(currentSlug);
   if (!product) notFound();
 
-  // B. Handle SKU Redirect (Self-Healing URLs)
-  // ✅ CRITICAL FIX: Properly redirect Google bots/users if SKU is missing from the URL
+  // 🔥 CRITICAL BUG FIX: Case-Insensitive Redirect Logic
+  // This prevents the infinite redirect loop that crashed the WhatsApp/FB Bots
   if (product.sku && String(product.sku).trim() !== '') {
-    const decodedCurrent = decodeURIComponent(currentSlug);
-    const expectedSlugEnd = `-${product.sku}`;
+    const decodedCurrent = decodeURIComponent(currentSlug).toLowerCase();
+    const expectedSlugEnd = `-${String(product.sku).trim().toLowerCase()}`;
     
-    // If the current URL does not end with the SKU, trigger a 301 Permanent Redirect
+    // If it doesn't end with the SKU (ignoring case), fix it!
     if (!decodedCurrent.endsWith(expectedSlugEnd)) {
-       // This fixes the Google Crawl issue immediately by telling Google the true URL
-       permanentRedirect(`/products/${product.slug}-${product.sku}`);
+       const exactCorrectSlug = `${product.slug}-${product.sku}`;
+       permanentRedirect(`/products/${exactCorrectSlug}`);
     }
   }
 
-  // C. Parallel Fetch for Related & Seller Products
+  // Parallel Fetch for Related & Seller Products
   const [relatedProducts, sellerProducts] = await Promise.all([
     getRelatedProducts(product.category_id, product.id),
     getSellerProducts(product.supplier_id || product.supplier?.id, product.id)
   ]);
 
-  // D. PREPARE GOOGLE SCHEMA (JSON-LD)
-  // This is what makes the Stars and Price appear in Google Search
+  // PREPARE GOOGLE SCHEMA (JSON-LD)
   const priceVal = parseFloat(String(product.discounted_price || product.price));
   const mainImageAbsolute = getAbsoluteImageUrl(product.image_urls);
   
-  // ✅ CRITICAL FIX: Use the exact URL with SKU for the Schema offer
   const exactSlug = product.sku && String(product.sku).trim() !== '' 
     ? `${product.slug}-${product.sku}` 
     : product.slug;
@@ -221,10 +211,10 @@ export default async function ProductDetailPage({ params }: Props) {
     },
     "offers": {
       "@type": "Offer",
-      "url": fullProductUrl, // Updated Schema URL
+      "url": fullProductUrl, 
       "priceCurrency": "PKR",
       "price": priceVal,
-      "priceValidUntil": "2026-12-31", // Future date ensures price looks valid to Google
+      "priceValidUntil": "2026-12-31", 
       "itemCondition": "https://schema.org/NewCondition",
       "availability": product.quantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       "seller": {
@@ -272,13 +262,10 @@ export default async function ProductDetailPage({ params }: Props) {
 
   return (
     <>
-      {/* Inject Structured Data for Google */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      
-      {/* Render Client Component */}
       <ProductDetailClient 
         product={product} 
         relatedProducts={relatedProducts} 
