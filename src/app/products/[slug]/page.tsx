@@ -19,7 +19,15 @@ type Props = {
 
 async function getProduct(slug: string) {
   if (!slug || slug === 'undefined') return null;
-  const encodedSlug = encodeURIComponent(decodeURIComponent(slug));
+  
+  let encodedSlug = slug;
+  try {
+    // Safely decode and re-encode to prevent 500 crashes on malformed URLs
+    encodedSlug = encodeURIComponent(decodeURIComponent(slug));
+  } catch (e) {
+    encodedSlug = encodeURIComponent(slug);
+  }
+
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/slug/${encodedSlug}`,
@@ -66,22 +74,35 @@ async function getSellerProducts(supplierId: string | number, currentId: string 
   }
 }
 
-// --- 2. IMAGE URL HELPER ---
+// --- 2. HELPERS (Images & Text Formatting) ---
+
+// Guarantees a high-quality absolute image URL without crashing
 function getAbsoluteImageUrl(imageInput: any): string {
   let imageUrl = `${SITE_URL}/placeholder.jpg`; 
   try {
-    const rawImgs = typeof imageInput === 'string' ? JSON.parse(imageInput) : imageInput;
-    if (Array.isArray(rawImgs) && rawImgs.length > 0) {
+    let rawImgs = imageInput;
+    if (typeof imageInput === 'string') {
+      try { rawImgs = JSON.parse(imageInput); } catch(e) { rawImgs = [imageInput]; }
+    }
+    
+    if (Array.isArray(rawImgs) && rawImgs.length > 0 && rawImgs[0]) {
       const img = rawImgs[0];
       if (img.startsWith("http")) imageUrl = img;
       else if (img.startsWith("/")) imageUrl = `${SITE_URL}${img}`;
       else imageUrl = `${R2_URL}/${img}`;
     }
-  } catch(e) {}
+  } catch(e) {
+    console.error("Image Parse Error:", e);
+  }
   return imageUrl;
 }
 
-// --- 3. METADATA GENERATION (WhatsApp & Facebook Optimization) ---
+// Generates a Unicode Cut-Mark (Strikethrough) for Facebook & WhatsApp
+function getStrikethroughText(text: string) {
+  return text.split('').map(char => char + '\u0336').join('');
+}
+
+// --- 3. METADATA GENERATION (The Core Social Media Fix) ---
 export async function generateMetadata(
   { params }: Props,
   parent: ResolvingMetadata
@@ -93,52 +114,63 @@ export async function generateMetadata(
     return { title: "Product Not Found | SJ10", robots: { index: false } };
   }
 
-  // A. Core Data Extraction
+  // A. Image & Basic Data
   const mainImage = getAbsoluteImageUrl(product.image_urls);
-  const price = product.discounted_price || product.price;
-  const formattedPrice = new Intl.NumberFormat('en-PK').format(price);
-  const currency = "PKR";
-  
-  // SEO Exact URL (slug-sku)
+  const price = parseFloat(product.price) || 0;
+  const discountPrice = parseFloat(product.discounted_price || product.price) || 0;
+  const formatPKR = (num: number) => new Intl.NumberFormat('en-PK').format(num);
+
+  // B. Exact URL Logic
   const exactSlug = product.sku && String(product.sku).trim() !== '' 
     ? `${product.slug}-${product.sku}` 
     : product.slug;
   const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
 
-  // B. Google SEO Description (Clean text, no emojis)
-  const seoTitle = `${product.title} - Best Price in Pakistan | SJ10`;
-  const baseDescription = product.description 
-    ? product.description.substring(0, 150).replace(/\n/g, ' ') 
-    : `Buy ${product.title} online at the best price in Pakistan. Fast shipping and cash on delivery available.`;
+  // C. Video Indicator Logic
+  const hasVideo = product.video_url || (typeof product.image_urls === 'string' && product.image_urls.includes('.mp4'));
+  const videoBadge = hasVideo ? '▶️ [VIDEO] ' : '';
 
-  // 🔥 C. Social Media Rich Description (Injects Stars & Price for WhatsApp/FB)
-  let socialStats = `💰 Rs. ${formattedPrice}`;
+  // D. Strikethrough Price Logic
+  let priceDisplay = `💰 Rs. ${formatPKR(discountPrice)}`;
+  if (discountPrice < price) {
+    const oldPriceStrike = getStrikethroughText(`Rs. ${formatPKR(price)}`);
+    priceDisplay = `✅ Rs. ${formatPKR(discountPrice)} | ❌ ${oldPriceStrike}`;
+  }
+
+  // E. Review Stars Logic
+  let starDisplay = '';
   if (product.avg_rating && product.avg_rating > 0) {
-    // Generates stars: e.g., 4.5 rating -> ⭐⭐⭐⭐⭐ (Rounds up for visual impact)
     const starCount = Math.round(product.avg_rating);
     const stars = '⭐'.repeat(starCount > 5 ? 5 : starCount);
-    socialStats += ` | ${stars} ${product.avg_rating}/5 (${product.review_count || 0} Reviews)`;
+    starDisplay = ` | ${stars} ${product.avg_rating}/5 (${product.review_count || 0} Reviews)`;
   }
-  const richSocialDescription = `${socialStats} | ${baseDescription}`;
+
+  // F. Constructing Final Strings
+  const socialTitle = `${videoBadge}${product.title}`;
+  const seoTitle = `${product.title} - Best Price in Pakistan | SJ10`;
+  
+  const baseDesc = product.description 
+    ? product.description.substring(0, 140).replace(/\n/g, ' ') 
+    : `Buy ${product.title} online in Pakistan.`;
+    
+  // This is what WhatsApp and Facebook users will see
+  const richSocialDescription = `${priceDisplay}${starDisplay}\n\n${baseDesc}...`;
 
   return {
     title: seoTitle,
-    description: baseDescription, // Clean text for Google Bot
-    alternates: {
-      canonical: fullProductUrl, 
-    },
-    // Open Graph = What shows on WhatsApp/Facebook
+    description: baseDesc, // Keep clean for Google Bot
+    alternates: { canonical: fullProductUrl },
     openGraph: {
-      title: product.title,
-      description: richSocialDescription, // 🔥 Shows Stars + Price in WhatsApp preview
+      title: socialTitle,
+      description: richSocialDescription, 
       url: fullProductUrl, 
       siteName: 'SJ10 Shopping',
       images: [
         {
           url: mainImage,
-          width: 1200, 
-          height: 630,
           alt: product.title,
+          // ⚠️ NOTICE: Width & Height have been INTENTIONALLY REMOVED here. 
+          // This prevents Facebook from chopping off vertical product images.
         },
       ],
       locale: 'en_PK',
@@ -146,16 +178,10 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: product.title,
-      description: richSocialDescription, // 🔥 Shows Stars + Price in Twitter/X preview
+      title: socialTitle,
+      description: richSocialDescription,
       images: [mainImage],
     },
-    other: {
-      "product:price:amount": price,
-      "product:price:currency": currency,
-      "product:brand": product.supplier?.name || "SJ10",
-      "product:availability": product.quantity > 0 ? "in stock" : "out of stock",
-    }
   };
 }
 
@@ -169,13 +195,16 @@ export default async function ProductDetailPage({ params }: Props) {
   const product = await getProduct(currentSlug);
   if (!product) notFound();
 
-  // 🔥 CRITICAL BUG FIX: Case-Insensitive Redirect Logic
-  // This prevents the infinite redirect loop that crashed the WhatsApp/FB Bots
+  // 🔥 CRITICAL REDIRECT FIX: Bulletproof Case-Insensitive Check
   if (product.sku && String(product.sku).trim() !== '') {
-    const decodedCurrent = decodeURIComponent(currentSlug).toLowerCase();
+    let decodedCurrent = currentSlug.toLowerCase();
+    try {
+      decodedCurrent = decodeURIComponent(currentSlug).toLowerCase();
+    } catch(e) { /* Ignore decode errors */ }
+
     const expectedSlugEnd = `-${String(product.sku).trim().toLowerCase()}`;
     
-    // If it doesn't end with the SKU (ignoring case), fix it!
+    // Redirect cleanly without causing infinite bot loops
     if (!decodedCurrent.endsWith(expectedSlugEnd)) {
        const exactCorrectSlug = `${product.slug}-${product.sku}`;
        permanentRedirect(`/products/${exactCorrectSlug}`);
@@ -188,13 +217,10 @@ export default async function ProductDetailPage({ params }: Props) {
     getSellerProducts(product.supplier_id || product.supplier?.id, product.id)
   ]);
 
-  // PREPARE GOOGLE SCHEMA (JSON-LD)
+  // PREPARE GOOGLE SCHEMA (JSON-LD) for SEO
   const priceVal = parseFloat(String(product.discounted_price || product.price));
   const mainImageAbsolute = getAbsoluteImageUrl(product.image_urls);
-  
-  const exactSlug = product.sku && String(product.sku).trim() !== '' 
-    ? `${product.slug}-${product.sku}` 
-    : product.slug;
+  const exactSlug = product.sku && String(product.sku).trim() !== '' ? `${product.slug}-${product.sku}` : product.slug;
   const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
 
   const jsonLd = {
@@ -220,40 +246,14 @@ export default async function ProductDetailPage({ params }: Props) {
       "seller": {
         "@type": "Organization",
         "name": "SJ10 Shopping"
-      },
-      "shippingDetails": { 
-        "@type": "OfferShippingDetails",
-        "shippingRate": {
-          "@type": "MonetaryAmount",
-          "value": 200, 
-          "currency": "PKR"
-        },
-        "shippingDestination": {
-          "@type": "DefinedRegion",
-          "addressCountry": "PK"
-        },
-        "deliveryTime": {
-          "@type": "ShippingDeliveryTime",
-          "handlingTime": {
-            "@type": "QuantitativeValue",
-            "minValue": 1,
-            "maxValue": 2,
-            "unitCode": "DAY"
-          },
-          "transitTime": {
-            "@type": "QuantitativeValue",
-            "minValue": 3,
-            "maxValue": 5,
-            "unitCode": "DAY"
-          }
-        }
       }
     },
-    ...(product.avg_rating && product.avg_rating > 0 ? {
+    // 🔥 GOOGLE SEO STARS & REVIEWS: This ensures stars appear in Google Search Results
+    ...(product.avg_rating && parseFloat(String(product.avg_rating)) > 0 ? {
       "aggregateRating": {
         "@type": "AggregateRating",
-        "ratingValue": product.avg_rating,
-        "reviewCount": product.review_count || 1,
+        "ratingValue": parseFloat(String(product.avg_rating)),
+        "reviewCount": parseInt(String(product.review_count)) || 1,
         "bestRating": "5",
         "worstRating": "1"
       }
