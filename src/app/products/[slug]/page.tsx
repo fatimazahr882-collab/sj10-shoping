@@ -22,7 +22,6 @@ async function getProduct(slug: string) {
   
   let encodedSlug = slug;
   try {
-    // Safely decode and re-encode to prevent 500 crashes on malformed URLs
     encodedSlug = encodeURIComponent(decodeURIComponent(slug));
   } catch (e) {
     encodedSlug = encodeURIComponent(slug);
@@ -46,13 +45,14 @@ async function getProduct(slug: string) {
 async function getRelatedProducts(categoryId: string | number, currentId: string | number) {
   if (!categoryId) return [];
   try {
+    // ✅ STRICT LIMIT 7 from API
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?category_id=${categoryId}&limit=15`,
+      `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?category_id=${categoryId}&limit=7`,
       { next: { revalidate: 3600 } }
     );
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.products || []).filter((p: Product) => String(p.id) !== String(currentId));
+    return (data.products || []).filter((p: Product) => String(p.id) !== String(currentId)).slice(0, 7);
   } catch (error) {
     return [];
   }
@@ -61,22 +61,21 @@ async function getRelatedProducts(categoryId: string | number, currentId: string
 async function getSellerProducts(supplierId: string | number, currentId: string | number) {
   if (!supplierId) return [];
   try {
+    // ✅ STRICT LIMIT 7 from API
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?supplierId=${supplierId}&limit=25`,
+      `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?supplierId=${supplierId}&limit=7`,
       { next: { revalidate: 3600 } }
     );
     if (!res.ok) return [];
     const data = await res.json();
     const list = Array.isArray(data) ? data : (data.products || []);
-    return list.filter((p: Product) => String(p.id) !== String(currentId));
+    return list.filter((p: Product) => String(p.id) !== String(currentId)).slice(0, 7);
   } catch (error) {
     return [];
   }
 }
 
 // --- 2. HELPERS (Images & Text Formatting) ---
-
-// Guarantees a high-quality absolute image URL without crashing
 function getAbsoluteImageUrl(imageInput: any): string {
   let imageUrl = `${SITE_URL}/placeholder.jpg`; 
   try {
@@ -97,12 +96,11 @@ function getAbsoluteImageUrl(imageInput: any): string {
   return imageUrl;
 }
 
-// Generates a Unicode Cut-Mark (Strikethrough) for Facebook & WhatsApp
 function getStrikethroughText(text: string) {
   return text.split('').map(char => char + '\u0336').join('');
 }
 
-// --- 3. METADATA GENERATION (The Core Social Media Fix) ---
+// --- 3. METADATA GENERATION ---
 export async function generateMetadata(
   { params }: Props,
   parent: ResolvingMetadata
@@ -114,30 +112,25 @@ export async function generateMetadata(
     return { title: "Product Not Found | SJ10", robots: { index: false } };
   }
 
-  // A. Image & Basic Data
   const mainImage = getAbsoluteImageUrl(product.image_urls);
   const price = parseFloat(product.price) || 0;
   const discountPrice = parseFloat(product.discounted_price || product.price) || 0;
   const formatPKR = (num: number) => new Intl.NumberFormat('en-PK').format(num);
 
-  // B. Exact URL Logic
   const exactSlug = product.sku && String(product.sku).trim() !== '' 
     ? `${product.slug}-${product.sku}` 
     : product.slug;
   const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
 
-  // C. Video Indicator Logic
   const hasVideo = product.video_url || (typeof product.image_urls === 'string' && product.image_urls.includes('.mp4'));
   const videoBadge = hasVideo ? '▶️ [VIDEO] ' : '';
 
-  // D. Strikethrough Price Logic
   let priceDisplay = `💰 Rs. ${formatPKR(discountPrice)}`;
   if (discountPrice < price) {
     const oldPriceStrike = getStrikethroughText(`Rs. ${formatPKR(price)}`);
     priceDisplay = `✅ Rs. ${formatPKR(discountPrice)} | ❌ ${oldPriceStrike}`;
   }
 
-  // E. Review Stars Logic
   let starDisplay = '';
   if (product.avg_rating && product.avg_rating > 0) {
     const starCount = Math.round(product.avg_rating);
@@ -145,7 +138,6 @@ export async function generateMetadata(
     starDisplay = ` | ${stars} ${product.avg_rating}/5 (${product.review_count || 0} Reviews)`;
   }
 
-  // F. Constructing Final Strings
   const socialTitle = `${videoBadge}${product.title}`;
   const seoTitle = `${product.title} - Best Price in Pakistan | SJ10`;
   
@@ -153,26 +145,18 @@ export async function generateMetadata(
     ? product.description.substring(0, 140).replace(/\n/g, ' ') 
     : `Buy ${product.title} online in Pakistan.`;
     
-  // This is what WhatsApp and Facebook users will see
   const richSocialDescription = `${priceDisplay}${starDisplay}\n\n${baseDesc}...`;
 
   return {
     title: seoTitle,
-    description: baseDesc, // Keep clean for Google Bot
+    description: baseDesc, 
     alternates: { canonical: fullProductUrl },
     openGraph: {
       title: socialTitle,
       description: richSocialDescription, 
       url: fullProductUrl, 
       siteName: 'SJ10 Shopping',
-      images: [
-        {
-          url: mainImage,
-          alt: product.title,
-          // ⚠️ NOTICE: Width & Height have been INTENTIONALLY REMOVED here. 
-          // This prevents Facebook from chopping off vertical product images.
-        },
-      ],
+      images: [{ url: mainImage, alt: product.title }],
       locale: 'en_PK',
       type: 'website', 
     },
@@ -198,32 +182,51 @@ export default async function ProductDetailPage({ params }: Props) {
   // 🔥 CRITICAL REDIRECT FIX: Bulletproof Case-Insensitive Check
   if (product.sku && String(product.sku).trim() !== '') {
     let decodedCurrent = currentSlug.toLowerCase();
-    try {
-      decodedCurrent = decodeURIComponent(currentSlug).toLowerCase();
-    } catch(e) { /* Ignore decode errors */ }
+    try { decodedCurrent = decodeURIComponent(currentSlug).toLowerCase(); } catch(e) { }
 
     const expectedSlugEnd = `-${String(product.sku).trim().toLowerCase()}`;
-    
-    // Redirect cleanly without causing infinite bot loops
     if (!decodedCurrent.endsWith(expectedSlugEnd)) {
        const exactCorrectSlug = `${product.slug}-${product.sku}`;
        permanentRedirect(`/products/${exactCorrectSlug}`);
     }
   }
 
-  // Parallel Fetch for Related & Seller Products
   const [relatedProducts, sellerProducts] = await Promise.all([
     getRelatedProducts(product.category_id, product.id),
     getSellerProducts(product.supplier_id || product.supplier?.id, product.id)
   ]);
 
-  // PREPARE GOOGLE SCHEMA (JSON-LD) for SEO
+  // PREPARE GOOGLE SCHEMA (JSON-LD)
   const priceVal = parseFloat(String(product.discounted_price || product.price));
   const mainImageAbsolute = getAbsoluteImageUrl(product.image_urls);
   const exactSlug = product.sku && String(product.sku).trim() !== '' ? `${product.slug}-${product.sku}` : product.slug;
   const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
 
-  const jsonLd = {
+  // ✅ GENERATE BREADCRUMB SCHEMA FOR GOOGLE
+  const breadcrumbList = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE_URL },
+      ...(product.category_info?.parent_name ? [{
+        "@type": "ListItem", "position": 2, "name": product.category_info.parent_name, "item": `${SITE_URL}/category/${product.category_info.parent_slug}`
+      }] : []),
+      { 
+        "@type": "ListItem", 
+        "position": product.category_info?.parent_name ? 3 : 2, 
+        "name": product.category_info?.name || 'Category', 
+        "item": `${SITE_URL}/category/${product.category_info?.slug || 'all'}`
+      },
+      {
+        "@type": "ListItem",
+        "position": product.category_info?.parent_name ? 4 : 3,
+        "name": product.title,
+        "item": fullProductUrl
+      }
+    ]
+  };
+
+  const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.title,
@@ -231,10 +234,7 @@ export default async function ProductDetailPage({ params }: Props) {
     "description": product.description ? product.description.substring(0, 5000) : product.title,
     "sku": product.sku || String(product.id),
     "mpn": String(product.id),
-    "brand": {
-      "@type": "Brand",
-      "name": product.supplier?.name || "SJ10 Shopping"
-    },
+    "brand": { "@type": "Brand", "name": product.supplier?.name || "SJ10 Shopping" },
     "offers": {
       "@type": "Offer",
       "url": fullProductUrl, 
@@ -243,12 +243,8 @@ export default async function ProductDetailPage({ params }: Props) {
       "priceValidUntil": "2026-12-31", 
       "itemCondition": "https://schema.org/NewCondition",
       "availability": product.quantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      "seller": {
-        "@type": "Organization",
-        "name": "SJ10 Shopping"
-      }
+      "seller": { "@type": "Organization", "name": "SJ10 Shopping" }
     },
-    // 🔥 GOOGLE SEO STARS & REVIEWS: This ensures stars appear in Google Search Results
     ...(product.avg_rating && parseFloat(String(product.avg_rating)) > 0 ? {
       "aggregateRating": {
         "@type": "AggregateRating",
@@ -262,10 +258,9 @@ export default async function ProductDetailPage({ params }: Props) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbList) }} />
+      
       <ProductDetailClient 
         product={product} 
         relatedProducts={relatedProducts} 
