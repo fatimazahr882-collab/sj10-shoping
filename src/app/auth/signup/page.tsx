@@ -20,23 +20,34 @@ export default function SignupPage() {
 
   // --- Form States ---
   const [formData, setFormData] = useState({ fullName: '', brandName: '', email: '', password: '', confirmPassword: '' });
-  const [phone, setPhone] = useState('');
-  const[passwordVisibility, setPasswordVisibility] = useState({ pass: false, confirm: false });
+  const[phone, setPhone] = useState('');
+  const [passwordVisibility, setPasswordVisibility] = useState({ pass: false, confirm: false });
   const[profilePicPreview, setProfilePicPreview] = useState(DEFAULT_PROFILE_PIC_URL);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- OTP States ---
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const[otp, setOtp] = useState(['', '', '', '', '', '']);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // --- General States ---
-  const [error, setError] = useState('');
+  // --- General & Error States ---
+  const [globalError, setGlobalError] = useState(''); // For errors not tied to a specific field
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // ✅ NEW: Field specific errors
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const getAuthUrl = () => (process.env.NEXT_PUBLIC_ORDER_API_URL || 'http://localhost:4004').replace(/\/$/, '').replace(/\/api$/, '');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  // Update form data and clear field-specific error when user types
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData,[e.target.name]: e.target.value });
+    if (fieldErrors[e.target.name]) setFieldErrors(prev => ({ ...prev, [e.target.name]: '' }));
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    if (fieldErrors.phone) setFieldErrors(prev => ({ ...prev, phone: '' }));
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) setProfilePicPreview(URL.createObjectURL(file));
@@ -45,20 +56,39 @@ export default function SignupPage() {
   // 1. Submit Registration -> Send OTP
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) return setError("Passwords do not match.");
-    setLoading(true); setError('');
+    setGlobalError('');
+    setFieldErrors({});
+
+    // Client-side check for password
+    if (formData.password !== formData.confirmPassword) {
+      return setFieldErrors({ confirmPassword: "Passwords do not match." });
+    }
+
+    setLoading(true); 
     try {
       const res = await fetch(`${getAuthUrl()}/auth/user/register`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, phone: `+${phone}` })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
       
-      // Move to OTP screen
+      if (!res.ok) {
+        // ✅ NEW: Map backend error to specific field or global error
+        if (data.field) {
+          setFieldErrors({ [data.field]: data.message });
+        } else {
+          setGlobalError(data.message);
+        }
+        return; // Stop execution if there is an error
+      }
+      
+      // Move to OTP screen on success
       setStep('otp');
-    } catch (err: any) { setError(err.message); } 
-    finally { setLoading(false); }
+    } catch (err: any) { 
+      setGlobalError(err.message || "Server connection failed."); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   // 2. Handle OTP Input Logic
@@ -81,9 +111,9 @@ export default function SignupPage() {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const otpString = otp.join('');
-    if (otpString.length < 6) return setError("Please enter the complete 6-digit code.");
+    if (otpString.length < 6) return setGlobalError("Please enter the complete 6-digit code.");
     
-    setLoading(true); setError('');
+    setLoading(true); setGlobalError('');
     try {
       const res = await fetch(`${getAuthUrl()}/auth/user/verify-email`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -95,13 +125,13 @@ export default function SignupPage() {
       setIsSuccess(true);
       setTimeout(() => login(data.token), 2000); // Login after success popup
 
-    } catch (err: any) { setError(err.message); } 
+    } catch (err: any) { setGlobalError(err.message); } 
     finally { setLoading(false); }
   };
 
   const handleGoogleClick = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      setLoading(true); setError('');
+      setLoading(true); setGlobalError('');
       try {
         const res = await fetch(`${getAuthUrl()}/auth/user/google`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -110,10 +140,10 @@ export default function SignupPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
         await login(data.token);
-      } catch (err: any) { setError("Google Signup Failed."); } 
+      } catch (err: any) { setGlobalError("Google Signup Failed."); } 
       finally { setLoading(false); }
     },
-    onError: () => setError("Google Signup error"),
+    onError: () => setGlobalError("Google Signup error"),
   });
 
   const styles: { [key: string]: React.CSSProperties } = {
@@ -126,12 +156,13 @@ export default function SignupPage() {
     profilePicContainer: { position: 'relative', width: '90px', height: '90px', margin: '0 auto 20px auto', cursor: 'pointer' },
     profilePic: { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
     profilePicOverlay: { position: 'absolute', bottom: '0px', right: '0px', backgroundColor: '#2563eb', color: 'white', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '3px solid white' },
-    inputWrapper: { position: 'relative', marginBottom: '15px' },
-    inputIcon: { position: 'absolute', top: '50%', left: '15px', transform: 'translateY(-50%)', color: '#9ca3af' },
-    input: { width: '100%', padding: '14px 45px', borderRadius: '12px', border: '1px solid #d1d5db', fontSize: '1rem', outline: 'none', backgroundColor: '#f9fafb', boxSizing: 'border-box' },
-    passwordIcon: { position: 'absolute', top: '50%', right: '15px', transform: 'translateY(-50%)', color: '#9ca3af', cursor: 'pointer' },
+    inputWrapper: { position: 'relative', marginBottom: '15px', textAlign: 'left' }, // Added textAlign left for inline errors
+    inputIcon: { position: 'absolute', top: '16px', left: '15px', color: '#9ca3af' }, // Adjusted top for alignment
+    input: { width: '100%', padding: '14px 45px', borderRadius: '12px', border: '2px solid #d1d5db', fontSize: '1rem', outline: 'none', backgroundColor: '#f9fafb', boxSizing: 'border-box', transition: 'border-color 0.2s' },
+    passwordIcon: { position: 'absolute', top: '16px', right: '15px', color: '#9ca3af', cursor: 'pointer' }, // Adjusted top
     button: { width: '100%', padding: '15px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', marginTop: '10px', transition: 'transform 0.1s ease' },
-    error: { color: '#dc2626', backgroundColor: '#fee2e2', padding: '12px', borderRadius: '10px', marginBottom: '20px', fontSize: '14px', fontWeight: '500' },
+    globalError: { color: '#dc2626', backgroundColor: '#fee2e2', padding: '12px', borderRadius: '10px', marginBottom: '20px', fontSize: '14px', fontWeight: '500' },
+    inlineError: { color: '#dc2626', fontSize: '12px', fontWeight: '600', margin: '4px 0 0 4px' }, // ✅ NEW: Inline error style
     footerText: { marginTop: '20px', fontSize: '14px', color: '#6b7280' },
     link: { color: '#2563eb', fontWeight: '700', cursor: 'pointer', textDecoration: 'none' },
     divider: { display: 'flex', alignItems: 'center', margin: '20px 0', color: '#9ca3af' },
@@ -149,6 +180,7 @@ export default function SignupPage() {
         .button-active:active { transform: scale(0.98); } 
         .social-btn-hover:hover { border-color: #9ca3af; background-color: #f9fafb; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .otp-focus:focus { border-color: #f97316 !important; background-color: #fff !important; box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); }
+        .input-error { border-color: #dc2626 !important; background-color: #fef2f2 !important; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
       
@@ -156,7 +188,8 @@ export default function SignupPage() {
         {isSuccess && <SuccessPopup message="Email Verified! Welcome to SJ10 🎉" onClose={() => {}} />}
         
         <div style={styles.card}>
-          {error && <p style={styles.error}><i className="fas fa-exclamation-circle"></i> {error}</p>}
+          {/* Global Error (Only shows if there's an error not tied to a specific field) */}
+          {globalError && <p style={styles.globalError}><i className="fas fa-exclamation-circle"></i> {globalError}</p>}
 
           {/* ========================================================= */}
           {/* STEP 1: REGISTRATION FORM */}
@@ -178,13 +211,49 @@ export default function SignupPage() {
               </div>
               
               <form onSubmit={handleRegisterSubmit}>
-                <div style={styles.inputWrapper}><FaUser style={styles.inputIcon} /><input name="fullName" placeholder="Full Name" style={styles.input} onChange={handleChange} required /></div>
-                <div style={styles.inputWrapper}><FaStore style={styles.inputIcon} /><input name="brandName" placeholder="Brand Name (Optional)" style={styles.input} onChange={handleChange} /></div>
-                <div style={styles.inputWrapper}><FaEnvelope style={styles.inputIcon} /><input name="email" type="email" placeholder="Email Address" style={styles.input} onChange={handleChange} required /></div>
-                <PhoneInput country={'pk'} value={phone} onChange={setPhone} containerStyle={{ marginBottom: '15px' }} inputStyle={{...styles.input, paddingLeft: '50px', width: '100%'}} />
                 
-                <div style={styles.inputWrapper}><FaLock style={styles.inputIcon} /><input name="password" type={passwordVisibility.pass ? 'text' : 'password'} placeholder="Password" style={styles.input} onChange={handleChange} required /><div style={styles.passwordIcon} onClick={() => setPasswordVisibility(p => ({...p, pass: !p.pass}))}>{passwordVisibility.pass ? <FaEyeSlash /> : <FaEye />}</div></div>
-                <div style={styles.inputWrapper}><FaLock style={styles.inputIcon} /><input name="confirmPassword" type={passwordVisibility.confirm ? 'text' : 'password'} placeholder="Confirm Password" style={styles.input} onChange={handleChange} required /><div style={styles.passwordIcon} onClick={() => setPasswordVisibility(p => ({...p, confirm: !p.confirm}))}>{passwordVisibility.confirm ? <FaEyeSlash /> : <FaEye />}</div></div>
+                {/* Full Name */}
+                <div style={styles.inputWrapper}>
+                  <FaUser style={styles.inputIcon} />
+                  <input name="fullName" placeholder="Full Name" style={styles.input} className={fieldErrors.fullName ? 'input-error' : ''} onChange={handleChange} required />
+                  {fieldErrors.fullName && <p style={styles.inlineError}>{fieldErrors.fullName}</p>}
+                </div>
+                
+                {/* Brand Name */}
+                <div style={styles.inputWrapper}>
+                  <FaStore style={styles.inputIcon} />
+                  <input name="brandName" placeholder="Brand Name (Optional)" style={styles.input} className={fieldErrors.brandName ? 'input-error' : ''} onChange={handleChange} />
+                  {fieldErrors.brandName && <p style={styles.inlineError}>{fieldErrors.brandName}</p>}
+                </div>
+                
+                {/* Email */}
+                <div style={styles.inputWrapper}>
+                  <FaEnvelope style={styles.inputIcon} />
+                  <input name="email" type="email" placeholder="Email Address" style={styles.input} className={fieldErrors.email ? 'input-error' : ''} onChange={handleChange} required />
+                  {fieldErrors.email && <p style={styles.inlineError}>{fieldErrors.email}</p>}
+                </div>
+                
+                {/* Phone */}
+                <div style={styles.inputWrapper}>
+                  <PhoneInput country={'pk'} value={phone} onChange={handlePhoneChange} containerStyle={{ marginBottom: fieldErrors.phone ? '4px' : '0' }} inputStyle={{...styles.input, paddingLeft: '50px', width: '100%', borderColor: fieldErrors.phone ? '#dc2626' : '#d1d5db', backgroundColor: fieldErrors.phone ? '#fef2f2' : '#f9fafb'}} />
+                  {fieldErrors.phone && <p style={styles.inlineError}>{fieldErrors.phone}</p>}
+                </div>
+                
+                {/* Password */}
+                <div style={styles.inputWrapper}>
+                  <FaLock style={styles.inputIcon} />
+                  <input name="password" type={passwordVisibility.pass ? 'text' : 'password'} placeholder="Password" style={styles.input} className={fieldErrors.password ? 'input-error' : ''} onChange={handleChange} required />
+                  <div style={styles.passwordIcon} onClick={() => setPasswordVisibility(p => ({...p, pass: !p.pass}))}>{passwordVisibility.pass ? <FaEyeSlash /> : <FaEye />}</div>
+                  {fieldErrors.password && <p style={styles.inlineError}>{fieldErrors.password}</p>}
+                </div>
+                
+                {/* Confirm Password */}
+                <div style={styles.inputWrapper}>
+                  <FaLock style={styles.inputIcon} />
+                  <input name="confirmPassword" type={passwordVisibility.confirm ? 'text' : 'password'} placeholder="Confirm Password" style={styles.input} className={fieldErrors.confirmPassword ? 'input-error' : ''} onChange={handleChange} required />
+                  <div style={styles.passwordIcon} onClick={() => setPasswordVisibility(p => ({...p, confirm: !p.confirm}))}>{passwordVisibility.confirm ? <FaEyeSlash /> : <FaEye />}</div>
+                  {fieldErrors.confirmPassword && <p style={styles.inlineError}>{fieldErrors.confirmPassword}</p>}
+                </div>
                 
                 <button type="submit" style={styles.button} className="button-active" disabled={loading}>
                   {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'CREATE ACCOUNT'}
