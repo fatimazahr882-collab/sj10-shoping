@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -10,7 +10,6 @@ type Subcategory = {
   slug: string;
 };
 
-// Shimmer (Low Quality Placeholder)
 const shimmer = (w: number, h: number) => `
 <svg width="${w}" height="${h}" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
   <defs>
@@ -28,7 +27,7 @@ const shimmer = (w: number, h: number) => `
 const toBase64 = (str: string) =>
   typeof window === 'undefined'
     ? Buffer.from(str).toString('base64')
-    : window.btoa(str);
+    : Buffer.from(str).toString('base64');
 
 const getOptimizedUrl = (url: string | null) => {
   if (!url) return '/placeholder.jpg';
@@ -51,7 +50,6 @@ function SubcategoryItem({ cat, priority }: { cat: Subcategory, priority: boolea
           style={{ objectFit: 'contain' }}
           sizes="(max-width: 768px) 33vw, 150px"
           priority={priority}
-          // 🔥 CRITICAL FIX: Bypass Next.js server processing
           unoptimized={true} 
           placeholder="blur"
           blurDataURL={`data:image/svg+xml;base64,${toBase64(shimmer(150, 150))}`}
@@ -68,27 +66,15 @@ interface HomeSubcategoriesProps {
   priority?: boolean;
 }
 
-export default function HomeSubcategories({ 
-  subcategories, 
-  title = "Explore More", 
-  priority = false 
-}: HomeSubcategoriesProps) {
-  
-  if (!subcategories || subcategories.length === 0) {
-    return null;
-  }
+export default function HomeSubcategories({ subcategories, title = "Explore More", priority = false }: HomeSubcategoriesProps) {
+  if (!subcategories || subcategories.length === 0) return null;
 
   return (
     <div className="home-subcat-container" style={{ background: 'var(--background-color)' }}>
       <h2 className="section-title">{title}</h2>
-      
       <div className="explore-grid" id="home-subcategories">
         {subcategories.map((cat, index) => (
-          <SubcategoryItem 
-            key={cat.id} 
-            cat={cat} 
-            priority={priority && index < 6} 
-          />
+          <SubcategoryItem key={cat.id} cat={cat} priority={priority && index < 6} />
         ))}
       </div>
     </div>

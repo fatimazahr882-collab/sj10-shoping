@@ -1,9 +1,10 @@
+// src/components/ExploreHomepage.tsx
 "use client";
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import useSWRInfinite from 'swr/infinite';
 import Image from 'next/image';
-import ProductCard, { Product } from '@/components/ProductCard'; // ✅ Using your optimized Card
+import ProductCard, { Product } from '@/components/ProductCard'; 
 import SjLoader from '@/components/SjLoader';
 
 // --- ICONS ---
@@ -12,14 +13,11 @@ const CloseIcon = () => (<svg width="24" height="24" viewBox="0 0 24 24" fill="n
 const ChevronDown = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>);
 const CheckIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>);
 
-// --- FETCHER FUNCTION FOR SWR ---
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-export default function ExploreHomepage() {
-    // --- STATE ---
+export default function ExploreHomepage({ initialProducts }: { initialProducts?: Product[] }) {
     const [categories, setCategories] = useState<any[]>([]);
     
-    // Active Filters (Changing these automatically triggers SWR to refetch)
     const [filters, setFilters] = useState({ 
         sort: 'default', 
         hasVideo: false, 
@@ -28,26 +26,23 @@ export default function ExploreHomepage() {
         city: 'All' 
     });
 
-    // Temporary Filters (For the Modal)
     const [tempFilters, setTempFilters] = useState({ ...filters });
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
 
-    // --- 1. LOAD CATEGORIES (Once) ---
     useEffect(() => {
         fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/categories-with-subcategories`)
             .then(res => res.json()).then(d => { if(d.mainCats) setCategories(d.mainCats); })
             .catch(e => console.error(e));
     }, []);
 
-    // --- 2. SWR INFINITE CONFIGURATION ---
     const getKey = (pageIndex: number, previousPageData: any) => {
         // If we reached the end, return null
         if (previousPageData && !previousPageData.products?.length) return null;
 
         const params = new URLSearchParams({
             page: String(pageIndex + 1),
-            limit: '40', // Fetch 40 items per page
+            limit: '40', 
             sort: filters.sort,
             hasVideo: String(filters.hasVideo),
             showVerified: String(filters.showVerified),
@@ -60,34 +55,38 @@ export default function ExploreHomepage() {
     };
 
     const { data, size, setSize, isLoading, isValidating } = useSWRInfinite(getKey, fetcher, {
-        revalidateFirstPage: false, // Don't refetch page 1 on scroll
-        persistSize: true, // Keep page count when navigating back
-        revalidateOnFocus: false, // Save bandwidth
-        dedupingInterval: 60000, // Cache for 1 minute
+        // Feed the first page data directly from the server to SWR!
+        fallbackData: initialProducts?.length ? [{ products: initialProducts, totalCount: 1000 }] : undefined,
+        revalidateFirstPage: false, 
+        persistSize: true, 
+        revalidateOnFocus: false, 
+        dedupingInterval: 60000, 
     });
 
-    // Flatten pages into one array of products
     const products: Product[] = useMemo(() => {
         return data ? data.flatMap(page => page.products || []) : [];
     }, [data]);
 
-    const totalCount = data?.[0]?.totalCount || 0;
+    const totalCount = data?.[0]?.totalCount || products.length;
+    // Stop loading when a page returns fewer than 40 items
     const isReachingEnd = data && data[data.length - 1]?.products?.length < 40;
 
-    // --- INFINITE SCROLL OBSERVER ---
+    // INFINITE SCROLL TRIGGER
     const observer = useRef<IntersectionObserver | null>(null);
     const lastElementRef = useCallback((node: HTMLDivElement) => {
         if (isLoading || isValidating) return;
         if (observer.current) observer.current.disconnect();
+        
         observer.current = new IntersectionObserver(entries => {
             if (entries[0].isIntersecting && !isReachingEnd) {
+                // When user scrolls to the bottom div, increase page size to fetch more
                 setSize(size + 1);
             }
-        });
+        }, { rootMargin: '200px' }); // Load 200px before reaching the end
+        
         if (node) observer.current.observe(node);
     }, [isLoading, isValidating, isReachingEnd, setSize, size]);
 
-    // --- HANDLERS ---
     const toggleTempCat = (id: string) => {
         setTempFilters(prev => ({
             ...prev,
@@ -100,7 +99,6 @@ export default function ExploreHomepage() {
     const applyFilters = () => {
         setFilters(tempFilters);
         setIsFilterOpen(false);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const clearFilters = () => {
@@ -112,24 +110,20 @@ export default function ExploreHomepage() {
 
     const toggleChip = (key: string, value: any) => {
         setFilters(prev => ({ ...prev, [key]: value }));
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const activeFilterCount = filters.category_ids.length + (filters.city !== 'All' ? 1 : 0);
 
     return (
         <div className="explore-container">
-            {/* --- STYLES --- */}
             <style jsx>{`
                 .explore-container { background: #f9fafb; min-height: 100vh; padding-bottom: 80px; }
                 .wrapper { max-width: 1440px; margin: 0 auto; padding: 0 16px; width: 100%; }
 
-                /* HEADER */
                 .page-header { background: #fff; padding: 24px 0 20px; border-bottom: 1px solid #f0f0f0; }
                 .header-title { font-size: 28px; font-weight: 800; color: #111; margin: 0; letter-spacing: -0.8px; }
                 .count-badge { font-size: 13px; color: #6b7280; font-weight: 500; margin-top: 4px; }
 
-                /* STICKY FILTERS (Glassmorphism) */
                 .sticky-filters { 
                     position: sticky; top: 70px; z-index: 40; 
                     background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -137,16 +131,10 @@ export default function ExploreHomepage() {
                     box-shadow: 0 4px 20px rgba(0,0,0,0.02); 
                     transition: all 0.3s ease;
                 }
-                filter-scroll { 
-    display: flex; 
-    gap: 10px; 
-    overflow-x: auto; 
-    padding-bottom: 5px; /* Give room for shadow */
-    align-items: center; 
-    scrollbar-width: none; 
-    width: 100%; /* Fix width */
-    flex-wrap: nowrap; /* Prevent wrapping, allow horizontal scroll */
-}
+                .filter-scroll { 
+                    display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; 
+                    align-items: center; scrollbar-width: none; width: 100%; flex-wrap: nowrap; 
+                }
                 .filter-scroll::-webkit-scrollbar { display: none; }
                 
                 .chip { 
@@ -163,7 +151,6 @@ export default function ExploreHomepage() {
                 .filter-btn-wrapper { position: relative; margin-right: 8px; }
                 .filter-dot { position: absolute; top: 0; right: 0; width: 10px; height: 10px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; }
 
-                /* DROPDOWN */
                 .sort-dropdown { position: relative; }
                 .sort-menu { 
                     position: absolute; top: 120%; left: 0; background: white; 
@@ -176,7 +163,6 @@ export default function ExploreHomepage() {
                 .sort-item:hover { background: #f9fafb; color: #111; }
                 .sort-item.selected { background: #f3f4f6; font-weight: 700; color: #111; }
 
-                /* GRID */
                 .product-grid { 
                     display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 24px; 
                 }
@@ -186,7 +172,6 @@ export default function ExploreHomepage() {
 
                 .card-wrapper { height: 100%; min-height: 280px; }
 
-                /* BOTTOM SHEET */
                 .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(4px); }
                 .sheet-overlay.open { opacity: 1; pointer-events: auto; }
                 .sheet { 
@@ -219,15 +204,21 @@ export default function ExploreHomepage() {
                 .btn-clear { background: #fff; border: 1px solid #e5e7eb; color: #374151; }
                 .btn-apply { background: #111; color: white; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
                 
-                .loader-wrapper { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; margin-top: 12px; }
-                @media (min-width: 768px) { .loader-wrapper { grid-template-columns: repeat(4, 1fr); } }
+                /* BEAUTIFUL BOTTOM LOADER */
+                .lazy-loader-container {
+                    display: flex; justify-content: center; align-items: center;
+                    padding: 40px 0; width: 100%;
+                }
+                .lazy-loader-box {
+                    width: 100px; height: 100px; position: relative;
+                }
             `}</style>
 
             <div className="page-header">
                 <div className="wrapper">
-                    <h1 className="header-title">Explore</h1>
+                    <h1 className="header-title">Explore Daily</h1>
                     <div className="count-badge">
-                        {data ? `${(data[0]?.totalCount || products.length).toLocaleString()} products` : 'Discover new items'}
+                        {data ? `${totalCount.toLocaleString()} products available` : 'Discover new items'}
                     </div>
                 </div>
             </div>
@@ -280,32 +271,22 @@ export default function ExploreHomepage() {
                 <div className="product-grid">
                     {products.map((p, i) => (
                         <div key={`${p.id}-${i}`} className="card-wrapper">
-                            {/* ✅ USING YOUR OPTIMIZED PRODUCT CARD */}
                             <ProductCard product={p} />
                         </div>
                     ))}
                 </div>
 
-                {/* LOADING STATES */}
-                {(isLoading || isValidating) && (
-                    <div className="loader-wrapper">
-                        {Array.from({length: 4}).map((_, i) => (
-                            <div key={i} style={{ height: '350px', background: 'white', borderRadius: '12px', overflow:'hidden' }}>
-                                <SjLoader />
-                            </div>
-                        ))}
-                    </div>
-                )}
-                
-                {/* INFINITE SCROLL TRIGGER */}
-                {!isReachingEnd && !isLoading && <div ref={lastElementRef} style={{ height: '20px' }} />}
-                
-                {/* END OF RESULTS */}
-                {isReachingEnd && products.length > 0 && (
-                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: '14px' }}>
-                        You've reached the end
-                    </div>
-                )}
+                {/* BEAUTIFUL LAZY LOADING TRIGGER */}
+                <div ref={lastElementRef} className="lazy-loader-container">
+                    {(isLoading || isValidating) && !isReachingEnd && (
+                        <div className="lazy-loader-box">
+                            <SjLoader />
+                        </div>
+                    )}
+                    {isReachingEnd && products.length > 0 && (
+                        <span style={{ color: '#9ca3af', fontSize: '14px', fontWeight: 600 }}>You've reached the end!</span>
+                    )}
+                </div>
             </div>
 
             {/* FILTER BOTTOM SHEET */}

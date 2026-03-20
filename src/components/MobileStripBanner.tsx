@@ -1,4 +1,6 @@
+// src/components/MobileStripBanner.tsx
 "use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -16,21 +18,9 @@ export default function MobileStripBanner() {
           unoptimized={true}
         />
       </Link>
-
       <style jsx>{`
-        /* Show on mobile by default */
-        .mobile-strip-only {
-          display: block;
-          width: 100%;
-          margin: 10px 0;
-        }
-
-        /* Hide on desktop */
-        @media (min-width: 768px) {
-          .mobile-strip-only {
-            display: none !important;
-          }
-        }
+        .mobile-strip-only { display: block; width: 100%; margin: 10px 0; }
+        @media (min-width: 768px) { .mobile-strip-only { display: none !important; } }
       `}</style>
     </div>
   );

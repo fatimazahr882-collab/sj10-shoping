@@ -1,34 +1,24 @@
-// src/components/DynamicDiscountSections.tsx
 "use client";
 
 import React from 'react';
 import Link from 'next/link';
 import ProductCard, { type Product } from '@/components/ProductCard';
 
-// Define the shape of the data this component expects
 interface DiscountSection {
     section_id: number;
     title: string;
     products: Product[];
 }
 
-// This component is now also "dumb" and only displays the data it's given.
 export default function DynamicDiscountSections({ sections }: { sections: DiscountSection[] }) {
-    
-    // If no sections are passed from the server, render nothing.
-    if (!sections || sections.length === 0) {
-        return null;
-    }
+    if (!sections || sections.length === 0) return null;
 
     const sliderStyle: React.CSSProperties = {
         display: 'flex', overflowX: 'auto', gap: '16px', padding: '12px 4px 20px 16px',
-        scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
-        scrollbarWidth: 'none',
+        scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none',
     };
 
-    const itemStyle: React.CSSProperties = {
-        flex: '0 0 180px', scrollSnapAlign: 'start',
-    };
+    const itemStyle: React.CSSProperties = { flex: '0 0 180px', scrollSnapAlign: 'start' };
 
     return (
         <div className="dynamic-sections-container">
@@ -50,8 +40,6 @@ export default function DynamicDiscountSections({ sections }: { sections: Discou
                                 <ProductCard product={p} />
                             </div>
                         ))}
-                        
-                        {/* "See More" card at the end of the slider */}
                         <div style={itemStyle} className="see-more-container">
                             <Link href={`/discount/${section.section_id}`} className="see-more-card">
                                 <div className="icon-circle">

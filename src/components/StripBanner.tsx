@@ -1,4 +1,6 @@
+// src/components/StripBanner.tsx
 "use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -16,20 +18,10 @@ export default function StripBanner() {
           unoptimized={true}
         />
       </Link>
-
       <style jsx>{`
-        /* This hides the desktop banner on everything less than 768px BEFORE React loads */
-        .desktop-strip-only {
-          display: none; 
-        }
-
-        /* Only show on tablets/desktop */
+        .desktop-strip-only { display: none; }
         @media (min-width: 768px) {
-          .desktop-strip-only {
-            display: block !important;
-            width: 100%;
-            margin: 15px 0;
-          }
+          .desktop-strip-only { display: block !important; width: 100%; margin: 15px 0; }
         }
       `}</style>
     </div>
