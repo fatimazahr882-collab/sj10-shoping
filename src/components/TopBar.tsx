@@ -320,10 +320,13 @@ export default function TopBar() {
                       type="text" 
                       value={searchQuery}
                       autoComplete="off"
+                       aria-label="Search products" /* ✅ ADD THIS */
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
                     />
-                    <button type="submit" className="pro-search-btn" title="Search"><i className="fas fa-search"></i></button>
+                    <button type="submit" className="pro-search-btn" title="Search" aria-label="Submit search">
+                      <i className="fas fa-search"></i>
+                    </button>
                   </form>
 
                   {/* Suggestions Panel */}

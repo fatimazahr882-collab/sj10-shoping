@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /profile/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /auth/
+Disallow: /orders/
+Disallow: /api/
+Disallow: /search/
+
+Sitemap: https://www.sj10.pk/sitemap.xml

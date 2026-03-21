@@ -4419,3 +4419,32 @@ body { padding-top: 80px; } /* Reverted */
 .discount-badge {
     animation: subtle-pulse-scale 2.5s infinite ease-in-out !important;
 }
+
+/* ========================================================= */
+/* ==   CLS FIXES (PREVENTS PAGE JUMPING ON LOAD)         == */
+/* ========================================================= */
+
+/* Reserve space for the main mobile banner */
+.full-width-banner .banner-container {
+  aspect-ratio: 21 / 9; /* Adjust this if your banner is taller/wider */
+  width: 100%;
+  background-color: #f1f5f9;
+}
+
+/* Reserve space for the Strip Banners */
+.desktop-strip-only video {
+  aspect-ratio: 1200 / 170;
+  width: 100%;
+  background-color: #f1f5f9;
+}
+
+.mobile-strip-only video {
+  aspect-ratio: 1000 / 280;
+  width: 100%;
+  background-color: #f1f5f9;
+}
+
+/* Reserve space for Video Logo in Header */
+.global-sticky-header .logo {
+  aspect-ratio: 1 / 1;
+}
