@@ -6,21 +6,31 @@ import Link from 'next/link';
 export default function MobileStripBanner() {
   return (
     <div className="mobile-strip-only">
-      <Link href="/explore" className="block w-full">
+      <Link href="/explore" className="block w-full" aria-label="View our latest promotions">
         <video
           src="/banners/mobile-animated-strip.mp4" 
-          width={1000}
-          height={280}
           autoPlay
           muted
           loop
           playsInline
-          className="w-full h-auto block"
+          aria-hidden="true" /* Fixes the 'missing captions' accessibility error */
+          className="mobile-strip-video"
         />
       </Link>
       <style jsx>{`
         .mobile-strip-only { display: block; width: 100%; margin: 10px 0; }
-        @media (min-width: 768px) { .mobile-strip-only { display: none !important; } }
+        .mobile-strip-video {
+          width: 100%;
+          height: auto;
+          display: block;
+          /* ✅ FIX CLS: Reserves exact space before video loads to stop page jumping */
+          aspect-ratio: 1000 / 280;
+          background-color: #f1f5f9;
+          border-radius: 8px;
+        }
+        @media (min-width: 768px) { 
+          .mobile-strip-only { display: none !important; } 
+        }
       `}</style>
     </div>
   );

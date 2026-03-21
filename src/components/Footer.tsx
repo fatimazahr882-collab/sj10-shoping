@@ -84,11 +84,20 @@ export default function Footer() {
                     <div className="local-seo">
                         <strong>Serving:</strong> Karachi, Lahore, Islamabad, Quetta, Peshawar & all over Pakistan.
                     </div>
-                    <div className="social-row">
-                        <a href="https://www.facebook.com/" target="_blank" rel="noreferrer" className="social-icon"><i className="fab fa-facebook-f"></i></a>
-                        <a href="https://www.instagram.com/sj10official" target="_blank" rel="noreferrer" className="social-icon"><i className="fab fa-instagram"></i></a>
-                        <a href="https://www.tiktok.com/@sj10official" target="_blank" rel="noreferrer" className="social-icon"><i className="fab fa-tiktok"></i></a>
-                        <a href="https://youtube.com/@sj10official" target="_blank" rel="noreferrer" className="social-icon"><i className="fab fa-youtube"></i></a>
+                   <div className="social-row">
+                        {/* ✅ FIX: Added aria-label to all icon links */}
+                        <a href="https://www.facebook.com/share/1Bq48JrhYK/" target="_blank" rel="noreferrer" className="social-icon" aria-label="Visit our Facebook page">
+                          <i className="fab fa-facebook-f" aria-hidden="true"></i>
+                        </a>
+                        <a href="https://www.instagram.com/sj10official" target="_blank" rel="noreferrer" className="social-icon" aria-label="Visit our Instagram page">
+                          <i className="fab fa-instagram" aria-hidden="true"></i>
+                        </a>
+                        <a href="https://www.tiktok.com/@sj10official" target="_blank" rel="noreferrer" className="social-icon" aria-label="Visit our TikTok page">
+                          <i className="fab fa-tiktok" aria-hidden="true"></i>
+                        </a>
+                        <a href="https://youtube.com/@sj10official" target="_blank" rel="noreferrer" className="social-icon" aria-label="Visit our YouTube channel">
+                          <i className="fab fa-youtube" aria-hidden="true"></i>
+                        </a>
                     </div>
                 </div>
                 <div className="footer-col">

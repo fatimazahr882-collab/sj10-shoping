@@ -4448,3 +4448,38 @@ body { padding-top: 80px; } /* Reverted */
 .global-sticky-header .logo {
   aspect-ratio: 1 / 1;
 }
+
+/* ADD THIS TO YOUR globals.css */
+
+/* ✅ STOP VERTICAL BANNER FLICKER */
+.vertical-banner-container {
+    height: 380px; /* Reserves exact height immediately */
+    width: 100%;
+    background-color: #f1f5f9; /* Placeholder color while loading */
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ✅ SMOOTH FADE-IN FOR IMAGES */
+.banner-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ✅ STRIP BANNER ASPECT RATIO (Fixed the "Page Jumping") */
+.desktop-strip-only video {
+    aspect-ratio: 1200 / 170;
+    width: 100%;
+    display: block;
+}
+
+.mobile-strip-only video {
+    aspect-ratio: 1000 / 280;
+    width: 100%;
+    display: block;
+}

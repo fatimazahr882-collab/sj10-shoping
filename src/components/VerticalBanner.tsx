@@ -1,26 +1,22 @@
 // src/components/VerticalBanner.tsx
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Image from 'next/image';
-import SjLoader from './SjLoader';
 
-// Passed priority as a prop so we only apply it to the FIRST image
 function VerticalSlide({ src, alt, isPriority = false }: { src: string; alt: string; isPriority?: boolean }) {
-    const [isLoading, setIsLoading] = useState(true);
-    
     return (
-        <div className="v-slide" style={{ position: 'relative', width: '100%', height: '100%' }}>
-            {isLoading && <SjLoader />}
+        <div className="v-slide" style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#f1f5f9' }}>
             <Image 
                 src={src} 
                 alt={alt} 
                 fill 
-                sizes="(max-width: 768px) 0vw, 33vw" // Tells browser it takes up 1/3 of desktop screen
+                /* ✅ NEXT.JS OPTIMIZATION: Instant loading */
+                priority={isPriority} 
+                quality={60} /* ✅ Aggressive compression for speed */
+                sizes="(max-width: 768px) 0vw, 25vw" /* Only loads what is needed for the side column */
                 style={{ objectFit: 'cover' }} 
-                priority={isPriority} // ONLY true for the first image
-                className={isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-500'}
-                onLoad={() => setIsLoading(false)}
+                className="banner-fade-in"
             />
         </div>
     );
@@ -45,10 +41,10 @@ export default function VerticalBanner() {
     return (
         <div className="vertical-banner-container">
           <div className="vertical-slider">
-            {/* We only give priority to the first slide because it's the one the user sees immediately */}
-            <VerticalSlide src="/vertical1.webp" alt="Vertical Banner 1" isPriority={true} />
-            <VerticalSlide src="/vertical2.webp" alt="Vertical Banner 2" />
-            <VerticalSlide src="/vertical3.webp" alt="Vertical Banner 3" />
+            {/* ✅ Using .webp images with priority on the first one */}
+            <VerticalSlide src="/vertical1.webp" alt="Promo 1" isPriority={true} />
+            <VerticalSlide src="/vertical2.webp" alt="Promo 2" />
+            <VerticalSlide src="/vertical3.webp" alt="Promo 3" />
           </div>
         </div>
     );
