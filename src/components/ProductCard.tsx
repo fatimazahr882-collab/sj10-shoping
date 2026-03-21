@@ -1,25 +1,15 @@
 // src/components/ProductCard.tsx
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import SjLoader from './SjLoader';
 
 // --- ICONS (SVG) ---
 const StarFull = () => (<svg width="12" height="12" viewBox="0 0 24 24" fill="#fbbf24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>);
 const PlayIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="2.5"><path d="M5 3l14 9-14 9V3z"/></svg>);
 const VerifiedIcon = () => (<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>);
 const UnverifiedIcon = () => (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>);
-
-// Cloudflare Edge Optimization
-const getOptimizedUrl = (url: string) => {
-    if (!url) return '/placeholder.jpg';
-    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
-        return url.replace('/upload/', '/upload/w_250,f_webp,q_50/');
-    }
-    return url;
-};
 
 export type Product = {
     id: number | string;
@@ -53,17 +43,15 @@ const StarRating = ({ rating, count }: { rating: number, count: number }) => {
 };
 
 export default function ProductCard({ product }: { product: Product | null }) {
-    const [imgLoading, setImgLoading] = useState(true);
-
     if (!product) {
         return (
             <div className="product-card skeleton">
                 <div className="product-card-img-container bg-gray-100 flex items-center justify-center">
-                    <SjLoader />
+                    <div className="animate-pulse w-full h-full bg-gray-200"></div>
                 </div>
-                <div className="product-card-info">
-                    <div style={{ height: '14px', background: '#f3f3f3', marginBottom: '8px', borderRadius: '4px' }}></div>
-                    <div style={{ height: '14px', width: '60%', background: '#f3f3f3', borderRadius: '4px' }}></div>
+                <div className="product-card-info p-3">
+                    <div style={{ height: '14px', background: '#f3f3f3', marginBottom: '8px', borderRadius: '4px' }} className="animate-pulse"></div>
+                    <div style={{ height: '14px', width: '60%', background: '#f3f3f3', borderRadius: '4px' }} className="animate-pulse"></div>
                 </div>
             </div>
         );
@@ -71,19 +59,19 @@ export default function ProductCard({ product }: { product: Product | null }) {
 
     const productUrl = `/products/${product.slug}${product.sku ? `-${product.sku}` : ''}`;
 
-    const { firstImage, secondImage, hasVideo } = useMemo(() => {
-        let f = '/placeholder.jpg', s = '/placeholder.jpg';
+    const { firstImage, hasVideo } = useMemo(() => {
+        let f = '/placeholder.jpg';
         let videoFound = product.has_video || false;
         try {
             const imgs = typeof product.image_urls === 'string' ? JSON.parse(product.image_urls) : product.image_urls;
-            if (Array.isArray(imgs) && imgs.length > 0) {
-                f = getOptimizedUrl(imgs[0]); 
-                s = getOptimizedUrl(imgs[1] || imgs[0]);
+            if (Array.isArray(imgs) && imgs.length > 0 && imgs[0]) {
+                f = imgs[0]; // Take raw URL. Next.js <Image> will optimize it automatically.
                 if (!videoFound && imgs.some((url: string) => typeof url === 'string' && url.includes('.mp4'))) videoFound = true;
             }
         } catch (e) {}
         if (product.video_url && typeof product.video_url === 'string' && product.video_url.length > 5) videoFound = true;
-        return { firstImage: f, secondImage: s, hasVideo: videoFound };
+        
+        return { firstImage: f, hasVideo: videoFound };
     }, [product]);
 
     const price = typeof product.price === 'string' ? parseFloat(product.price) : product.price;
@@ -112,22 +100,22 @@ export default function ProductCard({ product }: { product: Product | null }) {
             {product.discount_label && <div className="promo-badge">{product.discount_label}</div>}
 
             <div className="product-card-img-container">
-                {imgLoading && (
-                    <div className="loader-overlay" style={{ position: 'absolute', inset: 0, zIndex: 20, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <SjLoader />
-                    </div>
-                )}
-                
+                {/* 
+                  ✅ FIXES APPLIED:
+                  1. ONLY 1 Image loaded (Removed hover back-image).
+                  2. 'quality={60}' forces Next.js to aggressively compress the Cloudflare R2 image for instant loading.
+                  3. 'sizes' ensures mobile devices only download a tiny ~200px image, saving massive bandwidth.
+                */}
                 <Image 
                     src={firstImage} 
                     alt={product.title} 
                     fill 
-                    sizes="(max-width: 768px) 50vw, 25vw" 
-                    unoptimized={true} 
-                    className={`main-img w-full h-full object-cover ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
-                    onLoad={() => setImgLoading(false)} 
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw" 
+                    quality={60} 
+                    className="w-full h-full object-cover"
+                    loading="lazy"
                 />
-                {firstImage !== secondImage && <Image src={secondImage} alt={product.title} fill className="img-back" unoptimized={true} />}
+                
                 {hasVideo && <div className="video-icon-glass"><PlayIcon /></div>}
             </div>
             
@@ -146,7 +134,6 @@ export default function ProductCard({ product }: { product: Product | null }) {
                         <div className="badge verified">
                             <span className="icon"><VerifiedIcon /></span>
                             <span className="text">Verified</span>
-                            <div className="glow"></div>
                         </div>
                     ) : (
                         <div className="badge unverified">
@@ -164,37 +151,21 @@ export default function ProductCard({ product }: { product: Product | null }) {
                     border-radius: 12px; 
                     overflow: hidden; 
                     position: relative; 
-                    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
                     height: 100%; 
                     display: flex; 
                     flex-direction: column; 
+                    /* Simplified hover transition for speed */
+                    transition: transform 0.2s ease, box-shadow 0.2s ease; 
                 }
                 .product-card:hover { 
-                    transform: translateY(-5px); 
-                    box-shadow: 0 12px 25px rgba(0,0,0,0.08); 
-                    border-color: transparent; 
+                    transform: translateY(-3px); 
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.06); 
                 }
                 .product-card-img-container { 
                     position: relative; 
                     width: 100%; 
                     aspect-ratio: 1 / 1; 
                     background-color: #f8fafc; 
-                }
-                .main-img { 
-                    transition: opacity 0.3s ease; 
-                }
-                .img-back { 
-                    opacity: 0; 
-                    position: absolute; 
-                    top: 0; 
-                    left: 0; 
-                    width: 100%; 
-                    height: 100%; 
-                    object-fit: cover; 
-                    transition: opacity 0.3s ease-in-out; 
-                }
-                .product-card:hover .img-back { 
-                    opacity: 1; 
                 }
                 .discount-badge { 
                     position: absolute; 
@@ -228,38 +199,31 @@ export default function ProductCard({ product }: { product: Product | null }) {
                     top: 50%; 
                     left: 50%; 
                     transform: translate(-50%, -50%); 
-                    width: 44px; 
-                    height: 44px; 
-                    background: rgba(255, 255, 255, 0.25); 
-                    backdrop-filter: blur(6px); 
-                    border: 1.5px solid rgba(255, 255, 255, 0.6); 
+                    width: 40px; 
+                    height: 40px; 
+                    background: rgba(0, 0, 0, 0.4); 
+                    backdrop-filter: blur(4px); 
+                    border: 1.5px solid rgba(255, 255, 255, 0.8); 
                     border-radius: 50%; 
                     display: flex; 
                     align-items: center; 
                     justify-content: center; 
-                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); 
                     z-index: 10; 
-                    transition: transform 0.2s ease; 
-                }
-                .product-card:hover .video-icon-glass { 
-                    transform: translate(-50%, -50%) scale(1.1); 
-                    background: rgba(0,0,0,0.4); 
                 }
                 .product-card-info { 
-                    padding: 12px; 
+                    padding: 10px 12px; 
                     display: flex; 
                     flex-direction: column; 
                     flex-grow: 1; 
                 }
                 .product-name { 
                     margin: 0 0 5px; 
-                    font-size: 14px; 
+                    font-size: 13px; 
                     font-weight: 500; 
                     line-height: 1.4; 
-                    height: 40px; 
+                    height: 36px; 
                     overflow: hidden; 
                     color: #111827; 
-                    font-family: 'Poppins', sans-serif; 
                     display: -webkit-box; 
                     -webkit-line-clamp: 2; 
                     -webkit-box-orient: vertical; 
@@ -267,43 +231,39 @@ export default function ProductCard({ product }: { product: Product | null }) {
                 .price-container { 
                     display: flex; 
                     align-items: baseline; 
-                    gap: 8px; 
+                    gap: 6px; 
                     flex-wrap: wrap; 
                     margin-top: auto; 
                 }
                 .price { 
                     font-weight: 700; 
-                    font-size: 18px; 
-                    color: #ff7f00; 
+                    font-size: 16px; 
+                    color: #f85606; 
                 }
                 .original-price { 
-                    font-size: 13px; 
-                    color: #888; 
+                    font-size: 12px; 
+                    color: #94a3b8; 
                     text-decoration: line-through; 
                 }
                 .badge-wrapper { 
-                    margin-top: 10px; 
+                    margin-top: 8px; 
                     display: flex; 
                     align-items: center; 
                 }
                 .badge { 
                     display: inline-flex; 
                     align-items: center; 
-                    gap: 5px; 
-                    padding: 4px 10px; 
+                    gap: 4px; 
+                    padding: 3px 8px; 
                     border-radius: 20px; 
-                    font-size: 11px; 
+                    font-size: 10px; 
                     font-weight: 700; 
-                    letter-spacing: 0.3px; 
                     text-transform: uppercase; 
-                    position: relative; 
-                    overflow: hidden; 
                 }
                 .badge.verified { 
-                    background: linear-gradient(135deg, #f0fdf4, #dcfce7); 
-                    color: #15803d; 
-                    border: 1px solid #86efac; 
-                    box-shadow: 0 2px 6px rgba(34, 197, 94, 0.15); 
+                    background: #f0fdf4; 
+                    color: #16a34a; 
+                    border: 1px solid #bbf7d0; 
                 }
                 .badge.unverified { 
                     background: #fef2f2; 
@@ -313,22 +273,6 @@ export default function ProductCard({ product }: { product: Product | null }) {
                 .badge .icon { 
                     display: flex; 
                     align-items: center; 
-                    font-size: 12px; 
-                }
-                .badge.verified .glow { 
-                    position: absolute; 
-                    top: 0; 
-                    left: -100%; 
-                    width: 50%; 
-                    height: 100%; 
-                    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent); 
-                    transform: skewX(-20deg); 
-                    animation: cardShine 3s infinite; 
-                }
-                @keyframes cardShine { 
-                    0% { left: -100%; } 
-                    20% { left: 200%; } 
-                    100% { left: 200%; } 
                 }
             `}</style>
         </div>

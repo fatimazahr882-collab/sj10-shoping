@@ -16,42 +16,32 @@ import DynamicDiscountSections from '@/components/DynamicDiscountSections';
 import CategoryRows from '@/components/CategoryRows';
 import ExploreHomepage from '@/components/ExploreHomepage';
 
-// ⚡ ISR: Re-generates the page on the server every 1 hour, ensuring fast speeds & fresh content.
+// ⚡ ISR: Cache page for 1 hour to ensure ultra-fast TTFB and performance
 export const revalidate = 3600; 
 
 const SITE_URL = "https://www.sj10.pk";
 
-// 🚀 1. ADVANCED SEO & SOCIAL MEDIA SHARING (OpenGraph)
+// 🚀 ADVANCED SEO METADATA
 export const metadata: Metadata = {
-  // Sets the base URL for all relative links, critical for SEO
   metadataBase: new URL(SITE_URL),
   title: {
     default: "SJ10 - Pakistan's #1 Online Shopping Marketplace",
-    template: "%s | SJ10.pk" // Automatically adds "| SJ10.pk" to all child page titles
+    template: "%s | SJ10.pk" 
   },
   description: "Shop thousands of products at SJ10. Best prices for Fashion, Electronics, Home Decor, and more. Fast delivery and Cash on Delivery available across Pakistan.",
   keywords: [
     "Online Shopping in Pakistan", "Buy Online", "Cash on Delivery", 
-    "SJ10", "Fashion", "Electronics", "Home Decor", "Reselling App Pakistan", 
-    "Zero Investment Business", "Karachi", "Lahore", "Islamabad", "Pakistan e-commerce"
+    "SJ10", "Fashion", "Electronics", "Home Decor", "Reselling App Pakistan"
   ],
-  alternates: {
-    canonical: "/", // Explicitly tells Google THIS is the master home page URL
-  },
+  alternates: { canonical: "/" },
   openGraph: {
     title: "SJ10.pk | Online Shopping & Reselling in Pakistan",
-    description: "Premium shopping experience in Pakistan with fast Cash on Delivery. Fashion, Groceries, Electronics & Zero-Investment Reselling.",
+    description: "Premium shopping experience in Pakistan with fast Cash on Delivery.",
     url: SITE_URL,
     siteName: "SJ10 Shopping",
     locale: "en_PK",
     type: "website",
-    // This is the image that appears when you share the link on WhatsApp, Facebook, etc.
-    images: [{ 
-      url: `${SITE_URL}/logo.png`, // Using logo.png as requested
-      width: 512, // Standard square logo size
-      height: 512, 
-      alt: "SJ10 Shopping Pakistan Logo" 
-    }],
+    images: [{ url: `${SITE_URL}/logo.png`, width: 512, height: 512, alt: "SJ10 Logo" }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -60,16 +50,13 @@ export const metadata: Metadata = {
     images: [`${SITE_URL}/logo.png`],
   },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
-  // Add your Google Search Console verification key here when ready
-  // verification: {
-  //   google: 'YOUR_GOOGLE_VERIFICATION_KEY',
-  // },
 };
 
 export default async function HomePage() {
+  // SSR Fetch occurs here. HTML is generated containing all product links for Googlebot.
   const initialData = await getStaticHomeData();
 
-  // 🚀 2. ADVANCED STRUCTURED DATA (JSON-LD) for Google Rich Results
+  // 🚀 ADVANCED STRUCTURED DATA (JSON-LD)
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -78,17 +65,16 @@ export default async function HomePage() {
         "name": "SJ10 Shopping",
         "url": SITE_URL,
         "logo": { "@type": "ImageObject", "url": `${SITE_URL}/logo.png` },
-        "sameAs": [ // Links your site to official social profiles, building brand authority
+        "sameAs": [ 
           "https://www.instagram.com/sj10official",
           "https://www.tiktok.com/@sj10official",
-          "https://youtube.com/@sj10official",
-          "https://whatsapp.com/channel/0029Vb6PEhOLNSa6Z6OtPS1U"
+          "https://youtube.com/@sj10official"
         ]
       },
       {
         "@type": "WebSite",
         "url": SITE_URL,
-        "potentialAction": { // This enables the "Sitelinks Search Box" in Google search results
+        "potentialAction": { 
           "@type": "SearchAction",
           "target": { "@type": "EntryPoint", "urlTemplate": `${SITE_URL}/search?q={search_term_string}` },
           "query-input": "required name=search_term_string"
@@ -101,7 +87,6 @@ export default async function HomePage() {
     <div className="homepage-wrapper">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       
-      {/* 🚀 SEO H1 TAG - Visually hidden but the most important tag for Google */}
       <h1 className="sr-only">
         SJ10 Online Shopping Pakistan - Buy Fashion, Electronics, Home Decor & Groceries
       </h1>
@@ -122,19 +107,34 @@ export default async function HomePage() {
         <MobileStripBanner key="mobile-banner" />  
       </div>
       
-      {/* Product Sections */}
-      {initialData.subCatRow1?.length > 0 && <HomeSubcategories subcategories={initialData.subCatRow1} title="Explore Categories" priority={true} />}
+      {/* ALL SECTIONS RENDERED DIRECTLY FOR MAXIMUM SEO CRAWLABILITY */}
+      
+      {initialData.subCatRow1?.length > 0 && (
+        <HomeSubcategories subcategories={initialData.subCatRow1} title="Explore Categories" priority={true} />
+      )}
+      
       <PromotedSection products={initialData.promotedTop50} />
+      
       <DynamicDiscountSections sections={initialData.discountSections} />
-      {initialData.popularProducts?.length > 0 && <PopularProducts products={initialData.popularProducts} />}
-      <LatestProducts /> {/* This component remains client-side for live data */}
-      {initialData.categoryRows?.length > 0 && <CategoryRows initialData={initialData.categoryRows} />}
+      
+      {initialData.popularProducts?.length > 0 && (
+        <PopularProducts products={initialData.popularProducts} />
+      )}
+      
+      <LatestProducts /> 
+      
+      {initialData.categoryRows?.length > 0 && (
+        <CategoryRows initialData={initialData.categoryRows} />
+      )}
 
       <section className="explore-feed-section" id="explore-section">
-        <ExploreHomepage initialProducts={initialData.initialExploreFeed} />
+        <ExploreHomepage 
+          initialProducts={initialData.initialExploreFeed} 
+          initialTotalCount={initialData.totalExploreCount} 
+        />
       </section>
 
-      {/* ✅ Final SEO Text Block using Global CSS */}
+      {/* Final SEO Text Block */}
       <section className="seo-footer-section">
         <div className="seo-container">
           <div className="seo-quick-links">

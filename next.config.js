@@ -22,7 +22,7 @@ const nextConfig = {
         hostname: 'media.sj10.pk',
         pathname: '/**',
       },
-        {
+      {
         protocol: 'https',
         hostname: 'media.sj10.pk',
         port: '',
@@ -30,7 +30,8 @@ const nextConfig = {
       },
     ],
   },
-   // ⚡ ADD THIS FOR CLOUDFLARE CDN CACHING ⚡
+  
+  // ⚡ FOR CLOUDFLARE CDN CACHING ⚡
   async headers() {
     return [
       {
@@ -41,6 +42,18 @@ const nextConfig = {
             value: 'public, s-maxage=3600, stale-while-revalidate=59', // 1 Hour CDN Cache
           },
         ],
+      },
+    ];
+  },
+
+  // ⚡ ADDED: THIS BYPASSES THE CORS ERROR ON LOCALHOST ⚡
+  async rewrites() {
+    return [
+      {
+        // When your frontend asks for /api-proxy/...
+        source: '/api-proxy/:path*',
+        // Next.js will secretly fetch it from your backend...
+        destination: 'http://products.sj10.pk/api/:path*', 
       },
     ];
   },

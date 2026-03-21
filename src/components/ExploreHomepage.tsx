@@ -3,7 +3,6 @@
 
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import useSWRInfinite from 'swr/infinite';
-import Image from 'next/image';
 import ProductCard, { Product } from '@/components/ProductCard'; 
 import SjLoader from '@/components/SjLoader';
 
@@ -15,7 +14,15 @@ const CheckIcon = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="n
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-export default function ExploreHomepage({ initialProducts }: { initialProducts?: Product[] }) {
+const PAGE_LIMIT = 40;
+
+export default function ExploreHomepage({ 
+    initialProducts = [], 
+    initialTotalCount = 0 // ✅ Receive real count from server
+}: { 
+    initialProducts?: Product[]; 
+    initialTotalCount?: number; 
+}) {
     const [categories, setCategories] = useState<any[]>([]);
     
     const [filters, setFilters] = useState({ 
@@ -37,12 +44,12 @@ export default function ExploreHomepage({ initialProducts }: { initialProducts?:
     }, []);
 
     const getKey = (pageIndex: number, previousPageData: any) => {
-        // If we reached the end, return null
+        // If we reached the end (API returned empty), stop fetching
         if (previousPageData && !previousPageData.products?.length) return null;
 
         const params = new URLSearchParams({
             page: String(pageIndex + 1),
-            limit: '40', 
+            limit: String(PAGE_LIMIT), 
             sort: filters.sort,
             hasVideo: String(filters.hasVideo),
             showVerified: String(filters.showVerified),
@@ -55,8 +62,10 @@ export default function ExploreHomepage({ initialProducts }: { initialProducts?:
     };
 
     const { data, size, setSize, isLoading, isValidating } = useSWRInfinite(getKey, fetcher, {
-        // Feed the first page data directly from the server to SWR!
-        fallbackData: initialProducts?.length ? [{ products: initialProducts, totalCount: 1000 }] : undefined,
+        // ✅ Feed the SSR data & real count directly into SWR cache so Googlebot sees it instantly!
+        fallbackData: initialProducts.length > 0 
+            ? [{ products: initialProducts, totalCount: initialTotalCount }] 
+            : undefined,
         revalidateFirstPage: false, 
         persistSize: true, 
         revalidateOnFocus: false, 
@@ -67,25 +76,29 @@ export default function ExploreHomepage({ initialProducts }: { initialProducts?:
         return data ? data.flatMap(page => page.products || []) : [];
     }, [data]);
 
-    const totalCount = data?.[0]?.totalCount || products.length;
-    // Stop loading when a page returns fewer than 40 items
-    const isReachingEnd = data && data[data.length - 1]?.products?.length < 40;
+    // ✅ Uses the real count from the API response, or falls back to the server prop
+    const totalCount = data?.[0]?.totalCount || initialTotalCount;
+    
+    // Stop loading when a page returns fewer items than requested
+    const isReachingEnd = data && data[data.length - 1]?.products?.length < PAGE_LIMIT;
 
-    // INFINITE SCROLL TRIGGER
+    // ✅ BULLETPROOF INFINITE SCROLL TRIGGER
     const observer = useRef<IntersectionObserver | null>(null);
     const lastElementRef = useCallback((node: HTMLDivElement) => {
-        if (isLoading || isValidating) return;
         if (observer.current) observer.current.disconnect();
         
         observer.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && !isReachingEnd) {
-                // When user scrolls to the bottom div, increase page size to fetch more
-                setSize(size + 1);
+            // Trigger fetch only if visible, not already at the end, and not currently fetching
+            if (entries[0].isIntersecting && !isReachingEnd && !isValidating && !isLoading) {
+                setSize(prevSize => prevSize + 1);
             }
-        }, { rootMargin: '200px' }); // Load 200px before reaching the end
+        }, { 
+            // ✅ Trigger load 800px BEFORE reaching the bottom to ensure seamless scrolling
+            rootMargin: '800px' 
+        }); 
         
         if (node) observer.current.observe(node);
-    }, [isLoading, isValidating, isReachingEnd, setSize, size]);
+    }, [isLoading, isValidating, isReachingEnd, setSize]);
 
     const toggleTempCat = (id: string) => {
         setTempFilters(prev => ({
@@ -98,6 +111,7 @@ export default function ExploreHomepage({ initialProducts }: { initialProducts?:
 
     const applyFilters = () => {
         setFilters(tempFilters);
+        setSize(1); // Reset pagination to 1 when filters change
         setIsFilterOpen(false);
     };
 
@@ -105,11 +119,13 @@ export default function ExploreHomepage({ initialProducts }: { initialProducts?:
         const reset = { ...filters, category_ids: [], city: 'All' };
         setTempFilters(reset);
         setFilters(reset);
+        setSize(1); 
         setIsFilterOpen(false);
     };
 
     const toggleChip = (key: string, value: any) => {
         setFilters(prev => ({ ...prev, [key]: value }));
+        setSize(1); 
     };
 
     const activeFilterCount = filters.category_ids.length + (filters.city !== 'All' ? 1 : 0);
@@ -204,21 +220,18 @@ export default function ExploreHomepage({ initialProducts }: { initialProducts?:
                 .btn-clear { background: #fff; border: 1px solid #e5e7eb; color: #374151; }
                 .btn-apply { background: #111; color: white; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
                 
-                /* BEAUTIFUL BOTTOM LOADER */
                 .lazy-loader-container {
                     display: flex; justify-content: center; align-items: center;
-                    padding: 40px 0; width: 100%;
+                    padding: 40px 0; width: 100%; min-height: 100px;
                 }
-                .lazy-loader-box {
-                    width: 100px; height: 100px; position: relative;
-                }
+                .lazy-loader-box { width: 100px; height: 100px; position: relative; }
             `}</style>
 
             <div className="page-header">
                 <div className="wrapper">
                     <h1 className="header-title">Explore Daily</h1>
                     <div className="count-badge">
-                        {data ? `${totalCount.toLocaleString()} products available` : 'Discover new items'}
+                        {totalCount > 0 ? `${totalCount.toLocaleString()} products available` : 'Discover new items'}
                     </div>
                 </div>
             </div>
@@ -235,11 +248,11 @@ export default function ExploreHomepage({ initialProducts }: { initialProducts?:
                     </div>
 
                     <button className={`chip ${filters.hasVideo ? 'active' : ''}`} onClick={() => toggleChip('hasVideo', !filters.hasVideo)}>
-                        <Image src="/video.png" alt="" width={16} height={16} unoptimized/> Video
+                        <i className="fas fa-video text-blue-500"></i> Video
                     </button>
 
                     <button className={`chip ${filters.showVerified ? 'active' : ''}`} onClick={() => toggleChip('showVerified', !filters.showVerified)}>
-                        <Image src="/supplier_verified.png" alt="" width={16} height={16} unoptimized/> Verified
+                        <i className="fas fa-check-circle text-green-500"></i> Verified
                     </button>
 
                     <div className="sort-dropdown" onMouseLeave={() => setIsSortOpen(false)}>
@@ -251,8 +264,8 @@ export default function ExploreHomepage({ initialProducts }: { initialProducts?:
                                 {[
                                     {label: 'Recommended', val: 'default'},
                                     {label: 'Newest Arrivals', val: 'newest'},
-                                    {label: 'Price: Low to High', val: 'price_low_high'},
-                                    {label: 'Price: High to Low', val: 'price_high_low'}
+                                    {label: 'Price: Low to High', val: 'price_low'},
+                                    {label: 'Price: High to Low', val: 'price_high'}
                                 ].map(opt => (
                                     <div key={opt.val} 
                                          className={`sort-item ${filters.sort === opt.val ? 'selected' : ''}`} 
