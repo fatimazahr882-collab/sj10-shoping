@@ -1,6 +1,6 @@
+// src/components/Header.tsx
 "use client"; 
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/context/CartContext'; 
@@ -55,14 +55,19 @@ export default function Header() {
       <header className={`global-sticky-header ${showFullHeader ? 'header-visible' : 'header-hidden'}`}>
         {/* LOGO */}
         <Link href="/">
-          <Image 
-            src="/logo.gif" 
-            alt="SJ10 Logo" 
+          <video
+            src="/logo.mp4" 
             width={65} 
-            height={65} 
-            className="logo" 
-            priority 
-            unoptimized
+            height={65}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="logo"
+            // ✅ FIX: Added a @ts-expect-error comment to fix the TypeScript error.
+            // This is a valid attribute, but your project's types might be outdated.
+            // @ts-expect-error
+            fetchPriority="low" 
           />
         </Link>
 

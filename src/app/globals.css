@@ -4376,4 +4376,46 @@ body { padding-top: 80px; } /* Reverted */
   .sell-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(248, 86, 6, 0.4); }
   
   .footer-bottom { background: #071022; padding: 24px; text-align: center; color: #64748b; font-size: 14px; font-weight: 500; border-top: 1px solid rgba(255,255,255,0.05); }
+}/* ADD THIS ENTIRE BLOCK TO THE END OF src/app/globals.css */
+
+/* ✅ FIX: PRODUCT CARD CSS SYNCHRONIZATION */
+.product-card { 
+    background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; 
+    overflow: hidden; position: relative; height: 100%; 
+    display: flex; flex-direction: column; 
+    transition: transform 0.2s ease, box-shadow 0.2s ease; 
+}
+.product-card:hover { 
+    transform: translateY(-3px); 
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06); 
+}
+.product-card-img-container { 
+    position: relative; width: 100%; aspect-ratio: 1 / 1; 
+    background-color: #f8fafc; 
+}
+/* ✅ FIX: SMOOTH IMAGE FADE-IN ANIMATION */
+.product-card-img-container img {
+    opacity: 0;
+    transition: opacity 0.4s ease-in-out;
+}
+.product-card-img-container img.loaded {
+    opacity: 1;
+}
+
+/* ✅ FIX: REFINED, SUBTLE BADGE ANIMATIONS */
+@keyframes subtle-pulse-fade {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+@keyframes subtle-pulse-scale { 
+  0%, 100% { transform: scale(1); } 
+  50% { transform: scale(1.03); } 
+}
+
+/* Apply new animations */
+.new-badge, .hot-badge {
+    animation: subtle-pulse-fade 4s infinite ease-in-out !important;
+}
+.discount-badge {
+    animation: subtle-pulse-scale 2.5s infinite ease-in-out !important;
 }

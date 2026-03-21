@@ -1,21 +1,21 @@
 // src/components/MobileStripBanner.tsx
 "use client";
 
-import Image from 'next/image';
 import Link from 'next/link';
 
 export default function MobileStripBanner() {
   return (
     <div className="mobile-strip-only">
       <Link href="/explore" className="block w-full">
-        <Image
-          src="/banners/mobile-animated-strip.gif" 
-          alt="SJ10 Mobile Promotion"
+        <video
+          src="/banners/mobile-animated-strip.mp4" 
           width={1000}
           height={280}
+          autoPlay
+          muted
+          loop
+          playsInline
           className="w-full h-auto block"
-          priority={true}
-          unoptimized={true}
         />
       </Link>
       <style jsx>{`
