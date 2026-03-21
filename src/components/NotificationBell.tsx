@@ -74,12 +74,16 @@ export default function NotificationBell() {
     return (
         <div style={styles.container} ref={dropdownRef}>
             {/* Bell Icon */}
-            <button onClick={handleToggle} style={styles.bellButton}>
-                <FaBell size={20} color="#4B5563" />
-                {unreadCount > 0 && (
-                    <span style={styles.badge}>{unreadCount}</span>
-                )}
-            </button>
+          <button 
+  onClick={handleToggle} 
+  style={styles.bellButton}
+  aria-label="Open notifications" /* ✅ ADD THIS */
+>
+  <FaBell size={20} color="#4B5563" aria-hidden="true" />
+  {unreadCount > 0 && (
+     <span style={styles.badge}>{unreadCount}</span>
+  )}
+</button>
 
             {/* Dropdown Popup */}
             <AnimatePresence>
