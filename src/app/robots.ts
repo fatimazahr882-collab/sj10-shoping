@@ -1,3 +1,4 @@
+// src/app/robots.ts
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
@@ -7,15 +8,15 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      // Don't let Google waste time scanning private user pages
+      // Block private/action pages without trailing slashes for valid parsing
       disallow: [
-        '/profile/',
-        '/cart/',
-        '/checkout/',
-        '/auth/',
-        '/orders/',
-        '/api/',
-        '/search', // Prevent indexing search results pages to save crawl budget
+        '/profile',
+        '/cart',
+        '/checkout',
+        '/auth',
+        '/orders',
+        '/api',
+        '/search', 
       ],
     },
     sitemap: `${baseUrl}/sitemap.xml`,

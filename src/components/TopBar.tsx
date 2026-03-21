@@ -295,7 +295,10 @@ export default function TopBar() {
         <div className="main-nav-area">
           <div className="container nav-grid">
             
-            
+            <div className="nav-left hidden md-flex">
+              <Link href="/" className="top-icon-btn" title="Home"><i className="fas fa-home gradient-icon"></i></Link>
+            </div>
+
             {/* CENTER: SEARCH ENGINE */}
             <div className="nav-center" ref={searchRef}>
               {showSearchBar && (
