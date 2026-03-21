@@ -1,4 +1,3 @@
-// src/components/Header.tsx
 "use client"; 
 
 import Image from 'next/image';
@@ -91,7 +90,7 @@ export default function Header() {
         </div>
       </header>
       
-      {/* CSS STYLES - Allowed because of "use client" */}
+      {/* CSS STYLES */}
       <style jsx global>{`
         /* EXACTLY 70px height for Header to remove the gap */
         .global-sticky-header { 
@@ -107,6 +106,7 @@ export default function Header() {
           justify-content: space-between;
           align-items: center;
           padding: 5px 15px;
+          /* Smooth slide animation */
           transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
 
