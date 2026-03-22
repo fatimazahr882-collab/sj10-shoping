@@ -1,7 +1,11 @@
+// src/app/explore/page.tsx
 import { Metadata } from 'next';
 import ExploreClientPage from '@/components/ExploreClientPage';
 
-// 1. ADVANCED METADATA FOR EXPLORE PAGE
+// ✅ ISR: Cache this page for 1 hour to ensure fast loading + fresh SEO
+export const revalidate = 3600;
+
+// ✅ ADVANCED SEO METADATA FOR EXPLORE PAGE
 export const metadata: Metadata = {
   title: "Explore Trending Products & Flash Sales in Pakistan | SJ10",
   description: "Discover thousands of trending products, hot deals, and flash sales on SJ10. Shop fashion, electronics, and beauty with cash on delivery anywhere in Pakistan.",
@@ -22,13 +26,17 @@ export default function ExplorePage() {
   return (
     <>
       {/* 
-        2. SEMANTIC H1
-        This is visually hidden by the 'sr-only' class we added to globals.css earlier.
-        It tells Google exactly what the page is about instantly.
+        ✅ SEMANTIC H1 for SEO
+        This is visually hidden by your global `sr-only` class but tells Google
+        exactly what the page is about.
       */}
-      <h1 className="sr-only">Explore Trending Products, Hot Deals, and Discounts in Pakistan</h1>
+      <h1 className="sr-only">Explore All Products: Fashion, Electronics, and More with Cash on Delivery in Pakistan</h1>
       
-      {/* 3. CLIENT COMPONENT (Handles the interactive UI, filters, and infinite scroll) */}
+      {/* 
+        ✅ CLIENT COMPONENT
+        This handles all the interactive UI, filters, and infinite scroll.
+        It has been optimized to use the new Lite Card.
+      */}
       <ExploreClientPage />
     </>
   );

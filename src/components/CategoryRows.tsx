@@ -1,13 +1,9 @@
 // src/components/CategoryRows.tsx
-import ProductCard, { type Product } from './ProductCard';
+import ProductCardLite from './ProductCardLite';
 import Link from 'next/link';
 
-// We now accept the data directly from the server (page.tsx)
 export default function CategoryRows({ initialData }: { initialData: any[] }) {
-  
-  if (!initialData || initialData.length === 0) {
-    return null;
-  }
+  if (!initialData || initialData.length === 0) return null;
 
   return (
     <div id="home-category-rows-container">
@@ -20,8 +16,22 @@ export default function CategoryRows({ initialData }: { initialData: any[] }) {
             </Link>
           </div>
           <div className="product-grid">
-            {category.products.map((product: Product) => (
-              <ProductCard key={product.id} product={product} />
+            {category.products.map((product: any) => (
+              <ProductCardLite key={product.id} product={{
+                  id: product.id,
+                  t: product.title,
+                  s: product.slug,
+                  sku: product.sku,
+                  p: parseFloat(product.price),
+                  dp: parseFloat(product.discounted_price || product.price),
+                  img: Array.isArray(product.image_urls) ? product.image_urls[0] : product.image_url,
+                  v: ['verified', '1', 'true'].includes(String(product.supplier_verified || "").toLowerCase()),
+                  b: product.supplier?.brand_name || 'SJ10',
+                  r: parseFloat(String(product.avg_rating || 0)),
+                  rc: parseInt(String(product.review_count || 0)),
+                  // ✅ ADDED VIDEO FLAG
+                  hv: product.has_video || false
+              }} />
             ))}
           </div>
         </div>

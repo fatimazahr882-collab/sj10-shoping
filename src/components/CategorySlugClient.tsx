@@ -9,7 +9,7 @@ import {
     IoRadioButtonOff, IoRadioButtonOn 
 } from "react-icons/io5";
 
-import ProductCard, { Product } from "@/components/ProductCard";
+import ProductCardLite from "@/components/ProductCardLite"; // ✅ NEW: Imported the fast Lite Card
 
 const API_URL = process.env.NEXT_PUBLIC_PRODUCT_API_URL;
 type SortOption = 'default' | 'price_low' | 'price_high';
@@ -17,7 +17,7 @@ type SortOption = 'default' | 'price_low' | 'price_high';
 // Accept initial data from the Server Page
 export default function CategorySlugClient({ slug }: { slug: string }) {
     // --- STATE ---
-    const [products, setProducts] = useState<Product[]>([]);
+    const [products, setProducts] = useState<any[]>([]); // Changed type to any[] to easily map to Lite card
     const [category, setCategory] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -63,7 +63,7 @@ export default function CategorySlugClient({ slug }: { slug: string }) {
             const data = await res.json();
 
             setCategory(data.category);
-            let fetchedProducts: Product[] = data.products || [];
+            let fetchedProducts: any[] = data.products || [];
 
             if (isVerified) {
                 fetchedProducts = fetchedProducts.filter(p => 
@@ -118,7 +118,6 @@ export default function CategorySlugClient({ slug }: { slug: string }) {
 
     return (
         <div className="page-wrapper">
-             {/* Copy your styles from the previous file here or keep global */}
              <style jsx>{`
                 .page-wrapper { background-color: #f8fafc; min-height: 100vh; padding-bottom: 80px; font-family: sans-serif; }
                 .header-sticky { position: sticky; top: 0; z-index: 50; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border-bottom: 1px solid transparent; }
@@ -229,9 +228,26 @@ export default function CategorySlugClient({ slug }: { slug: string }) {
                             </div>
                         ))
                     ) : (
+                        // ✅ THIS IS THE FIX: Properly mapping the data to the new Lite Card!
                         products.map((item, index) => (
                             <div key={item.id} className="anim-item" style={{animationDelay: `${index * 0.05}s`}}>
-                                <ProductCard product={item} />
+                                <ProductCardLite product={{
+                                    id: item.id,
+                                    t: item.title,
+                                    s: item.slug,
+                                    sku: item.sku,
+                                    p: parseFloat((item.price || 0) as string),
+                                    dp: parseFloat((item.discounted_price || item.price || 0) as string),
+                                    img: typeof item.image_urls === 'string' && item.image_urls.startsWith('[') 
+                                        ? JSON.parse(item.image_urls)[0] 
+                                        : (Array.isArray(item.image_urls) ? item.image_urls[0] : item.image_urls),
+                                    v: ['verified', '1', 'true'].includes(String(item.supplier_verified || "").toLowerCase()),
+                                    // @ts-ignore
+                                    b: item.supplier?.brand_name || "SJ10",
+                                    r: parseFloat(String(item.avg_rating || 0)),
+                                    rc: parseInt(String(item.review_count || 0)),
+                                    hv: item.has_video || false
+                                }} />
                             </div>
                         ))
                     )}

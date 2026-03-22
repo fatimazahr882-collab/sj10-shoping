@@ -3,7 +3,8 @@
 
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import useSWRInfinite from 'swr/infinite';
-import ProductCard, { Product } from '@/components/ProductCard'; 
+import { Product } from '@/components/ProductCard'; 
+import ProductCardLite from '@/components/ProductCardLite'; 
 
 // --- ICONS & Fetcher ---
 const FilterIcon = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>);
@@ -28,7 +29,6 @@ export default function ExploreHomepage({
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [isSortOpen, setIsSortOpen] = useState(false);
 
-    // ✅ FLICKER FIX: Self-contained scroll detection to correctly position the sticky filter bar
     const [isHeaderVisible, setIsHeaderVisible] = useState(true);
     const lastScrollY = useRef(0);
 
@@ -38,9 +38,9 @@ export default function ExploreHomepage({
         if (currentScrollY < 50) {
           setIsHeaderVisible(true);
         } else if (currentScrollY > lastScrollY.current + 10) {
-          setIsHeaderVisible(false); // Hide on scroll down
+          setIsHeaderVisible(false);
         } else if (currentScrollY < lastScrollY.current - 10) {
-          setIsHeaderVisible(true);  // Show on scroll up
+          setIsHeaderVisible(true);
         }
         lastScrollY.current = currentScrollY;
       };
@@ -72,7 +72,6 @@ export default function ExploreHomepage({
     const totalCount = data?.[0]?.totalCount || initialTotalCount;
     const isReachingEnd = !data || (data[data.length - 1]?.products?.length ?? 0) < PAGE_LIMIT;
 
-    // --- FILTER HANDLERS ---
     const toggleTempCat = (id: string) => { setTempFilters(prev => ({...prev, category_ids: prev.category_ids.includes(id) ? prev.category_ids.filter(x => x !== id) : [...prev.category_ids, id]})); };
     const applyFilters = () => { setFilters(tempFilters); setSize(1); setIsFilterOpen(false); };
     const clearFilters = () => { const reset = { ...filters, category_ids: [], city: 'All' }; setTempFilters(reset); setFilters(reset); setSize(1); setIsFilterOpen(false); };
@@ -82,29 +81,12 @@ export default function ExploreHomepage({
     return (
         <div className="explore-container">
             <style jsx>{`
-                /* Container and Wrapper styles */
                 .explore-container { background: #f9fafb; min-height: 100vh; padding-bottom: 80px; }
                 .wrapper { max-width: 1440px; margin: 0 auto; padding: 0 16px; width: 100%; }
-                
-                /* Header */
                 .page-header { background: #fff; padding: 24px 0 20px; border-bottom: 1px solid #f0f0f0; }
                 .header-title { font-size: 28px; font-weight: 800; color: #111; margin: 0; letter-spacing: -0.8px; }
                 .count-badge { font-size: 13px; color: #6b7280; font-weight: 500; margin-top: 4px; }
-                
-                /* ✅ FLICKER FIX: Sticky filter bar with dynamic top position */
-                .sticky-filters { 
-                    position: sticky;
-                    z-index: 40; 
-                    background: rgba(255,255,255,0.85); 
-                    backdrop-filter: blur(12px); 
-                    -webkit-backdrop-filter: blur(12px);
-                    border-bottom: 1px solid rgba(0,0,0,0.05); 
-                    padding: 12px 0; 
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.02); 
-                    transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                }
-                
-                /* Filter Chip styles */
+                .sticky-filters { position: sticky; z-index: 40; background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.05); padding: 12px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.02); transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
                 .filter-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; align-items: center; scrollbar-width: none; width: 100%; flex-wrap: nowrap; }
                 .filter-scroll::-webkit-scrollbar { display: none; }
                 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 100px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid #e5e7eb; background: #fff; white-space: nowrap; color: #374151; transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
@@ -119,15 +101,11 @@ export default function ExploreHomepage({
                 .sort-item { padding: 12px 16px; font-size: 13px; font-weight: 500; cursor: pointer; color: #4b5563; transition: 0.1s; }
                 .sort-item:hover { background: #f9fafb; color: #111; }
                 .sort-item.selected { background: #f3f4f6; font-weight: 700; color: #111; }
-                
-                /* Product Grid */
                 .product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 24px; }
                 @media (min-width: 768px) { .product-grid { grid-template-columns: repeat(3, 1fr); gap: 20px; } }
                 @media (min-width: 1024px) { .product-grid { grid-template-columns: repeat(4, 1fr); } }
                 @media (min-width: 1280px) { .product-grid { grid-template-columns: repeat(5, 1fr); } }
                 .card-wrapper { height: 100%; min-height: 280px; }
-                
-                /* Filter Sheet styles */
                 .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s; backdrop-filter: blur(4px); }
                 .sheet-overlay.open { opacity: 1; pointer-events: auto; }
                 .sheet { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; z-index: 101; border-top-left-radius: 24px; border-top-right-radius: 24px; box-shadow: 0 -10px 40px rgba(0,0,0,0.2); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); height: 85vh; display: flex; flex-direction: column; }
@@ -151,8 +129,6 @@ export default function ExploreHomepage({
                 .btn:active { transform: scale(0.98); }
                 .btn-clear { background: #fff; border: 1px solid #e5e7eb; color: #374151; }
                 .btn-apply { background: #111; color: white; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-                
-                /* ✅ NEW: Beautiful "Load More" button styles */
                 .load-more-container { display: flex; justify-content: center; padding: 40px 0; }
                 .load-more-btn { background: #fff; color: #111; border: 1px solid #e5e7eb; padding: 14px 40px; font-size: 15px; font-weight: 700; border-radius: 100px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
                 .load-more-btn:hover:not(:disabled) { background: #111; color: #fff; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
@@ -194,11 +170,29 @@ export default function ExploreHomepage({
             <div className="wrapper">
                 <div className="product-grid">
                     {products.map((p, i) => (
-                        <div key={`${p.id}-${i}`} className="card-wrapper"><ProductCard product={p} /></div>
+                        <div key={`${p.id}-${i}`} className="card-wrapper">
+                            <ProductCardLite product={{
+                                id: p.id,
+                                t: p.title,
+                                s: p.slug,
+                                sku: p.sku,
+                                p: parseFloat((p.price || 0) as string),
+                                dp: parseFloat((p.discounted_price || p.price || 0) as string),
+                                img: typeof p.image_urls === 'string' && p.image_urls.startsWith('[') 
+                                    ? JSON.parse(p.image_urls)[0] 
+                                    : (Array.isArray(p.image_urls) ? p.image_urls[0] : p.image_urls),
+                                v: ['verified', '1', 'true'].includes(String(p.supplier_verified || "").toLowerCase()),
+                                // @ts-ignore
+                                b: p.supplier?.brand_name || "SJ10",
+                                r: parseFloat(String(p.avg_rating || 0)),
+                                rc: parseInt(String(p.review_count || 0)),
+                                // ✅ ADDED VIDEO FLAG
+                                hv: p.has_video || false
+                            }} />
+                        </div>
                     ))}
                 </div>
 
-                {/* ✅ REPLACED: Old trigger is now the "Load More" button container */}
                 <div className="load-more-container">
                     {isValidating && size > 1 ? (
                         <button className="load-more-btn" disabled>
