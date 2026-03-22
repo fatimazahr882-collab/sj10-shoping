@@ -30,6 +30,7 @@ export default function Banners({ banners, priority = false }: { banners: Banner
                 src={banner.image_url} 
                 alt="Promotional Banner" 
                 fill
+                 unoptimized // <--- ADD THIS HERE
                 sizes="(max-width: 768px) 100vw, 70vw"
                 style={{ objectFit: 'cover' }}
                 /* ✅ FIXED: Applying fetchPriority and disabling lazy load for LCP */

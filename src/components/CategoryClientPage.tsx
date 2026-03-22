@@ -37,6 +37,7 @@ const SidebarItem = memo(({ cat, isActive, onClick, index }: { cat: Category, is
             alt={cat.name} 
             fill 
             sizes="60px"
+             unoptimized // <--- ADD THIS HERE
             priority={index < 15} 
             loading={index < 15 ? undefined : "lazy"}
             className={`fade-img ${loaded ? 'loaded' : ''}`}

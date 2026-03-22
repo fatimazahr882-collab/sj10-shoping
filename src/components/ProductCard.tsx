@@ -97,18 +97,19 @@ export default function ProductCard({ product }: { product: Product | null }) {
                 {isImgLoading && <SjLoader />}
                 
                 {/* ✅ PERFORMANCE & FIX: Image is hidden until onLoad fires */}
-                <Image 
-                    src={firstImage} 
-                    alt={product.title || "Product Image"} 
-                    fill 
-                    sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 15vw" 
-                    quality={40} 
-                    className="main-image object-cover"
-                    style={{ opacity: isImgLoading ? 0 : 1 }}
-                    onLoad={() => setIsImgLoading(false)}
-                    onError={() => setIsImgLoading(false)} // Hide loader even on error
-                    loading="lazy"
-                />
+ <Image 
+    src={firstImage} 
+    alt={product.title || "Product Image"} 
+    fill 
+    sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 15vw" 
+    quality={40} 
+    unoptimized // <--- ADD THIS HERE
+    className="main-image object-cover"
+    style={{ opacity: isImgLoading ? 0 : 1 }}
+    onLoad={() => setIsImgLoading(false)}
+    onError={() => setIsImgLoading(false)}
+    loading="lazy"
+/>
                 
                 {hasVideo && <div className="video-glass-icon"><PlayIcon /></div>}
             </div>

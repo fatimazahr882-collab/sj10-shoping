@@ -402,6 +402,7 @@ const CartItem = ({ item, isSelected, toggleSelect, onDelete, isDeleting }: any)
                     <Image 
                         src={item.image_urls?.[0] || '/placeholder.png'} 
                         alt={item.title} fill style={{ objectFit: 'cover' }}
+                         unoptimized // <--- ADD THIS HERE
                         className="hover:scale-110 transition-transform duration-500 ease-out"
                     />
                 </div>

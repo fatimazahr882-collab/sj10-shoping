@@ -3,15 +3,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // ⚡ FIX: THIS STOPS VERCEL FROM PROCESSING IMAGES & CHARGING YOU ⚡
+    // It tells Next.js to let the browser download directly from Cloudflare.
+    unoptimized: true,
+
     // These sizes help Next.js generate the best image for different devices
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // (Note: With unoptimized: true, Vercel ignores these, but we can safely leave them here)
+    deviceSizes:[640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes:[16, 32, 48, 64, 96, 128, 256, 384],
     
     // Serve modern formats like AVIF and WebP which are much smaller
     formats: ['image/avif', 'image/webp'],
     
     // Allow images from your specific cloud storage domains
-    remotePatterns: [
+    remotePatterns:[
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
@@ -36,7 +41,7 @@ const nextConfig = {
     return [
       {
         source: '/products/:slug*',
-        headers: [
+        headers:[
           {
             key: 'Cache-Control',
             value: 'public, s-maxage=3600, stale-while-revalidate=59', // 1 Hour CDN Cache
@@ -48,7 +53,7 @@ const nextConfig = {
 
   // ⚡ ADDED: THIS BYPASSES THE CORS ERROR ON LOCALHOST ⚡
   async rewrites() {
-    return [
+    return[
       {
         // When your frontend asks for /api-proxy/...
         source: '/api-proxy/:path*',
