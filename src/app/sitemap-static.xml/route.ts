@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   const now = new Date().toISOString();
 
-  const staticRoutes = ['', '/explore', '/category', '/shipping-policy', '/terms', '/privacy', '/return-policy', '/about', ];
+  const staticRoutes =['', '/explore', '/category', '/shipping-policy', '/terms', '/privacy', '/return-policy', '/about'];
   staticRoutes.forEach(route => {
     xml += `
     <url>
@@ -22,10 +22,13 @@ export async function GET(request: NextRequest) {
 
   // Categories
   try {
-    const res = await fetch(`${API_URL}/products/categories-with-subcategories`, { next: { revalidate: 3600 } });
+    // ⚡ FIX 1: Next.js Fetch Cache (3 Days = 259200 seconds)
+    const res = await fetch(`${API_URL}/products/categories-with-subcategories`, { 
+      next: { revalidate: 259200 } 
+    });
     if (res.ok) {
       const data = await res.json();
-      (data.mainCats || []).forEach((cat: any) => {
+      (data.mainCats ||[]).forEach((cat: any) => {
         if (cat.slug) xml += `<url><loc>${BASE_URL}/category/${cat.slug}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq></url>`;
         cat.subcategories?.forEach((sub: any) => {
           if (sub.slug) xml += `<url><loc>${BASE_URL}/category/${sub.slug}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq></url>`;
@@ -36,5 +39,11 @@ export async function GET(request: NextRequest) {
 
   xml += `</urlset>`;
 
-  return new Response(xml, { headers: { "Content-Type": "application/xml" } });
+  return new Response(xml, { 
+    headers: { 
+      "Content-Type": "application/xml",
+      // ⚡ FIX 2: Cloudflare Edge Cache (3 Days)
+      "Cache-Control": "public, s-maxage=259200, stale-while-revalidate=86400"
+    } 
+  });
 }

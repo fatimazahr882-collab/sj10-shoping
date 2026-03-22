@@ -18,7 +18,6 @@ function escapeXml(unsafe: string): string {
   });
 }
 
-// 🔥 FIX: Ensures dates are always valid ISO 8601 format
 function formatDate(dateStr: string) {
   const date = new Date(dateStr);
   return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
@@ -32,9 +31,12 @@ export async function GET(
   const cleanId = id.replace('.xml', '');
   const page = Number(cleanId) + 1;
 
-  const res = await fetch(`${API_URL}/products/sitemap-urls?limit=${LIMIT}&page=${page}`, { cache: 'no-store' });
+  // ⚡ FIX 1: Cache the heavy product URL fetch for 3 days
+  const res = await fetch(`${API_URL}/products/sitemap-urls?limit=${LIMIT}&page=${page}`, { 
+      next: { revalidate: 259200 } 
+  });
   const data = await res.json();
-  const products = data.products || [];
+  const products = data.products ||[];
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -77,6 +79,10 @@ export async function GET(
   xml += `</urlset>`;
 
   return new Response(xml, {
-    headers: { "Content-Type": "application/xml", "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
+    headers: { 
+      "Content-Type": "application/xml", 
+      // ⚡ FIX 2: Tell Cloudflare/CDN to cache this for 3 days
+      "Cache-Control": "public, s-maxage=259200, stale-while-revalidate=86400" 
+    },
   });
 }
