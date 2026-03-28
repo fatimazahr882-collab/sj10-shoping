@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 import {
   FaCheckCircle, FaPlus, FaSearch,
   FaStar, FaExclamationTriangle, FaFire, FaClock, FaBoxOpen
 } from 'react-icons/fa';
 
 // --- CONFIG & HELPERS ---
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://products.sj10.pk'; // Fallback API URL
+const PRODUCT_API = process.env.NEXT_PUBLIC_PRODUCT_API_URL || 'https://products.sj10.pk/api';
+const CART_API = process.env.NEXT_PUBLIC_CART_API_URL || 'https://sj10-cart.vercel.app/api';
 const PLACEHOLDER_IMG = "https://via.placeholder.com/400x400.png?text=No+Image";
 
 const getSafeImage = (image_urls: any) => {
@@ -32,11 +34,15 @@ const formatPrice = (price: any) =>
 
 const getToken = () => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('user_token') || localStorage.getItem('token');
+  return localStorage.getItem('user_token') || localStorage.getItem('authToken');
 };
 
-// --- SWR FETCHER ---
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+// Safe Fetcher that guarantees an error throw on non-200 responses
+const fetcher = async (url: string) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("API Error");
+    return res.json();
+};
 
 // --- UI COMPONENTS ---
 const ProductSkeleton = () => (
@@ -60,32 +66,12 @@ const VerificationBadge = ({ status }: { status: any }) => {
   return <div className="badge badge-unverified"><FaExclamationTriangle /> Unverified</div>;
 };
 
-// ==========================================
-// === MAIN PAGE COMPONENT                ===
-// ==========================================
-// ==========================================
-// === MAIN PAGE COMPONENT                ===
-// ==========================================
 export default function SupplierClientPage({ supplierId }: { supplierId: string }) {
   const router = useRouter();
 
-
-
-  // --- SWR FETCHING (Only for Public Data) ---
-  const { data: supplier, error: supError } = useSWR(
-    supplierId ? `${API_URL}/api/suppliers/${supplierId}` : null,
-    fetcher,
-    { revalidateOnFocus: false }
-  );
-
-  const { data: prodData, error: prodError } = useSWR(
-    supplierId ? `${API_URL}/api/products/explore-feed?supplierId=${supplierId}&limit=100` : null,
-    fetcher,
-    { revalidateOnFocus: false }
-  );
-
   // --- STATES ---
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [hotDealIndex, setHotDealIndex] = useState(0);
 
@@ -94,68 +80,100 @@ export default function SupplierClientPage({ supplierId }: { supplierId: string 
   const [followerCount, setFollowerCount] = useState(0);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
 
-  // Independent Loading States (This fixes the 10-second flash bug)
-  const isSupplierLoading = !supplier && !supError;
-  const isProductsLoading = !prodData && !prodError;
-  const products = prodData?.products || prodData?.data || [];
-
-  // Set initial follower count once supplier loads
   useEffect(() => {
-    if (supplier && followerCount === 0) {
-      setFollowerCount(supplier.followers_count || 0);
-    }
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // --- SWR FETCHING: Supplier Profile ---
+  const { data: supplier, error: supError, isLoading: isSupplierLoading } = useSWR(
+    supplierId ? `${PRODUCT_API}/suppliers/${supplierId}` : null,
+    fetcher,
+    { revalidateOnFocus: false, shouldRetryOnError: false }
+  );
+
+  // --- SWR INFINITE: Chunked Lazy Loading (40 Products) ---
+  const getKey = (pageIndex: number, previousPageData: any) => {
+    if (previousPageData && !previousPageData.products?.length) return null; // End reached
+    const params = new URLSearchParams({
+        page: String(pageIndex + 1),
+        limit: '40',
+        sort: sortBy
+    });
+    if (debouncedSearch) params.append('search', debouncedSearch);
+    return `${CART_API}/shops/${supplierId}/products?${params.toString()}`;
+  };
+
+  const { data: prodDataPages, size, setSize, isLoading: isProductsLoading, isValidating } = useSWRInfinite(getKey, fetcher, { 
+      revalidateOnFocus: false, 
+      persistSize: true 
+  });
+
+  const products = useMemo(() => {
+    return prodDataPages ? prodDataPages.flatMap(page => page.products || []) : [];
+  }, [prodDataPages]);
+
+  const isReachingEnd = prodDataPages && (prodDataPages[prodDataPages.length - 1]?.products?.length || 0) < 40;
+
+  // --- INTERSECTION OBSERVER FOR INFINITE SCROLL ---
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useCallback((node: HTMLDivElement) => {
+      if (isProductsLoading || isValidating) return;
+      if (observerRef.current) observerRef.current.disconnect();
+      observerRef.current = new IntersectionObserver(entries => {
+          if (entries[0].isIntersecting && !isReachingEnd) {
+              setSize(prev => prev + 1);
+          }
+      }, { rootMargin: "400px" }); 
+      if (node) observerRef.current.observe(node);
+  }, [isProductsLoading, isValidating, isReachingEnd, setSize]);
+
+  useEffect(() => {
+    if (supplier && followerCount === 0) setFollowerCount(supplier.followers_count || 0);
   }, [supplier]);
 
-  // --- EXACT FOLLOW LOGIC FROM YOUR ProductDetailClient.tsx ---
+  // --- FOLLOW STATUS CHECK ---
   useEffect(() => {
     const token = getToken();
     if (!token || !supplierId) return;
     
-    // Check Follow Status
-    fetch(`${API_URL}/api/social/follow/status/${supplierId}`, { 
+    fetch(`${CART_API}/social/follow/status/${supplierId}`, { 
         headers: { 'Authorization': `Bearer ${token}` } 
     })
     .then(res => res.json())
     .then(data => {
-        if (data && typeof data.isFollowing === 'boolean') {
-            setIsFollowing(data.isFollowing);
-        }
+        if (data && typeof data.isFollowing === 'boolean') setIsFollowing(data.isFollowing);
     })
     .catch(e => console.error("Follow check failed", e));
   }, [supplierId]);
 
   // --- FOLLOW ACTION ---
-  const getLoginRedirectUrl = () => {
-    // Matches your exact path: /auth/login
-    const currentPath = window.location.pathname + window.location.search;
-    return `/auth/login?redirect=${encodeURIComponent(currentPath)}`;
-  };
-
   const handleFollow = async () => {
-    if (!getToken()) { router.push(getLoginRedirectUrl()); return; }
+    if (!getToken()) { 
+        const currentPath = window.location.pathname + window.location.search;
+        router.push(`/auth?view=login&redirect=${encodeURIComponent(currentPath)}`); 
+        return; 
+    }
     if (!supplierId || isFollowLoading) return;
     
     setIsFollowLoading(true);
-    // Optimistic UI update
     const previousState = isFollowing; 
     setIsFollowing(!isFollowing); 
     setFollowerCount(prev => !previousState ? prev + 1 : prev - 1);
     
     try {
-        const res = await fetch(`${API_URL}/api/social/follow/${supplierId}`, {
+        const res = await fetch(`${CART_API}/social/follow/${supplierId}`, {
             method: 'POST', 
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` }
         });
         if (!res.ok) throw new Error("Action failed");
     } catch (error) { 
-        // Revert on failure
         setIsFollowing(previousState); 
         setFollowerCount(supplier?.followers_count || 0); 
-        alert("Unable to follow."); 
+        alert("Unable to follow at this time."); 
     } finally { setIsFollowLoading(false); }
   };
 
-  // ANIMATION LOGIC (Hot Deals)
   useEffect(() => {
     if (products.length < 2) return;
     const interval = setInterval(() => {
@@ -164,20 +182,7 @@ export default function SupplierClientPage({ supplierId }: { supplierId: string 
     return () => clearInterval(interval);
   }, [products]);
 
-  // DERIVED PRODUCTS (Search & Sort)
-  const filteredProducts = useMemo(() => {
-    let res = [...products];
-    if (searchTerm) {
-      res = res.filter(p => (p?.title || "").toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-    if (sortBy === 'newest') res.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-    if (sortBy === 'price_high') res.sort((a: any, b: any) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
-    if (sortBy === 'price_low') res.sort((a: any, b: any) => parseFloat(a.price || 0) - parseFloat(b.price || 0));
-    return res;
-  }, [products, searchTerm, sortBy]);
-
-  const hotDealProduct = filteredProducts[hotDealIndex];
-  const gridProducts = filteredProducts;
+  const hotDealProduct = products[hotDealIndex];
 
   if (supError) return <div className="error-screen">Failed to load store data. Please try again.</div>;
 
@@ -228,8 +233,8 @@ export default function SupplierClientPage({ supplierId }: { supplierId: string 
         .sk-info { padding: 16px; flex: 1; display: flex; flex-direction: column; gap: 12px; }
         .sk-title { height: 16px; width: 80%; background: #e2e8f0; border-radius: 4px; }
         .sk-price { height: 24px; width: 50%; background: #e2e8f0; border-radius: 4px; margin-top: auto; }
-        .shimmer { position: relative; overflow: hidden; }
-        .shimmer::after { content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); animation: shine 1.5s infinite; }
+        .shimmer { position: relative; overflow: hidden; background: #1e293b;}
+        .shimmer::after { content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); animation: shine 1.5s infinite; }
         @keyframes shine { 100% { left: 100%; } }
         .fade-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -262,9 +267,9 @@ export default function SupplierClientPage({ supplierId }: { supplierId: string 
                 <VerificationBadge status={supplier.verified_status} />
               </div>
               
-              <button className={`follow-btn ${isFollowing ? 'active' : ''}`} onClick={handleFollow}>
-                {isFollowing ? <FaCheckCircle /> : <FaPlus />} 
-                {isFollowing ? "Following" : "Follow"}
+              <button className={`follow-btn ${isFollowing ? 'active' : ''}`} onClick={handleFollow} disabled={isFollowLoading}>
+                {isFollowLoading ? <FaClock className="fa-spin" /> : isFollowing ? <FaCheckCircle /> : <FaPlus />} 
+                {isFollowing ? "Following" : "Follow Store"}
               </button>
             </div>
           </header>
@@ -291,19 +296,18 @@ export default function SupplierClientPage({ supplierId }: { supplierId: string 
         <div className="content">
           <div className="section-h"><FaFire color="#ef4444" /> Store Products</div>
           
-          {/* FIXED: Show Product Skeletons during the 10 second delay */}
-          {isProductsLoading ? (
+          {isProductsLoading && products.length === 0 ? (
              <div className="grid">
                {[...Array(8)].map((_, i) => <ProductSkeleton key={i} />)}
              </div>
-          ) : gridProducts.length === 0 ? (
+          ) : products.length === 0 ? (
              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#64748b' }}>
                  <FaBoxOpen size={40} color="#cbd5e1" style={{ margin: '0 auto 16px' }} />
-                 <p>No products found {searchTerm && `matching "${searchTerm}"`}</p>
+                 <p>No products found {debouncedSearch && `matching "${debouncedSearch}"`}</p>
              </div>
           ) : (
              <div className="grid">
-               {hotDealProduct && !searchTerm && sortBy === 'newest' && (
+               {hotDealProduct && !debouncedSearch && sortBy === 'newest' && (
                  <Link href={`/products/${hotDealProduct.slug || hotDealProduct.id}`} className="card">
                    <div className="img-box">
                      <span className="flash-badge">FLASH SALE</span>
@@ -319,8 +323,8 @@ export default function SupplierClientPage({ supplierId }: { supplierId: string 
                  </Link>
                )}
 
-               {gridProducts.map(p => {
-                 if (!searchTerm && sortBy === 'newest' && p.id === hotDealProduct?.id) return null;
+               {products.map(p => {
+                 if (!debouncedSearch && sortBy === 'newest' && p.id === hotDealProduct?.id) return null;
                  const price = parseFloat(p.price || 0);
                  const cutPrice = p.discounted_price ? price : price * 1.2;
                  const displayPrice = p.discounted_price ? parseFloat(p.discounted_price) : price;
@@ -343,6 +347,14 @@ export default function SupplierClientPage({ supplierId }: { supplierId: string 
                })}
              </div>
           )}
+          
+          {/* Lazy Loading Trigger */}
+          {!isProductsLoading && (
+            <div ref={loadMoreRef} style={{ padding: '40px', textAlign: 'center' }}>
+                 {isValidating ? <div className="shimmer" style={{height: 40, width: 40, borderRadius: '50%', margin: '0 auto', background: '#e2e8f0'}}></div> : null}
+            </div>
+          )}
+
         </div>
       )}
     </div>
