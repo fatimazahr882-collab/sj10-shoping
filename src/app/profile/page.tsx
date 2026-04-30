@@ -269,6 +269,11 @@ export default function ProfilePage() {
             <span>Privacy Policy</span>
             <i className="fas fa-chevron-right chevron"></i>
           </Link>
+          <Link href="/profile/blog" className="profile-option-item">
+            <i className="fas fa-newspaper" style={{color: '#8b5cf6'}}></i>
+            <span>SJ10 Blogs & Tips</span>
+            <i className="fas fa-chevron-right chevron"></i>
+          </Link>
         </div>
 
         <div className="social-media-links">
