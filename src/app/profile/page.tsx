@@ -285,7 +285,34 @@ export default function ProfilePage() {
             <a href="https://www.youtube.com/@aounstore" target="_blank" rel="noopener noreferrer"><i className="fab fa-youtube"></i></a>
           </div>
         </div>
-        <button id="logout-button" onClick={signOut}>Logout</button>
+        {/* LOGOUT BUTTON - FIXED FOR MOBILE & DESKTOP */}
+        <button 
+          onClick={signOut} 
+          style={{
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            gap: '10px',
+            backgroundColor: '#ef4444', 
+            color: '#fff', 
+            border: 'none', 
+            padding: '14px 20px', 
+            borderRadius: '12px', 
+            margin: '30px 15px 40px 15px', /* Bottom margin di hai taake footer se touch na ho */
+            width: 'calc(100% - 30px)', 
+            cursor: 'pointer',
+            fontSize: '16px',
+            fontWeight: '700',
+            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            zIndex: 10 /* Mobile par ye kisi div ke peechay hide na ho */
+          }}
+          onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+          onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          <i className="fas fa-sign-out-alt"></i> Logout
+        </button>
       </div>
     </>
   );
