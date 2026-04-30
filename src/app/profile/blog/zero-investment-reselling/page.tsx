@@ -1,4 +1,3 @@
-// src/app/profile/blog/zero-investment-reselling/page.tsx
 import Link from 'next/link';
 
 export const metadata = {
@@ -14,7 +13,6 @@ export default function ResellingBlog() {
           <span>Business Guide</span>
        </div>
 
-       {/* Dekho iska design pichle blog se bilkul alag hai! */}
        <div className="money-banner">
           <i className="fas fa-money-bill-wave fa-3x"></i>
           <h1>Start Earning Today!</h1>
@@ -33,7 +31,8 @@ export default function ResellingBlog() {
           </div>
        </div>
 
-       <style jsx>{`
+       {/* FIXED STYLE TAG FOR SERVER COMPONENTS */}
+       <style dangerouslySetInnerHTML={{ __html: `
         .reselling-blog { background: #f0fdf4; min-height: 100vh; padding-bottom: 50px; font-family: 'Poppins', sans-serif; }
         .top-bar { padding: 20px; background: white; display: flex; gap: 15px; align-items: center; font-weight: 700; border-bottom: 1px solid #e2e8f0; }
         .back { color: #111; text-decoration: none; }
@@ -41,7 +40,7 @@ export default function ResellingBlog() {
         .steps-container { max-width: 600px; margin: 30px auto; padding: 20px; }
         .step { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         .circle { width: 50px; height: 50px; background: #ff7f00; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin-bottom: 15px; }
-       `}</style>
+       `}} />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-// src/app/profile/blog/page.tsx
 import Link from 'next/link';
 import Image from 'next/image';
 import { blogList } from '@/lib/blogList';
@@ -32,7 +31,8 @@ export default function BlogsListingPage() {
         ))}
       </div>
 
-      <style jsx>{`
+      {/* FIXED STYLE TAG FOR SERVER COMPONENTS */}
+      <style dangerouslySetInnerHTML={{ __html: `
         .blogs-page-wrapper { background: #f8fafc; min-height: 100vh; padding-bottom: 80px; }
         .page-header { background: #fff; padding: 15px 20px; display: flex; align-items: center; border-bottom: 1px solid #e2e8f0; position: sticky; top: 70px; z-index: 10; }
         .header-title { font-size: 18px; font-weight: 700; color: #1e293b; margin-left: 15px; margin-bottom: 0; }
@@ -49,7 +49,7 @@ export default function BlogsListingPage() {
         .read-more { margin-top: auto; font-size: 14px; font-weight: 700; color: #2563eb; display: flex; align-items: center; gap: 5px; }
         .fade-in { animation: fadeIn 0.5s ease-out backwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
+      `}} />
     </div>
   );
 }
