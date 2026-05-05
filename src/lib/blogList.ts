@@ -14,5 +14,12 @@ export const blogList = [
     shortDesc: "Learn how to use SJ10 to start your business today.",
     image: "https://via.placeholder.com/600x400.png?text=Reselling+Blog",
     date: "10 Feb 2026",
-  }
+  },
+    {
+    slug: "mahana-50000-kaise-kamayein",
+    title: "Ghar Bethe Mahana 50,000 Kaise Kamayein? (Ultimate Guide)",
+    shortDesc: "Bina kisi investment ke SJ10 se apna online business shuru karein aur mahana 50,000 tak kamayein.",
+    image: "/blogs/50k.png", // Yahan apni AI generated image ka URL dalen
+    date: "20 Feb 2026",
+  },
 ];
