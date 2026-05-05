@@ -9,7 +9,13 @@ export async function GET(request: NextRequest) {
 
   const now = new Date().toISOString();
 
-  const staticRoutes =['', '/explore', '/category', '/shipping-policy', '/terms', '/privacy', '/return-policy', '/about'];
+ const staticRoutes =[
+    '', '/explore', '/category', '/shipping-policy', '/terms', '/privacy', '/return-policy', '/about',
+    '/profile/blog',
+    '/profile/blog/mahana-50000-kaise-kamayein',
+    '/profile/blog/top-10-fashion-trends',
+    '/profile/blog/zero-investment-reselling'
+  ];
   staticRoutes.forEach(route => {
     xml += `
     <url>
