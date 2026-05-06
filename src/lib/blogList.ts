@@ -30,7 +30,7 @@ export const blogList = [
   date: "24 Feb 2026",
 },
 {
-  slug: "housewife-online-business-ideas",
+  slug: "housewife-business-ideas",
   title: "Housewives Ke Liye Top 5 Online Business Ideas (Bina Investment)",
   shortDesc: "Ghar ki malka banien aur kamai ki raani bhi! Janiye kaise housewives SJ10 ke sath apna business shuru kar sakti hain.",
   image: "/blogs/housewife-earning.jpg", 
