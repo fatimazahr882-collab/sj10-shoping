@@ -14,7 +14,11 @@ export async function GET(request: NextRequest) {
     '/profile/blog',
     '/profile/blog/mahana-50000-kaise-kamayein',
     '/profile/blog/top-10-fashion-trends',
-    '/profile/blog/zero-investment-reselling'
+    '/profile/blog/zero-investment-reselling',
+    '/profile/blog/whatsapp-status-earning-guide',
+    '/profile/blog/housewife-business-ideas',
+
+
   ];
   staticRoutes.forEach(route => {
     xml += `

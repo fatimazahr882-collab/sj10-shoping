@@ -29,7 +29,7 @@ export default function FashionBlog() {
         {/* Featured Image */}
         <div className="img-box">
            <Image 
-             src="https://via.placeholder.com/800x400.png?text=Pakistani+Fashion+Trends+2026" 
+             src="/blogs/fashion-2026.jpg" 
              alt="Pakistani Fashion Trends" 
              fill 
              style={{objectFit: 'cover'}} 

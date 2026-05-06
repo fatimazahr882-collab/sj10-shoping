@@ -5,14 +5,14 @@ export const blogList = [
     slug: "top-10-fashion-trends",
     title: "Top 10 Fashion Trends in Pakistan (2026)",
     shortDesc: "Discover the latest eastern and western fusion fashion trends.",
-    image: "https://via.placeholder.com/600x400.png?text=Fashion+Blog", // Yahan real image aye gi
+    image: "/blogs/fashion-2026.jpg",// Yahan real image aye gi
     date: "15 Feb 2026",
   },
   {
     slug: "zero-investment-reselling",
     title: "Start Reselling with Zero Investment",
     shortDesc: "Learn how to use SJ10 to start your business today.",
-    image: "https://via.placeholder.com/600x400.png?text=Reselling+Blog",
+    image:  "/blogs/reselling-zero.jpg", // Yahan apni AI generated image ka URL dalen
     date: "10 Feb 2026",
   },
     {
@@ -22,4 +22,18 @@ export const blogList = [
     image: "/blogs/50k.png", // Yahan apni AI generated image ka URL dalen
     date: "20 Feb 2026",
   },
+  {
+  slug: "whatsapp-status-earning-guide",
+  title: "WhatsApp Status Se Mahana 30,000 Kaise Kamayein? (Full Guide)",
+  shortDesc: "Ab sirf status lagana kafi nahi, usey kamai ka zariya banayein. SJ10 ke sath ghar bethe profit kamaein.",
+  image: "/blogs/whatsapp-earning.png", 
+  date: "24 Feb 2026",
+},
+{
+  slug: "housewife-online-business-ideas",
+  title: "Housewives Ke Liye Top 5 Online Business Ideas (Bina Investment)",
+  shortDesc: "Ghar ki malka banien aur kamai ki raani bhi! Janiye kaise housewives SJ10 ke sath apna business shuru kar sakti hain.",
+  image: "/blogs/housewife-earning.jpg", 
+  date: "26 Feb 2026",
+},
 ];
