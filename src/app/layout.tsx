@@ -71,17 +71,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* Performance: Connect to external domains early */}
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
         
-        {/* FontAwesome Icons - Non-blocking Load */}
-<link 
-  rel="stylesheet" 
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-  media="print" 
-  // @ts-ignore
-  onLoad="this.media='all'" 
-/>
-<noscript>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-</noscript>
+        {/* FontAwesome Icons */}
+        <link 
+          rel="stylesheet" 
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
+        />
       </head>
       
       <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-orange-500 selection:text-white">
@@ -99,7 +95,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <ConditionalTopBar />
               </Suspense>
 
-              
+              <NotificationManager />
 
               <Suspense fallback={<div style={{ height: '70px', width: '100%', backgroundColor: '#ffffff', borderBottom: '1px solid #e5e7eb' }} />}>
                 <Header />
@@ -109,8 +105,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <main className="page-container relative z-0 min-h-[70vh] flex flex-col">
                 {children}
               </main>
-{/* Notifications ko content ke baad load karein taake page speed pe asar na paray */}
-<NotificationManager />
+
               {/* Footer */}
               <Suspense fallback={<div className="h-64 bg-[#0A1E40] w-full" />}>
                 <Footer />
