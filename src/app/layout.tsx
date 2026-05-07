@@ -1,4 +1,5 @@
 // src/app/layout.tsx
+// @ts-ignore: Allow importing global CSS without explicit type declarations.
 import "./globals.css";
 import { Poppins } from "next/font/google";
 import { Suspense, type ReactNode } from 'react';

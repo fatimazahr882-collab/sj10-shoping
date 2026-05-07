@@ -2,11 +2,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export const metadata = {
-  title: "Housewives Online Business Ideas in Pakistan | SJ10 Earning Guide",
-  description: "Ghar bethe paise kamane ka tarika for ladies. Top 5 business ideas without investment in Pakistan using SJ10 reselling app. Home decor, kids wear and more.",
-  keywords: "housewife online earning Pakistan, online business for ladies, zero investment business for women, earn money from home, SJ10 for housewives",
+  title: "Housewives Online Business in Pakistan 2026 - Earn 50,000 Monthly",
+  description: "Looking for housewife online business in Pakistan? Start your zero investment reselling business with SJ10. Best work from home opportunity for Pakistani ladies with JazzCash/EasyPaisa withdrawal.",
+  // Yeh keywords Google ko rasta dikhate hain
+  keywords: "housewife online business in pakistan, online earning for ladies, work from home pakistan, earn money without investment, SJ10 reselling app",
 };
-
 export default function HousewifeBusinessBlog() {
   return (
     <div className="housewife-blog-wrapper">
