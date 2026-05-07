@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import SjLoader from './SjLoader'; // Aapka SJ Loader import kar liya
+import SjLoader from './SjLoader'; 
 
 type Banner = { id: number; image_url: string; link_url?: string; };
 
@@ -12,7 +12,6 @@ export default function Banners({ banners, priority = false }: { banners: Banner
   const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>({});
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-slide logic ko function mein daal diya taake dots pe click karne se reset ho sake
   const startTimer = useCallback(() => {
     if (!banners || banners.length <= 1) return;
     timerRef.current = setInterval(() => {
@@ -25,17 +24,14 @@ export default function Banners({ banners, priority = false }: { banners: Banner
     startTimer();
   }, [startTimer]);
 
-  // Dot pe click karne ka function
   const goToSlide = (index: number) => {
     setCurrentIndex(index);
-    resetTimer(); // Timer reset taake click karne k foran baad aage na bhag jaye
+    resetTimer(); 
   };
 
   useEffect(() => {
     startTimer();
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [startTimer]);
 
   if (!banners || banners.length === 0) return null;
@@ -43,31 +39,17 @@ export default function Banners({ banners, priority = false }: { banners: Banner
   return (
     <div 
       className="banner-container" 
-      style={{ 
-        position: 'relative', 
-        overflow: 'hidden', 
-        width: '100%', 
-        aspectRatio: '21/9', 
-        backgroundColor: '#f8fafc', // Light gray background in case image is missing
-        borderRadius: '12px' 
-      }}
+      style={{ position: 'relative', overflow: 'hidden', width: '100%', aspectRatio: '21/9', backgroundColor: '#f8fafc', borderRadius: '12px' }}
     >
       <div 
         className="banner-slider" 
-        style={{ 
-          display: 'flex', 
-          height: '100%', 
-          transition: 'transform 0.7s cubic-bezier(0.25, 0.8, 0.25, 1)', // Smooth sliding physics
-          transform: `translateX(-${currentIndex * 100}%)` 
-        }}
+        style={{ display: 'flex', height: '100%', transition: 'transform 0.7s cubic-bezier(0.25, 0.8, 0.25, 1)', transform: `translateX(-${currentIndex * 100}%)` }}
       >
         {banners.map((banner, index) => {
           const isLoaded = !!loadedImages[index];
 
           return (
             <div key={banner.id} style={{ minWidth: '100%', position: 'relative', height: '100%' }}>
-              
-              {/* 🟢 SJ LOADER: Shows until the image is fully downloaded */}
               {!isLoaded && (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <SjLoader />
@@ -79,17 +61,16 @@ export default function Banners({ banners, priority = false }: { banners: Banner
                   src={banner.image_url} 
                   alt={`Promotional Banner ${index + 1}`}
                   fill
-                  unoptimized={true} // Direct Cloudflare R2 fetch
+                  unoptimized={true} 
                   sizes="(max-width: 768px) 100vw, 1200px"
-                  style={{ 
-                    objectFit: 'cover', 
-                    opacity: isLoaded ? 1 : 0, 
-                    transition: 'opacity 0.6s ease-in-out' // 🟢 Smooth Fade-in animation
-                  }}
+                  style={{ objectFit: 'cover', opacity: isLoaded ? 1 : 0, transition: 'opacity 0.4s ease-in-out' }}
+                  
+                  // ⚡ THE VIP PROTOCOL FIX FOR LCP ⚡
                   priority={priority && index === 0}
                   loading={priority && index === 0 ? "eager" : "lazy"}
-                  fetchPriority={priority && index === 0 ? "high" : "low"}
-                  onLoad={() => setLoadedImages(prev => ({ ...prev, [index]: true }))} // Trigger fade-in
+                  fetchPriority={priority && index === 0 ? "high" : "auto"}
+                  
+                  onLoad={() => setLoadedImages(prev => ({ ...prev, [index]: true }))} 
                 />
               </Link>
             </div>
@@ -97,34 +78,17 @@ export default function Banners({ banners, priority = false }: { banners: Banner
         })}
       </div>
 
-      {/* 🟢 NAVIGATION DOTS */}
       {banners.length > 1 && (
-        <div 
-          className="banner-dots" 
-          style={{ 
-            position: 'absolute', 
-            bottom: '15px', 
-            left: '50%', 
-            transform: 'translateX(-50%)', 
-            display: 'flex', 
-            gap: '8px', 
-            zIndex: 10 
-          }}
-        >
+        <div className="banner-dots" style={{ position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '8px', zIndex: 10 }}>
           {banners.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}
               aria-label={`Go to slide ${index + 1}`}
               style={{
-                width: currentIndex === index ? '24px' : '8px', // Active dot lamba hoga
-                height: '8px',
-                borderRadius: '4px',
-                backgroundColor: currentIndex === index ? '#f85606' : 'rgba(255, 255, 255, 0.6)', // Brand Orange color
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                padding: 0,
+                width: currentIndex === index ? '24px' : '8px',
+                height: '8px', borderRadius: '4px', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease', padding: 0,
+                backgroundColor: currentIndex === index ? '#f85606' : 'rgba(255, 255, 255, 0.6)', 
                 boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
               }}
             />
