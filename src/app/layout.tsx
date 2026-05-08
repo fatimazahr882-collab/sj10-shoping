@@ -76,19 +76,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="format-detection" content="telephone=no" />
   
-       {/* FontAwesome Icons - Async Load for High Performance */}
-        <link 
-          rel="preload" 
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          as="style" 
-        />
+        {/* FontAwesome Icons */}
         <link 
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          media="print" 
-          // @ts-ignore
-          onLoad="this.media='all'" 
           crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
         />
       </head>
       
