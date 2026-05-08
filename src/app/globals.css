@@ -4483,3 +4483,21 @@ body { padding-top: 80px; } /* Reverted */
     width: 100%;
     display: block;
 }
+/* 🟢 CLS FIX: Reserve exact space for Header and TopBar */
+.global-sticky-header {
+  min-height: 70px;
+  contain: layout size; /* Browser ko batao ke iska size fix hai */
+}
+
+/* Reserve space for the first banner to stop jumping */
+.banner-container {
+  aspect-ratio: 21 / 9;
+  min-height: 150px; /* Mobile height approx */
+  background-color: #f1f5f9; /* Soft placeholder color */
+}
+
+@media (min-width: 768px) {
+  .banner-container {
+    min-height: 380px; /* Desktop height */
+  }
+}

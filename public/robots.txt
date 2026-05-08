@@ -1,6 +1,9 @@
+# Allow all standard search engines (Google, Bing, etc.)
 User-agent: *
 Allow: /
 Allow: /profile/blog/
+
+# Block sensitive and dynamic E-commerce pages
 Disallow: /profile/
 Disallow: /cart/
 Disallow: /checkout/
@@ -8,5 +11,27 @@ Disallow: /auth/
 Disallow: /orders/
 Disallow: /api/
 Disallow: /search/
+Disallow: /*?* # Blocks URLs with query parameters to avoid duplicate content
 
+# 🛑 CORRECT WAY TO BLOCK AI BOTS FROM TRAINING ON YOUR DATA 🛑
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Anthropic-ai
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+# Point to your sitemaps
 Sitemap: https://www.sj10.pk/sitemap.xml
+Sitemap: https://www.sj10.pk/sitemap-static.xml
