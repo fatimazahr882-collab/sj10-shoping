@@ -190,9 +190,9 @@ body {
 }
 
 @keyframes pulse-logo-sm {
-    0% { transform: scale(1); opacity: 0.7; }
+    0% { transform: scale(1); opacity: 0.85; }
     50% { transform: scale(1.05); opacity: 1; }
-    100% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 0.85; }
 }
 
 /* 
@@ -4311,9 +4311,9 @@ body { padding-top: 80px; } /* Reverted */
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex; align-items: center; justify-content: center; height: 24px;
 }
-.nav-item.active { color: var(--primary-orange); }
+.nav-item.active { color: #b33b04; }
 .nav-item.active .icon-container { transform: translateY(-4px) scale(1.15); }
-.nav-item.active .label { font-weight: 800; color: var(--primary-orange); }
+.nav-item.active .label { font-weight: 800; color: #b33b04; }
 
 .desktop-footer { display: none; }
 
@@ -4500,4 +4500,33 @@ body { padding-top: 80px; } /* Reverted */
   .banner-container {
     min-height: 380px; /* Desktop height */
   }
+}
+
+
+/* ========================================================= */
+/* ==   FINAL LIGHTHOUSE ACCESSIBILITY CONTRAST FIXES     == */
+/* ========================================================= */
+
+/* General Contrast Overrides */
+.price { color: #b33b04 !important; }
+.original-price { color: #475569 !important; }
+.product-name { color: #0f172a !important; }
+
+/* Product Badges */
+.discount-badge { background-color: #dc2626 !important; color: white !important; }
+.badge.verified { color: #15803d !important; background-color: #f0fdf4 !important; border-color: #86efac !important; }
+
+/* Nav Items (Mobile Bottom Bar) */
+.nav-item.active { color: #b33b04 !important; }
+.nav-item.active .icon-container { transform: translateY(-4px) scale(1.15); }
+.nav-item.active .label { font-weight: 800; color: #b33b04 !important; }
+
+/* SJ Loader Text */
+.sj-loader .logo-text { color: #334155 !important; }
+
+/* Pulse Animation Update (Forces higher minimum opacity) */
+@keyframes pulse-logo-sm {
+    0% { transform: scale(1); opacity: 0.85; }
+    50% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.85; }
 }

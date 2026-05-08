@@ -133,8 +133,8 @@ export default function ProductCardLite({ product }: { product: ProductLite }) {
                 .product-name { margin: 0 0 6px; font-size: 13px; font-weight: 500; line-height: 1.4; height: 36px; overflow: hidden; color: #111827; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
                 
                 .price-container { display: flex; align-items: baseline; gap: 6px; margin-top: auto; }
-              .original-price { font-size: 11px; color: #64748b !important; text-decoration: line-through; }
-                .original-price { font-size: 11px; color: #94a3b8; text-decoration: line-through; }
+              .price { font-weight: 700; font-size: 16px; color: #b33b04; }
+.original-price { font-size: 11px; color: #475569; text-decoration: line-through; }
                 
                 .badge-row { margin-top: 8px; }
                 .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; }

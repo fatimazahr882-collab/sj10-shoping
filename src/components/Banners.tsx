@@ -88,16 +88,15 @@ export default function Banners({ banners, priority = false }: { banners: Banner
       </div>
 
       {banners.length > 1 && (
-        <div className="banner-dots" style={{ position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '4px', zIndex: 10 }}>
+        <div className="banner-dots" style={{ position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '0px', zIndex: 10 }}>
           {banners.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}
               aria-label={`Go to slide ${index + 1}`}
               style={{
-                /* 🟢 ACCESSIBILITY FIX: Minimum 44x44 invisible tap target */
-                minWidth: '44px',
-                minHeight: '44px',
+                width: '44px',
+                height: '44px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -107,17 +106,15 @@ export default function Banners({ banners, priority = false }: { banners: Banner
                 padding: 0
               }}
             >
-              {/* 🟢 The visual dot is now inside the button */}
-              <span 
-                style={{
-                  width: currentIndex === index ? '24px' : '8px',
-                  height: '8px', 
-                  borderRadius: '4px', 
-                  transition: 'all 0.3s ease',
-                  backgroundColor: currentIndex === index ? '#f85606' : 'rgba(255, 255, 255, 0.6)', 
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
-                }}
-              />
+              <span style={{
+                display: 'block',
+                width: currentIndex === index ? '24px' : '8px',
+                height: '8px',
+                borderRadius: '4px',
+                backgroundColor: currentIndex === index ? '#c2410c' : 'rgba(255, 255, 255, 0.9)', 
+                boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                transition: 'all 0.3s ease'
+              }} />
             </button>
           ))}
         </div>
