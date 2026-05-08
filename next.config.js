@@ -42,43 +42,17 @@ async headers() {
     {
       source: '/(.*)',
       headers: [
-        {
-          key: 'Strict-Transport-Security',
-          value: 'max-age=63072000; includeSubDomains; preload',
-        },
-        {
-          key: 'X-Content-Type-Options',
-          value: 'nosniff',
-        },
-        {
-          key: 'X-Frame-Options',
-          value: 'DENY',
-        },
-        {
-          key: 'Referrer-Policy',
-          value: 'strict-origin-when-cross-origin',
-        },
-        {
-          key: 'Cross-Origin-Opener-Policy',
-          value: 'same-origin',
-        },
-        // 🛡️ UPDATED CONTENT SECURITY POLICY (MARKAZ & CDNJS ALLOWED)
-        {
-          key: 'Content-Security-Policy',
-          value: "default-src 'self'; " +
-                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.google.com *.googleapis.com *.facebook.com *.sj10.pk; " +
-                 // 📸 MARKAZ aur Cloudinary dono allow kiye hain
-                 "img-src 'self' data: blob: res.cloudinary.com media.sj10.pk content.public.markaz.app *.googleusercontent.com *.facebook.com; " +
-                 // 🎨 FONT AWESOME (cdnjs) allow kiya hai
-                 "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdnjs.cloudflare.com; " +
-                 "font-src 'self' fonts.gstatic.com cdnjs.cloudflare.com; " +
-                 "connect-src 'self' *.sj10.pk *.vercel.app *.googleapis.com *.google-analytics.com; " +
-                 "frame-src 'self' *.google.com *.facebook.com;"
-        },
+        { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'X-Frame-Options', value: 'DENY' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' }, // ✅ ADD THIS
+        { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' }, // ✅ ADD THIS
       ],
     },
   ];
 },
+
   // ⚡ ADDED: THIS BYPASSES THE CORS ERROR ON LOCALHOST ⚡
   async rewrites() {
     return[
