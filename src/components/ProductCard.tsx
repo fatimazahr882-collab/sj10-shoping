@@ -29,12 +29,27 @@ export type Product = {
 };
 
 // --- URL FORMATTER FOR CLOUDFLARE R2 ---
+// --- SMART URL FORMATTER FOR HIGH PERFORMANCE (NO VERCEL BILL) ---
 const R2_DOMAIN = "https://media.sj10.pk";
 const formatImageUrl = (path: string) => {
     if (!path || path === 'null' || path === 'undefined') return '/placeholder.jpg';
-    if (path.startsWith('http')) return path;
-    if (path.startsWith('/')) return path;
-    return `${R2_DOMAIN}/${path}`;
+    
+    let finalUrl = path;
+    if (path.startsWith('/')) finalUrl = path;
+    else if (!path.startsWith('http')) finalUrl = `${R2_DOMAIN}/${path}`;
+
+    // ⚡ CLOUDINARY FAST COMPRESSION: Force WebP and 400px width
+    if (finalUrl.includes('res.cloudinary.com') && finalUrl.includes('/upload/')) {
+       return finalUrl.replace('/upload/', '/upload/w_400,q_auto,f_webp/');
+    }
+    
+    // ⚡ MARKAZ COMPRESSION HACK (If they support w_ parameter)
+    if (finalUrl.includes('content.public.markaz.app') && !finalUrl.includes('?')) {
+       // Markaz images are huge (1080x1080). We add a width parameter if they support it.
+       return `${finalUrl}?w=400&q=75`;
+    }
+
+    return finalUrl;
 };
 
 const StarRating = ({ rating, count }: { rating: number, count: number }) => {

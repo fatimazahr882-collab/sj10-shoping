@@ -24,8 +24,17 @@ export type ProductLite = {
 const R2_DOMAIN = "https://media.sj10.pk";
 const formatImageUrl = (path: string) => {
     if (!path || path === 'null') return '/placeholder.jpg';
-    if (path.startsWith('http') || path.startsWith('/')) return path;
-    return `${R2_DOMAIN}/${path}`;
+    
+    let finalUrl = path;
+    if (!path.startsWith('http') && !path.startsWith('/')) finalUrl = `${R2_DOMAIN}/${path}`;
+
+    if (finalUrl.includes('res.cloudinary.com') && finalUrl.includes('/upload/')) {
+       return finalUrl.replace('/upload/', '/upload/w_300,q_auto:eco,f_webp/');
+    }
+    if (finalUrl.includes('content.public.markaz.app') && !finalUrl.includes('?')) {
+       return `${finalUrl}?w=300&q=75`;
+    }
+    return finalUrl;
 };
 
 const StarFull = () => (
