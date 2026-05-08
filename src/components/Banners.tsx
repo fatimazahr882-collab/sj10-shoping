@@ -88,19 +88,37 @@ export default function Banners({ banners, priority = false }: { banners: Banner
       </div>
 
       {banners.length > 1 && (
-        <div className="banner-dots" style={{ position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '8px', zIndex: 10 }}>
+        <div className="banner-dots" style={{ position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '4px', zIndex: 10 }}>
           {banners.map((_, index) => (
             <button
               key={index}
               onClick={() => goToSlide(index)}
               aria-label={`Go to slide ${index + 1}`}
               style={{
-                width: currentIndex === index ? '24px' : '8px',
-                height: '8px', borderRadius: '4px', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease', padding: 0,
-                backgroundColor: currentIndex === index ? '#f85606' : 'rgba(255, 255, 255, 0.6)', 
-                boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                /* 🟢 ACCESSIBILITY FIX: Minimum 44x44 invisible tap target */
+                minWidth: '44px',
+                minHeight: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0
               }}
-            />
+            >
+              {/* 🟢 The visual dot is now inside the button */}
+              <span 
+                style={{
+                  width: currentIndex === index ? '24px' : '8px',
+                  height: '8px', 
+                  borderRadius: '4px', 
+                  transition: 'all 0.3s ease',
+                  backgroundColor: currentIndex === index ? '#f85606' : 'rgba(255, 255, 255, 0.6)', 
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}
+              />
+            </button>
           ))}
         </div>
       )}
