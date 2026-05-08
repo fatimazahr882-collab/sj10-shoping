@@ -66,7 +66,7 @@ async headers() {
         {
           key: 'Content-Security-Policy',
           value: "default-src 'self'; " +
-                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.google.com *.googleapis.com *.facebook.com *.sj10.pk; " +
+"script-src 'self' 'unsafe-inline' 'unsafe-eval' *.google.com *.googleapis.com *.facebook.com *.sj10.pk https://static.cloudflareinsights.com" +
                  // 📸 MARKAZ aur Cloudinary dono allow kiye hain
                  "img-src 'self' data: blob: res.cloudinary.com media.sj10.pk content.public.markaz.app *.googleusercontent.com *.facebook.com; " +
                  // 🎨 FONT AWESOME (cdnjs) allow kiya hai
