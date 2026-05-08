@@ -1,9 +1,26 @@
-# Allow all standard search engines (Google, Bing, etc.)
+# ==========================================
+# 1. ALLOW STANDARD SEARCH & AI SUGGESTIONS
+# ==========================================
 User-agent: *
 Allow: /
 Allow: /profile/blog/
 
-# Block sensitive and dynamic E-commerce pages
+# Allow ChatGPT Search to show SJ10 in AI results
+User-agent: OAI-SearchBot
+Allow: /
+
+# Allow users to browse SJ10 links inside ChatGPT
+User-agent: ChatGPT-User
+Allow: /
+
+# Allow Perplexity AI Search
+User-agent: PerplexityBot
+Allow: /
+
+# ==========================================
+# 2. BLOCK PRIVATE & SENSITIVE PAGES
+# ==========================================
+User-agent: *
 Disallow: /profile/
 Disallow: /cart/
 Disallow: /checkout/
@@ -11,27 +28,35 @@ Disallow: /auth/
 Disallow: /orders/
 Disallow: /api/
 Disallow: /search/
-Disallow: /*?* # Blocks URLs with query parameters to avoid duplicate content
+Disallow: /*?* 
 
-# 🛑 CORRECT WAY TO BLOCK AI BOTS FROM TRAINING ON YOUR DATA 🛑
+# ==========================================
+# 3. STRICTLY BLOCK AI FROM TRAINING ON DATA
+# ==========================================
+# Block OpenAI Training Bot
 User-agent: GPTBot
 Disallow: /
 
-User-agent: ChatGPT-User
-Disallow: /
-
+# Block Google Gemini Training Bot
 User-agent: Google-Extended
 Disallow: /
 
-User-agent: Anthropic-ai
+# Block Claude AI Training Bot
+User-agent: ClaudeBot
+Disallow: /
+User-agent: anthropic-ai
 Disallow: /
 
-User-agent: Claude-Web
-Disallow: /
-
+# Block Common Crawl (Used by LLaMA and others for training)
 User-agent: CCBot
 Disallow: /
 
-# Point to your sitemaps
+# Block Facebook/Meta AI Training
+User-agent: FacebookBot
+Disallow: /
+
+# ==========================================
+# SITEMAPS
+# ==========================================
 Sitemap: https://www.sj10.pk/sitemap.xml
 Sitemap: https://www.sj10.pk/sitemap-static.xml
