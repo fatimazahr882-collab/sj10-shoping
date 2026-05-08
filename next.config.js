@@ -36,40 +36,41 @@ const nextConfig = {
     ],
   },
   
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-        ],
-      },
-      {
-        source: '/products/:slug*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, s-maxage=3600, stale-while-revalidate=59',
-          },
-        ],
-      },
-    ];
-  },
+ async headers() {
+  return [
+    {
+      source: '/(.*)',
+      headers: [
+        {
+          key: 'Strict-Transport-Security',
+          value: 'max-age=63072000; includeSubDomains; preload',
+        },
+        {
+          key: 'X-Content-Type-Options',
+          value: 'nosniff',
+        },
+        {
+          key: 'X-Frame-Options',
+          value: 'DENY',
+        },
+        {
+          key: 'Referrer-Policy',
+          value: 'strict-origin-when-cross-origin',
+        },
+        // 🛑 CROSS ORIGIN ISOLATION (Fixes COOP error)
+        {
+          key: 'Cross-Origin-Opener-Policy',
+          value: 'same-origin',
+        },
+        // 🛡️ CONTENT SECURITY POLICY (Rich but Effective)
+        {
+          key: 'Content-Security-Policy',
+          value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' *.google.com *.googleapis.com *.facebook.com *.sj10.pk; img-src 'self' data: blob: res.cloudinary.com media.sj10.pk *.googleusercontent.com *.facebook.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com cdnjs.cloudflare.com; connect-src 'self' *.sj10.pk *.vercel.app *.googleapis.com *.google-analytics.com;",
+        },
+      ],
+    },
+  ];
+},
   // ⚡ ADDED: THIS BYPASSES THE CORS ERROR ON LOCALHOST ⚡
   async rewrites() {
     return[

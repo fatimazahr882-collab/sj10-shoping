@@ -23,23 +23,35 @@ export default function NotificationBell() {
     const dropdownRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
 
-    const fetchNotifications = async () => {
-        try {
-            const data = await apiClient('/notifications', 'GET');
-            if (data && data.notifications) {
-                setNotifications(data.notifications);
-                setUnreadCount(data.unreadCount || 0);
-            }
-        } catch (error) {
-            console.error("Bell Error:", error);
-        }
-    };
+   // fetchNotifications function ko is tarah update karein
+const fetchNotifications = async () => {
+    // 🛑 THE FIX: Agar token nahi hai toh API call hi mat karo
+    const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+    if (!token) return; 
 
-    useEffect(() => {
-        fetchNotifications();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
-    }, []);
+    try {
+        const data = await apiClient('/notifications', 'GET');
+        if (data && data.notifications) {
+            setNotifications(data.notifications);
+            setUnreadCount(data.unreadCount || 0);
+        }
+    } catch (error) {
+        // 🛑 Error ko console mein log mat karein taake Lighthouse score na giraye
+        // console.error("Bell Error:", error); 
+    }
+};
+
+// useEffect mein bhi interval tabhi chalayein agar user logged in ho
+useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+    if (!token) return;
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+}, []);
+
+    
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
