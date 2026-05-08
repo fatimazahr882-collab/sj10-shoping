@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import ProductDetailClient from "@/components/ProductDetailClient";
 import { Product } from "@/components/ProductCard";
 
-// ⚡ ISR CONFIGURATION
+// ⚡ ISR CONFIGURATION (Fresh data every 1 hour)
 export const revalidate = 3600; 
 export const dynamicParams = true; 
 
@@ -42,40 +42,28 @@ async function getProduct(slug: string) {
   }
 }
 
+// RELATED/SELLER FETCH (Kept same for logic flow)
 async function getRelatedProducts(categoryId: string | number, currentId: string | number) {
   if (!categoryId) return [];
   try {
-    // ✅ STRICT LIMIT 7 from API
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?category_id=${categoryId}&limit=7`,
-      { next: { revalidate: 3600 } }
-    );
+    const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?category_id=${categoryId}&limit=7`);
     if (!res.ok) return [];
     const data = await res.json();
     return (data.products || []).filter((p: Product) => String(p.id) !== String(currentId)).slice(0, 7);
-  } catch (error) {
-    return [];
-  }
+  } catch (error) { return []; }
 }
 
 async function getSellerProducts(supplierId: string | number, currentId: string | number) {
   if (!supplierId) return [];
   try {
-    // ✅ STRICT LIMIT 7 from API
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?supplierId=${supplierId}&limit=7`,
-      { next: { revalidate: 3600 } }
-    );
+    const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?supplierId=${supplierId}&limit=7`);
     if (!res.ok) return [];
     const data = await res.json();
-    const list = Array.isArray(data) ? data : (data.products || []);
-    return list.filter((p: Product) => String(p.id) !== String(currentId)).slice(0, 7);
-  } catch (error) {
-    return [];
-  }
+    return (Array.isArray(data) ? data : (data.products || [])).filter((p: Product) => String(p.id) !== String(currentId)).slice(0, 7);
+  } catch (error) { return []; }
 }
 
-// --- 2. HELPERS (Images & Text Formatting) ---
+// --- 2. HELPERS (Absolute URLs for AI Bots) ---
 function getAbsoluteImageUrl(imageInput: any): string {
   let imageUrl = `${SITE_URL}/placeholder.jpg`; 
   try {
@@ -83,24 +71,17 @@ function getAbsoluteImageUrl(imageInput: any): string {
     if (typeof imageInput === 'string') {
       try { rawImgs = JSON.parse(imageInput); } catch(e) { rawImgs = [imageInput]; }
     }
-    
     if (Array.isArray(rawImgs) && rawImgs.length > 0 && rawImgs[0]) {
       const img = rawImgs[0];
       if (img.startsWith("http")) imageUrl = img;
       else if (img.startsWith("/")) imageUrl = `${SITE_URL}${img}`;
       else imageUrl = `${R2_URL}/${img}`;
     }
-  } catch(e) {
-    console.error("Image Parse Error:", e);
-  }
+  } catch(e) {}
   return imageUrl;
 }
 
-function getStrikethroughText(text: string) {
-  return text.split('').map(char => char + '\u0336').join('');
-}
-
-// --- 3. METADATA GENERATION ---
+// --- 3. METADATA GENERATION (The AI & SEO Secret Sauce) ---
 export async function generateMetadata(
   { params }: Props,
   parent: ResolvingMetadata
@@ -113,57 +94,44 @@ export async function generateMetadata(
   }
 
   const mainImage = getAbsoluteImageUrl(product.image_urls);
-  const price = parseFloat(product.price) || 0;
-  const discountPrice = parseFloat(product.discounted_price || product.price) || 0;
-  const formatPKR = (num: number) => new Intl.NumberFormat('en-PK').format(num);
+  const price = parseFloat(product.discounted_price || product.price) || 0;
+  const originalPrice = parseFloat(product.price) || 0;
+  const brandName = product.supplier?.name || product.supplier?.brand_name || "SJ10";
+  const stockStatus = product.quantity > 0 ? "In Stock" : "Out of Stock";
 
-  const exactSlug = product.sku && String(product.sku).trim() !== '' 
-    ? `${product.slug}-${product.sku}` 
-    : product.slug;
+  // SEO Friendly Title and Rich Description for AI Summaries
+  const seoTitle = `${product.title} - Rs. ${price.toLocaleString()} Best Price in Pakistan | SJ10`;
+  const seoDescription = `Buy ${product.title} by ${brandName} online at SJ10. Price: Rs. ${price.toLocaleString()}. Status: ${stockStatus}. 7-day return policy and cash on delivery available nationwide.`;
+
+  const exactSlug = product.sku && String(product.sku).trim() !== '' ? `${product.slug}-${product.sku}` : product.slug;
   const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
-
-  const hasVideo = product.video_url || (typeof product.image_urls === 'string' && product.image_urls.includes('.mp4'));
-  const videoBadge = hasVideo ? '▶️ [VIDEO] ' : '';
-
-  let priceDisplay = `💰 Rs. ${formatPKR(discountPrice)}`;
-  if (discountPrice < price) {
-    const oldPriceStrike = getStrikethroughText(`Rs. ${formatPKR(price)}`);
-    priceDisplay = `✅ Rs. ${formatPKR(discountPrice)} | ❌ ${oldPriceStrike}`;
-  }
-
-  let starDisplay = '';
-  if (product.avg_rating && product.avg_rating > 0) {
-    const starCount = Math.round(product.avg_rating);
-    const stars = '⭐'.repeat(starCount > 5 ? 5 : starCount);
-    starDisplay = ` | ${stars} ${product.avg_rating}/5 (${product.review_count || 0} Reviews)`;
-  }
-
-  const socialTitle = `${videoBadge}${product.title}`;
-  const seoTitle = `${product.title} - Best Price in Pakistan | SJ10`;
-  
-  const baseDesc = product.description 
-    ? product.description.substring(0, 140).replace(/\n/g, ' ') 
-    : `Buy ${product.title} online in Pakistan.`;
-    
-  const richSocialDescription = `${priceDisplay}${starDisplay}\n\n${baseDesc}...`;
 
   return {
     title: seoTitle,
-    description: baseDesc, 
+    description: seoDescription,
     alternates: { canonical: fullProductUrl },
     openGraph: {
-      title: socialTitle,
-      description: richSocialDescription, 
-      url: fullProductUrl, 
-      siteName: 'SJ10 Shopping',
+      title: product.title,
+      description: seoDescription,
+      url: fullProductUrl,
+      siteName: 'SJ10 Shopping & Reselling Pakistan',
       images: [{ url: mainImage, alt: product.title }],
       locale: 'en_PK',
-      type: 'website', 
+      type: 'website',
+    },
+    // AI Bot specific meta tags (AEO)
+    other: {
+        'product:price:amount': price,
+        'product:price:currency': 'PKR',
+        'product:availability': product.quantity > 0 ? 'instock' : 'oos',
+        'product:brand': brandName,
+        'product:condition': 'new',
+        'product:retailer_item_id': product.sku || String(product.id)
     },
     twitter: {
       card: 'summary_large_image',
-      title: socialTitle,
-      description: richSocialDescription,
+      title: seoTitle,
+      description: seoDescription,
       images: [mainImage],
     },
   };
@@ -179,15 +147,13 @@ export default async function ProductDetailPage({ params }: Props) {
   const product = await getProduct(currentSlug);
   if (!product) notFound();
 
-  // 🔥 CRITICAL REDIRECT FIX: Bulletproof Case-Insensitive Check
+  // Bulletproof Case-Insensitive SKU Redirect
   if (product.sku && String(product.sku).trim() !== '') {
     let decodedCurrent = currentSlug.toLowerCase();
     try { decodedCurrent = decodeURIComponent(currentSlug).toLowerCase(); } catch(e) { }
-
     const expectedSlugEnd = `-${String(product.sku).trim().toLowerCase()}`;
     if (!decodedCurrent.endsWith(expectedSlugEnd)) {
-       const exactCorrectSlug = `${product.slug}-${product.sku}`;
-       permanentRedirect(`/products/${exactCorrectSlug}`);
+       permanentRedirect(`/products/${product.slug}-${product.sku}`);
     }
   }
 
@@ -196,51 +162,27 @@ export default async function ProductDetailPage({ params }: Props) {
     getSellerProducts(product.supplier_id || product.supplier?.id, product.id)
   ]);
 
-  // PREPARE GOOGLE SCHEMA (JSON-LD)
   const priceVal = parseFloat(String(product.discounted_price || product.price));
   const mainImageAbsolute = getAbsoluteImageUrl(product.image_urls);
-  const exactSlug = product.sku && String(product.sku).trim() !== '' ? `${product.slug}-${product.sku}` : product.slug;
+  const exactSlug = product.sku ? `${product.slug}-${product.sku}` : product.slug;
   const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
 
-  // ✅ GENERATE BREADCRUMB SCHEMA FOR GOOGLE
-  const breadcrumbList = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE_URL },
-      ...(product.category_info?.parent_name ? [{
-        "@type": "ListItem", "position": 2, "name": product.category_info.parent_name, "item": `${SITE_URL}/category/${product.category_info.parent_slug}`
-      }] : []),
-      { 
-        "@type": "ListItem", 
-        "position": product.category_info?.parent_name ? 3 : 2, 
-        "name": product.category_info?.name || 'Category', 
-        "item": `${SITE_URL}/category/${product.category_info?.slug || 'all'}`
-      },
-      {
-        "@type": "ListItem",
-        "position": product.category_info?.parent_name ? 4 : 3,
-        "name": product.title,
-        "item": fullProductUrl
-      }
-    ]
-  };
-
+  // ✅ 1. JSON-LD FOR AI SEARCH (Product Schema)
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.title,
     "image": [mainImageAbsolute],
-    "description": product.description ? product.description.substring(0, 5000) : product.title,
+    "description": product.description || product.title,
     "sku": product.sku || String(product.id),
     "mpn": String(product.id),
-    "brand": { "@type": "Brand", "name": product.supplier?.name || "SJ10 Shopping" },
+    "brand": { "@type": "Brand", "name": product.supplier?.name || "SJ10" },
     "offers": {
       "@type": "Offer",
-      "url": fullProductUrl, 
+      "url": fullProductUrl,
       "priceCurrency": "PKR",
       "price": priceVal,
-      "priceValidUntil": "2026-12-31", 
+      "priceValidUntil": "2026-12-31",
       "itemCondition": "https://schema.org/NewCondition",
       "availability": product.quantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       "seller": { "@type": "Organization", "name": "SJ10 Shopping" }
@@ -249,17 +191,32 @@ export default async function ProductDetailPage({ params }: Props) {
       "aggregateRating": {
         "@type": "AggregateRating",
         "ratingValue": parseFloat(String(product.avg_rating)),
-        "reviewCount": parseInt(String(product.review_count)) || 1,
-        "bestRating": "5",
-        "worstRating": "1"
+        "reviewCount": parseInt(String(product.review_count)) || 1
       }
     } : {})
   };
 
+  // ✅ 2. JSON-LD FOR BREADCRUMBS (Helps AI understand site hierarchy)
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": SITE_URL },
+      { 
+        "@type": "ListItem", 
+        "position": 2, 
+        "name": product.category_info?.name || 'Category', 
+        "item": `${SITE_URL}/category/${product.category_info?.slug || 'all'}`
+      },
+      { "@type": "ListItem", "position": 3, "name": product.title, "item": fullProductUrl }
+    ]
+  };
+
   return (
     <>
+      {/* Robot Food (Schema) */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbList) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       
       <ProductDetailClient 
         product={product} 

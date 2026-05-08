@@ -56,10 +56,12 @@ export const metadata = {
 };
 
 // 🚀 VIEWPORT & ACCESSIBILITY
+// 🚀 UPDATED VIEWPORT & THEME
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 5, // 🔴 FIXED: userScalable: false hurts SEO accessibility scores. This fixes it while keeping the initial zoom standard.
+  maximumScale: 5,
+  themeColor: '#f85606', // Daraz/SJ10 Orange color for mobile status bars
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -70,7 +72,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         {/* Performance: Connect to external domains early */}
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
-        
+         <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="format-detection" content="telephone=no" />
         {/* FontAwesome Icons */}
         <link 
           rel="stylesheet" 

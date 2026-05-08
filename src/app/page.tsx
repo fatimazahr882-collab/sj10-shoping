@@ -22,34 +22,59 @@ export const revalidate = 3600;
 const SITE_URL = "https://www.sj10.pk";
 
 // 🚀 ADVANCED SEO METADATA
+// 🚀 PRO-LEVEL SEO METADATA (Updated for Maximum Ranking)
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: {
-    default: "SJ10 - Pakistan's #1 Online Shopping Marketplace",
-    template: "%s | SJ10.pk" 
-  },
-  description: "Shop thousands of products at SJ10. Best prices for Fashion, Electronics, Home Decor, and more. Fast delivery and Cash on Delivery available across Pakistan.",
+  title: "SJ10 - Best Online Shopping & Zero-Investment Reselling in Pakistan | Cash on Delivery & Reselling",
+  description: "Experience premium online shopping at SJ10. Buy Fashion, Electronics, and Home Decor at Wholesale prices. #1 Reselling App in Pakistan - Start your business with Zero Investment today! Fast delivery and COD available. #SJ10 #OnlineShoppingPK",
   keywords: [
-    "Online Shopping in Pakistan", "Buy Online", "Cash on Delivery", 
-    "SJ10", "Fashion", "Electronics", "Home Decor", "Reselling App Pakistan"
+    "Online Shopping in Pakistan", 
+    "Cash on Delivery Pakistan", 
+    "Buy Online wholesale Pakistan", 
+    "SJ10 Saman Junction", 
+    "Best reselling app in Pakistan", 
+    "Earn money online Pakistan",
+    "Wholesale clothing Pakistan",
+    "Cheap electronics Pakistan",
+    "Zero investment business Pakistan"
   ],
   alternates: { canonical: "/" },
   openGraph: {
-    title: "SJ10.pk | Online Shopping & Reselling in Pakistan",
-    description: "Premium shopping experience in Pakistan with fast Cash on Delivery.",
+    title: "SJ10.pk | Wholesale Shopping & Zero-Investment Reselling in Pakistan",
+    description: "Shop thousands of products at wholesale rates or start your own business today! Reliable COD and 7-day return policy nationwide. #SJ10",
     url: SITE_URL,
     siteName: "SJ10 Shopping",
     locale: "en_PK",
     type: "website",
-    images: [{ url: `${SITE_URL}/logo.png`, width: 512, height: 512, alt: "SJ10 Logo" }],
+    images: [{ 
+      url: `${SITE_URL}/logo.png`, 
+      width: 1200, 
+      height: 630, 
+      alt: "SJ10 - Pakistan's Leading Marketplace" 
+    }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: "SJ10.pk | Online Shopping & Reselling in Pakistan",
-    description: "Premium shopping experience with fast COD and a huge product selection.",
+    title: "SJ10 - Shop & Earn in Pakistan",
+    description: "Premium shopping experience with fast COD and wholesale rates. Join SJ10 today!",
     images: [`${SITE_URL}/logo.png`],
   },
-  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
+  // Google bot ko batana ke ye site Mobile Friendly hai aur AIO (AI Optimization) ke liye ready hai
+  other: {
+     // Agar aapke paas console code hai
+    "facebook-domain-verification": "YOUR_CODE_HERE",
+  },
+  robots: { 
+    index: true, 
+    follow: true, 
+    googleBot: { 
+      index: true, 
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    } 
+  },
 };
 
 export default async function HomePage() {
@@ -57,28 +82,49 @@ export default async function HomePage() {
   const initialData = await getStaticHomeData();
 
   // 🚀 ADVANCED STRUCTURED DATA (JSON-LD)
+  // 🚀 ADVANCED STRUCTURED DATA (JSON-LD)
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "Organization",
-        "name": "SJ10 Shopping",
+        "@id": `${SITE_URL}/#organization`,
+        "name": "SJ10 Shopping (Saman Junction)",
         "url": SITE_URL,
         "logo": { "@type": "ImageObject", "url": `${SITE_URL}/logo.png` },
+        "description": "Pakistan's premier multi-vendor marketplace offering wholesale shopping and zero-investment reselling opportunities.",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Lahore",
+          "addressRegion": "Punjab",
+          "addressCountry": "PK"
+        },
         "sameAs": [ 
           "https://www.instagram.com/sj10official",
           "https://www.tiktok.com/@sj10official",
-          "https://youtube.com/@sj10official"
+          "https://youtube.com/@sj10official",
+          "https://www.facebook.com/share/1Bq48JrhYK/"
         ]
       },
       {
         "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
         "url": SITE_URL,
+        "name": "SJ10 Pakistan",
+        "publisher": { "@id": `${SITE_URL}/#organization` },
         "potentialAction": { 
           "@type": "SearchAction",
           "target": { "@type": "EntryPoint", "urlTemplate": `${SITE_URL}/search?q={search_term_string}` },
           "query-input": "required name=search_term_string"
         }
+      },
+      // ✅ ADDED: Service Schema for Reselling (High SEO Value)
+      {
+        "@type": "Service",
+        "serviceType": "Reselling Platform",
+        "provider": { "@id": `${SITE_URL}/#organization` },
+        "areaServed": { "@type": "Country", "name": "Pakistan" },
+        "description": "Start your online business in Pakistan with zero investment. Set your own profit margins and earn from home."
       }
     ]
   };
@@ -135,7 +181,7 @@ return (
         <LatestProducts /> 
       </LazySection>
 
-      
+
       <LazySection height="350px" offset="200px">
         {initialData.popularProducts?.length > 0 && (
           <PopularProducts products={initialData.popularProducts} />

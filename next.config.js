@@ -36,21 +36,40 @@ const nextConfig = {
     ],
   },
   
-  // ⚡ FOR CLOUDFLARE CDN CACHING ⚡
   async headers() {
     return [
       {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+      {
         source: '/products/:slug*',
-        headers:[
+        headers: [
           {
             key: 'Cache-Control',
-            value: 'public, s-maxage=3600, stale-while-revalidate=59', // 1 Hour CDN Cache
+            value: 'public, s-maxage=3600, stale-while-revalidate=59',
           },
         ],
       },
     ];
   },
-
   // ⚡ ADDED: THIS BYPASSES THE CORS ERROR ON LOCALHOST ⚡
   async rewrites() {
     return[

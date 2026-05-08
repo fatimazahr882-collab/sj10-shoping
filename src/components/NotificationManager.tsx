@@ -20,21 +20,19 @@ export default function NotificationManager() {
   const pathname = usePathname(); 
   const [isSubscribed, setIsSubscribed] = useState(false);
 
-  useEffect(() => {
+ useEffect(() => {
     async function subscribeUserToPush() {
-      // ---------------------------------------------------------
-      // ⚡ FIX: Use 'authToken' instead of 'token'
-      // ---------------------------------------------------------
-      const token = localStorage.getItem("authToken"); 
+      // 🛑 THE FIX: Pehle check karein token hai ya nahi
+      const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null; 
       
       if (!token) {
-        console.log("Guest User - Skipping Notification Subscription");
+        // Agar token nahi hai toh khamoshi se return kar jao
+        console.log("Guest User: Notification sync skipped.");
         return;
       }
 
-      // 2. Check Browser Support
+      // Baqi sara code iske neeche aayega...
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        console.warn("Push notifications not supported.");
         return;
       }
 

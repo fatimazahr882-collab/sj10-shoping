@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/context/CartContext'; 
 import NotificationBell from './NotificationBell'; 
+import ClientOnly from './ClientOnly';
 
 const promoTexts =[
   "Pakistan's #1 Online Shopping Site 🇵🇰", 
@@ -68,21 +69,25 @@ export default function Header() {
           </span>
         </div>
 
-        <div className="header-icons">
-          {/* ✅ FIX: Added aria-labels to all icon links so screen readers know what they do */}
-          <Link href="/favorites" aria-label="View Favorites" style={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
-             <i className="fa-regular fa-heart text-xl hover:text-red-500 transition-colors" aria-hidden="true"></i>
-          </Link>
+     {/* Header Icons Section */}
+<div className="header-icons">
+  <Link href="/favorites" aria-label="View Favorites" style={{ color: 'inherit', display: 'flex', alignItems: 'center' }}>
+     <i className="fa-regular fa-heart text-xl hover:text-red-500 transition-colors" aria-hidden="true"></i>
+  </Link>
 
-          <NotificationBell />
-          
-          <Link href="/cart" aria-label={`View Cart, ${itemCount} items`} style={{ position: 'relative', textDecoration: 'none', color: 'inherit', marginLeft: '8px' }}>
-            <i className="fa-solid fa-bag-shopping" id="cart-icon" aria-hidden="true"></i>
-            { itemCount > 0 && (
-              <span className="cart-badge">{itemCount}</span>
-            )}
-          </Link>
-        </div>
+  <NotificationBell />
+  
+  <Link href="/cart" aria-label="Open Shopping Cart" style={{ position: 'relative', textDecoration: 'none', color: 'inherit', marginLeft: '8px' }}>
+    <i className="fa-solid fa-bag-shopping" id="cart-icon" aria-hidden="true"></i>
+    
+    {/* 🛑 THE FIX: Wrap in ClientOnly taake Hydration Error na aaye */}
+    <ClientOnly>
+      {itemCount > 0 && (
+        <span className="cart-badge">{itemCount}</span>
+      )}
+    </ClientOnly>
+  </Link>
+</div>
       </header>
       
       <style jsx global>{`
