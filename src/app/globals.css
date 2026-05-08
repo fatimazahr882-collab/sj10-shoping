@@ -166,7 +166,7 @@ body {
 .sj-loader .logo-text { 
   font-size: 40px; 
   font-weight: 900; 
-  color: #ccc;
+  color: #8b8864;
   margin-bottom: 10px; 
   letter-spacing: 2px; 
   animation: pulse-logo-sm 1.5s infinite ease-in-out; 
@@ -4302,7 +4302,7 @@ body { padding-top: 80px; } /* Reverted */
 .nav-item {
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; text-decoration: none;
-  color: #64748b; font-size: 10px; font-weight: 600;
+  color: #475569; font-size: 10px; font-weight: 600;
   width: 20%; height: 100%; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative; -webkit-tap-highlight-color: transparent;
 }

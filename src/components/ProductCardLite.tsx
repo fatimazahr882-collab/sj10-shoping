@@ -125,19 +125,21 @@ export default function ProductCardLite({ product }: { product: ProductLite }) {
                     background-color: #f1f5f9; overflow: hidden;
                 }
                 
-                .discount-badge { position: absolute; top: 8px; left: 8px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 800; padding: 3px 7px; border-radius: 4px; z-index: 5; }
+               .discount-badge { position: absolute; top: 8px; left: 8px; background: #dc2626; color: #fff; font-size: 10px; font-weight: 800; padding: 3px 7px; border-radius: 4px; z-index: 5; }
+
                 .video-glass-icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 38px; height: 38px; background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.4); border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 6; }
                 
                 .product-card-info { padding: 10px 12px; flex-grow: 1; display: flex; flex-direction: column; position: relative; z-index: 2; }
                 .product-name { margin: 0 0 6px; font-size: 13px; font-weight: 500; line-height: 1.4; height: 36px; overflow: hidden; color: #111827; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
                 
                 .price-container { display: flex; align-items: baseline; gap: 6px; margin-top: auto; }
-                .price { font-weight: 700; font-size: 16px; color: #f85606; }
+              .original-price { font-size: 11px; color: #64748b !important; text-decoration: line-through; }
                 .original-price { font-size: 11px; color: #94a3b8; text-decoration: line-through; }
                 
                 .badge-row { margin-top: 8px; }
                 .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-                .badge.verified { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+               /* Change color from #16a34a to #15803d (Green 700) */
+.badge.verified { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
             `}</style>
         </Link>
     );

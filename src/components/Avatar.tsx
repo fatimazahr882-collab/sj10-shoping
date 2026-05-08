@@ -135,7 +135,7 @@ export default function Avatar({ user, url, userName, onUpload }: AvatarProps) {
         {avatarUrl ? (
           <img
             src={avatarUrl}
-            alt="User profile picture"
+            alt="User profile"
             className="avatar-image"
           />
         ) : (
