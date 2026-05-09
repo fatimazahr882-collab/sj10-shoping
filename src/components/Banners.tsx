@@ -61,26 +61,23 @@ export default function Banners({ banners, priority = false }: { banners: Banner
 
               <Link href={banner.link_url || '#'} className="block w-full h-full relative" aria-label={`View promotion ${index + 1}`}>
                 <Image 
-                  src={banner.image_url} 
-                  alt={`Promotional Banner ${index + 1}`}
-                  fill
-                  unoptimized={true} 
-                  sizes="(max-width: 768px) 100vw, 1200px"
-                  style={{ 
-                    objectFit: 'cover', 
-                    // 🟢 VIP PROTOCOL: Pehla banner hamesha visible (Opacity 1), baqi loaded hony per nazar aayenge
-                    opacity: isFirst ? 1 : (isLoaded ? 1 : 0), 
-                    transition: isFirst ? 'none' : 'opacity 0.4s ease-in-out' 
-                  }}
-                  
-                  priority={isFirst} 
-                  loading={isFirst ? "eager" : "lazy"}
-                  fetchPriority={isFirst ? "high" : "auto"}
-                  
-                  onLoad={() => {
-                    if (!isFirst) setLoadedImages(prev => ({ ...prev, [index]: true }));
-                  }} 
-                />
+  src={banner.image_url} 
+  alt={`Promotional Banner ${index + 1}`}
+  fill
+  sizes="(max-width: 768px) 100vw, 1200px"
+  quality={75} /* Vercel isko compress karega */
+  style={{ 
+    objectFit: 'cover', 
+    opacity: isFirst ? 1 : (isLoaded ? 1 : 0), 
+    transition: isFirst ? 'none' : 'opacity 0.4s ease-in-out' 
+  }}
+  priority={isFirst} 
+  loading={isFirst ? "eager" : "lazy"}
+  fetchPriority={isFirst ? "high" : "auto"}
+  onLoad={() => {
+    if (!isFirst) setLoadedImages(prev => ({ ...prev, [index]: true }));
+  }} 
+/>
               </Link>
             </div>
           );
