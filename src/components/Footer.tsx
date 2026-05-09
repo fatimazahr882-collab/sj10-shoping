@@ -30,8 +30,10 @@ const activeDiscounts = [
 ];
 
 const externalPromos = [
-   { name: "Visit Our Partner Site", url: "https://example.com" }, 
-   { name: "Aoun Abbas Portfolio", url: "https://linkedin.com" },
+   { name: "Housewives Ke Liye Top 5 Online Business Ideas", url: "https://www.sj10.pk/profile/blog/housewife-business-ideas" },
+   { name: "WhatsApp Status Se Mahana 30,000 Kaise Kamayein?", url: "https://www.sj10.pk/profile/blog/whatsapp-status-earning-guide" },
+   { name: "Ghar Bethe Mahana 50,000 Kaise Kamayein? (Ultimate Guide)", url: "https://www.sj10.pk/profile/blog/mahana-50000-kaise-kamayein" },
+   { name: "Start Reselling with Zero Investment", url: "https://www.sj10.pk/profile/blog/zero-investment-reselling" },
 ];
 
 export default function Footer() {
