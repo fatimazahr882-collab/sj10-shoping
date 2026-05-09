@@ -69,29 +69,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
   return (
     <html lang="en" className={`${poppins.variable} scroll-smooth`}>
-      <head>
-        {/* Performance: Connect to external domains early */}
+     <head>
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
-         <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="format-detection" content="telephone=no" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="format-detection" content="telephone=no" />
   
-       {/* FontAwesome Icons - Async Load for High Performance */}
-        <link 
-          rel="preload" 
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          as="style" 
-        />
+        {/* FontAwesome - Fast & Allowed Load */}
         <link 
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          media="print" 
-          // @ts-ignore
-          onLoad="this.media='all'" 
           crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
         />
       </head>
-      
       <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-orange-500 selection:text-white">
         
         <GoogleOAuthProvider clientId={googleClientId}>
