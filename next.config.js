@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  unoptimized : true,   
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'media.sj10.pk' },
