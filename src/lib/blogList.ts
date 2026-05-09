@@ -36,4 +36,11 @@ export const blogList = [
   image: "https://res.cloudinary.com/dc05lyten/image/upload/v1778089004/sj10_avatars/ek6atzfluqlbrdcegjky.webp", 
   date: "26 april 2026",
 },
+{
+  slug: "complete-guide-to-sj10-saman-junction",
+  title: "SJ10 (Saman Junction) Kya Hai? Har Feature Aur Page Ki Mukammal Guide",
+  shortDesc: "Aoun Abbas ki janib se SJ10 ka introduction. Janiye reselling, zero investment business aur har page ki detail.",
+  image: "https://media.sj10.pk/banners/180001.webp",
+  date: "9 may 2026",
+}
 ];
