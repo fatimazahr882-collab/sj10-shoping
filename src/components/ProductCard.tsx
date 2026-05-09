@@ -29,27 +29,10 @@ export type Product = {
 };
 
 // --- URL FORMATTER FOR CLOUDFLARE R2 ---
-// --- SMART URL FORMATTER (ZERO VERCEL COST) ---
 const R2_DOMAIN = "https://media.sj10.pk";
 const formatImageUrl = (path: string) => {
     if (!path || path === 'null' || path === 'undefined') return '/placeholder.jpg';
-    
-    // 1. Cloudinary Compression (On-the-fly, Free)
-    if (path.includes('cloudinary.com') && path.includes('/upload/')) {
-        if (!path.includes('/upload/w_')) {
-            return path.replace('/upload/', '/upload/w_300,q_auto:eco,f_webp/');
-        }
-        return path;
-    }
-
-    // 2. Markaz & External Images Compression via WSRV (Free Global CDN Image Proxy)
-    // Ye 200KB ki image ko 15KB ka bana dega Vercel use kiye bina!
-    if (path.includes('markaz.app') || path.includes('http')) {
-        const cleanUrl = path.replace(/^https?:\/\//, '');
-        return `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=300&output=webp&q=70`;
-    }
-
-    // 3. Local/R2 Images
+    if (path.startsWith('http')) return path;
     if (path.startsWith('/')) return path;
     return `${R2_DOMAIN}/${path}`;
 };
