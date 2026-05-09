@@ -60,12 +60,12 @@ export default function Banners({ banners, priority = false }: { banners: Banner
               )}
 
               <Link href={banner.link_url || '#'} className="block w-full h-full relative" aria-label={`View promotion ${index + 1}`}>
-                <Image 
+               <Image 
   src={banner.image_url} 
   alt={`Promotional Banner ${index + 1}`}
   fill
+  unoptimized={true} /* 🔥 Isko wapis laga diya taake Vercel delay na kare */
   sizes="(max-width: 768px) 100vw, 1200px"
-  quality={75} /* Vercel isko compress karega */
   style={{ 
     objectFit: 'cover', 
     opacity: isFirst ? 1 : (isLoaded ? 1 : 0), 
