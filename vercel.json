@@ -1,8 +1,21 @@
 {
-  "crons": [
+  "headers": [
     {
-      "path": "/api/cron",
-      "schedule": "0 6 * * *"
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "unsafe-none"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+        }
+      ]
     }
   ]
 }
