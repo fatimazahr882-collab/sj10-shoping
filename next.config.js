@@ -1,55 +1,39 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // 1. External Image Domains Ko Allow Karna Zaroori Hai
   images: {
-    unoptimized: true, // Vercel limit safety
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    formats: ['image/avif', 'image/webp'],
     remotePatterns: [
-      { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '/**' },
-      { protocol: 'https', hostname: 'media.sj10.pk', pathname: '/**' },
-      { protocol: 'https', hostname: 'content.public.markaz.app', pathname: '/**' },
+      { protocol: 'https', hostname: 'media.sj10.pk' },
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'via.placeholder.com' },
+      { protocol: 'https', hostname: 'placehold.co' }
     ],
   },
-  
+
+  // 2. Security Headers Ko Fix Karna (Images & Icons Issue Here)
   async headers() {
     return [
       {
         source: '/(.*)',
         headers: [
-          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-          // 🛡️ REMOVED Cross-Origin-Embedder-Policy (Culprit fixed!)
+          // ✅ FIX 1: 'require-corp' ki jagah 'unsafe-none' kiya hai taake external images block na hon
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'unsafe-none', 
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups', // Google Login popups ke liye zaroori hai
+          },
+          // ✅ FIX 2: FontAwesome, Cloudflare Scripts aur External Images ko explicitly allow kar diya gaya hai
           {
             key: 'Content-Security-Policy',
-            // Maine sari domains (Markaz, Cloudflare, cdnjs) line-wise add kardi hain
-            value: "default-src 'self'; " +
-                   "script-src 'self' 'unsafe-inline' 'unsafe-eval' *.google.com *.googleapis.com *.facebook.com *.sj10.pk https://static.cloudflareinsights.com; " +
-                   "img-src 'self' data: blob: res.cloudinary.com media.sj10.pk content.public.markaz.app *.googleusercontent.com *.facebook.com; " +
-                   "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdnjs.cloudflare.com; " +
-                   "font-src 'self' fonts.gstatic.com cdnjs.cloudflare.com; " +
-                   "connect-src 'self' *.sj10.pk *.vercel.app *.googleapis.com *.google-analytics.com https://cloudflareinsights.com; " +
-                   "frame-src 'self' *.google.com *.facebook.com;"
-          },
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://*.google.com https://*.googleapis.com https://*.facebook.com https://*.sj10.pk; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://res.cloudinary.com https://media.sj10.pk https://*.googleusercontent.com https://images.unsplash.com https://via.placeholder.com https://placehold.co; media-src 'self' https://media.sj10.pk https://res.cloudinary.com; connect-src 'self' https://* wss://*;"
+          }
         ],
       },
     ];
-  },
-
-  async rewrites() {
-    return [
-      {
-        source: '/api-proxy/:path*',
-        destination: 'http://products.sj10.pk/api/:path*', 
-      },
-    ];
-  },
-  
-  compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
   },
 };
 
