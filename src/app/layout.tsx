@@ -69,11 +69,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
   return (
     <html lang="en" className={`${poppins.variable} scroll-smooth`}>
-    <head>
-        {/* 🔥 FIX: Clean and Standard FontAwesome Load (No Credentials Warning) */}
+     <head>
+        <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+        
+  
+        {/* FontAwesome - Fast & Allowed Load */}
         <link 
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
         />
       </head>
       <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-orange-500 selection:text-white">
