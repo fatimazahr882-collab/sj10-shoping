@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 const navItems = [
   { href: '/', label: 'Home', icon: 'fas fa-home' },
@@ -35,6 +36,26 @@ const externalPromos = [
 
 export default function Footer() {
   const pathname = usePathname();
+  const [showGoTop, setShowGoTop] = useState(false);
+
+  // Scroll event listener for "Go To Top" button
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowGoTop(true);
+      } else {
+        setShowGoTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Smooth scroll to top function
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <>
@@ -85,7 +106,6 @@ export default function Footer() {
                         <strong>Serving:</strong> Karachi, Lahore, Islamabad, Quetta, Peshawar & all over Pakistan.
                     </div>
                    <div className="social-row">
-                        {/* ✅ FIX: Added aria-label to all icon links */}
                         <a href="https://www.facebook.com/share/1Bq48JrhYK/" target="_blank" rel="noreferrer" className="social-icon" aria-label="Visit our Facebook page">
                           <i className="fab fa-facebook-f" aria-hidden="true"></i>
                         </a>
@@ -156,6 +176,7 @@ export default function Footer() {
         </div>
       </footer>
 
+      {/* Mobile Bottom Navigation */}
       <nav className="mobile-bottom-nav">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -173,6 +194,68 @@ export default function Footer() {
           );
         })}
       </nav>
+
+      {/* 🚀 Beautiful Animated Go To Top Button */}
+      <button 
+        onClick={scrollToTop} 
+        className={`go-top-btn ${showGoTop ? 'visible' : ''}`}
+        aria-label="Scroll to top"
+      >
+        <i className="fas fa-arrow-up"></i>
+      </button>
+
+      {/* Scoped CSS for the Go To Top Button */}
+      <style jsx>{`
+        .go-top-btn {
+          position: fixed;
+          right: 20px;
+          /* Mobile par bottom nav bar (65px) ke upar rakhne ke liye 85px diya hai */
+          bottom: 85px; 
+          width: 45px;
+          height: 45px;
+          background: linear-gradient(135deg, #f85606, #ff8a00);
+          color: white;
+          border: none;
+          border-radius: 50%;
+          font-size: 18px;
+          cursor: pointer;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          box-shadow: 0 4px 15px rgba(248, 86, 6, 0.4);
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(20px);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 9998; /* Bottom nav se theek peechay, lekin content se upar */
+        }
+        
+        .go-top-btn.visible {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+        }
+
+        .go-top-btn:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 20px rgba(248, 86, 6, 0.6);
+        }
+
+        .go-top-btn:active {
+          transform: translateY(0);
+        }
+
+        /* Desktop view adjustments */
+        @media (min-width: 1024px) {
+          .go-top-btn {
+            bottom: 40px; /* Desktop par bottom nav nahi hoti, isliye neeche kar diya */
+            right: 40px;
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+          }
+        }
+      `}</style>
     </>
   );
 }
