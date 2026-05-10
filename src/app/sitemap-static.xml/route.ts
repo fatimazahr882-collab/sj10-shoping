@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     '/profile/blog/whatsapp-status-earning-guide',
     '/profile/blog/housewife-business-ideas',
     '/profile/blog/complete-guide-to-sj10-saman-junction',
+    '/profile/blog/ultimate-guide-to-sj10-saman-junction',
 
 
   ];

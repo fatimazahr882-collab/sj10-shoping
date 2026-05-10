@@ -47,7 +47,7 @@ export const blogList = [
   slug: "ultimate-guide-to-sj10-saman-junction",
   title: "Saman Junction (SJ10) Kya Hai? Har Page aur Feature Ki Professional Guide",
   shortDesc: "Aoun Abbas ki janib se SJ10 ka mukammal taruf. Janiye kaise aap har function ko use kar ke apna business barha sakte hain.",
-  image: "/blogs/sj10-master-guide.jpg", 
+  image: "https://media.sj10.pk/banners/210002.webp",
   date: "10 may 2026",
 }
 ];
