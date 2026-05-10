@@ -11,6 +11,8 @@ const navItems = [
   { href: '/explore', label: 'Explore', icon: 'fas fa-compass' },
   { href: '/orders', label: 'Orders', icon: 'fas fa-box' },
   { href: '/profile', label: 'Profile', icon: 'fas fa-user' },
+
+
 ];
 
 const topCategories = [

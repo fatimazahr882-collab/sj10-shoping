@@ -42,5 +42,12 @@ export const blogList = [
   shortDesc: "Aoun Abbas ki janib se SJ10 ka introduction. Janiye reselling, zero investment business aur har page ki detail.",
   image: "https://media.sj10.pk/banners/180001.webp",
   date: "9 may 2026",
+},
+{
+  slug: "ultimate-guide-to-sj10-saman-junction",
+  title: "Saman Junction (SJ10) Kya Hai? Har Page aur Feature Ki Professional Guide",
+  shortDesc: "Aoun Abbas ki janib se SJ10 ka mukammal taruf. Janiye kaise aap har function ko use kar ke apna business barha sakte hain.",
+  image: "/blogs/sj10-master-guide.jpg", 
+  date: "10 may 2026",
 }
 ];
