@@ -9,7 +9,7 @@ import { motion } from 'framer-motion';
 type Subcategory = { id: string; name: string; image_url: string | null; slug: string; parent_id: string; };
 type Category = { id: string; name: string; image_url: string | null; slug: string; subcategories: Subcategory[]; };
 
-// --- HELPER: LOW RES URL FOR SPEED ---
+// --- HELPER: LOW RES URL ---
 const getLowResUrl = (url: string | null, size: number) => {
   if (!url) return null;
   if (url.includes('cloudinary.com') && url.includes('/upload/')) {
@@ -28,7 +28,7 @@ const SidebarItem = memo(({ cat, isActive, onClick, index }: { cat: Category, is
       onClick={(e) => onClick(e, cat.id)}
     >
       <div className="icon-box">
-        {/* VIP Shimmer Placeholder */}
+        {/* Shimmer Placeholder */}
         {!loaded && <div className="shimmer-loader" />}
         
         {cat.image_url ? (
@@ -37,9 +37,9 @@ const SidebarItem = memo(({ cat, isActive, onClick, index }: { cat: Category, is
             alt={cat.name} 
             fill 
             sizes="60px"
-            unoptimized 
-            priority={index < 8} // Shuru ki images foran load hon
-            loading={index < 8 ? undefined : "lazy"}
+             unoptimized // <--- ADD THIS HERE
+            priority={index < 15} 
+            loading={index < 15 ? undefined : "lazy"}
             className={`fade-img ${loaded ? 'loaded' : ''}`}
             onLoad={() => setLoaded(true)}
             style={{ objectFit: 'contain' }}
@@ -54,7 +54,7 @@ const SidebarItem = memo(({ cat, isActive, onClick, index }: { cat: Category, is
 });
 SidebarItem.displayName = "SidebarItem";
 
-// --- SUB ITEM (PRODUCTS) ---
+// --- SUB ITEM ---
 const SubItem = memo(({ sub, onClick, priority }: { sub: Subcategory, onClick: (slug: string) => void, priority: boolean }) => {
   const [loaded, setLoaded] = useState(false);
 
@@ -62,10 +62,10 @@ const SubItem = memo(({ sub, onClick, priority }: { sub: Subcategory, onClick: (
     <motion.div 
       className="sub-item" 
       onClick={() => onClick(sub.slug)}
-      initial={{ opacity: 0, y: 10 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, scale: 0.98 }}
+      whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true, margin: "50px" }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.3 }}
     >
       <div className="sub-img-box">
         {!loaded && <div className="shimmer-loader" />}
@@ -100,7 +100,7 @@ export default function CategoryClientPage({ mainCats }: { mainCats: Category[] 
   const contentRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // --- SCROLL SPY (Magic Scroll) ---
+  // --- SCROLL SPY ---
   useEffect(() => {
     if (!contentRef.current) return;
 
@@ -130,9 +130,8 @@ export default function CategoryClientPage({ mainCats }: { mainCats: Category[] 
     
     const target = document.getElementById(`group-${catId}`);
     if (target && contentRef.current) {
-      // Offset diya hai taake sticky header ke neechay na chhupe text
-      const topPos = target.offsetTop - contentRef.current.offsetTop - 10;
-      contentRef.current.scrollTo({ top: topPos, behavior: 'smooth' }); // Smooth scroll kar dia!
+      const topPos = target.offsetTop - contentRef.current.offsetTop;
+      contentRef.current.scrollTo({ top: topPos, behavior: 'auto' });
     }
   };
 
@@ -152,128 +151,136 @@ export default function CategoryClientPage({ mainCats }: { mainCats: Category[] 
           font-family: 'Inter', system-ui, -apple-system, sans-serif;
         }
 
+        /* HEADER FIX: Increased height & padding to prevent text cutoff */
+        .page-header {
+          flex: 0 0 60px; /* Increased height */
+          background: #fff; 
+          display: flex; align-items: center; 
+          padding: 0 24px; 
+          border-bottom: 1px solid #f1f5f9; 
+          z-index: 50;
+          flex-shrink: 0; /* Prevents squashing */
+        }
+        .header-title { 
+          font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0; 
+          line-height: 1.2;
+        }
+
         /* LAYOUT */
         .category-layout { display: flex; flex: 1; overflow: hidden; }
 
         /* --- SIDEBAR --- */
         .category-sidebar {
-          width: 90px; flex: 0 0 90px; background: #f8fafc; overflow-y: auto;
-          border-right: 1px solid #e2e8f0; display: flex; flex-direction: column;
+          width: 90px; flex: 0 0 90px; background: #fff; overflow-y: auto;
+          border-right: 1px solid #f1f5f9; display: flex; flex-direction: column;
           padding-bottom: 120px;
           contain: strict;
         }
 
         .sidebar-item {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
-          padding: 15px 4px; cursor: pointer; position: relative;
-          border-bottom: 1px solid #f1f5f9; min-height: 90px;
-          transition: all 0.2s ease;
+          padding: 10px 4px; cursor: pointer; position: relative;
+          border-bottom: 1px solid #f8fafc; min-height: 90px;
+          transition: background 0.1s ease;
         }
-        .sidebar-item.active { background: #fff; }
+        .sidebar-item.active { background: #f0f9ff; }
         
-        /* Chota sa dot indicator active item pe */
         .sidebar-item.active::before {
-          content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-          width: 4px; height: 40px; background: #f85606; border-radius: 0 4px 4px 0;
+          content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+          width: 4px; background: #0ea5e9; border-radius: 0 4px 4px 0;
         }
 
+        /* ICON BOX - TRANSPARENT */
         .icon-box {
-          width: 50px; height: 50px; position: relative; margin-bottom: 8px;
-          background: transparent; flex-shrink: 0;
-          transition: transform 0.2s ease;
+          width: 50px; height: 50px; position: relative; margin-bottom: 6px;
+          background: transparent; 
+          flex-shrink: 0;
         }
-        .sidebar-item.active .icon-box { transform: scale(1.1); }
-
         .cat-name {
-          font-size: 10px; text-align: center; color: #64748b; line-height: 1.3; font-weight: 600;
+          font-size: 10px; text-align: center; color: #64748b; line-height: 1.2; font-weight: 600;
           max-width: 100%; overflow: hidden; text-overflow: ellipsis;
           display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         }
-        .sidebar-item.active .cat-name { color: #f85606; font-weight: 800; }
+        .sidebar-item.active .cat-name { color: #0284c7; font-weight: 700; }
 
-        /* --- CONTENT AREA --- */
+        /* --- CONTENT --- */
         .category-content {
-          flex: 1; overflow-y: auto; padding: 0 16px 140px 16px; background: #fff;
+          flex: 1; overflow-y: auto; padding: 16px; background: #fff;
+          padding-bottom: 140px; 
           scroll-behavior: smooth;
+          content-visibility: auto;
         }
 
-        .category-group { margin-bottom: 30px; scroll-margin-top: 50px; }
+        .category-group { margin-bottom: 40px; scroll-margin-top: 10px; }
         
-        /* 🔴 THE FIX: THIS WAS CAUSING THE TRANSPARENT GHOST ISSUE! 🔴 */
         .group-header { 
-          display: flex; align-items: center; justify-content: center; 
-          margin-bottom: 20px; 
-          position: sticky; top: -1px; /* -1px stops top pixel bleed */
-          background: #fff; /* SOLID WHITE BACKGROUND */
-          z-index: 20; /* Keep it above products */
-          padding: 15px 0;
-          border-bottom: 1px solid #f1f5f9;
-          /* Halka sa saya jab ye sticky ho! */
-          box-shadow: 0 4px 10px -4px rgba(0,0,0,0.05); 
+          display: flex; align-items: center; gap: 10px; margin-bottom: 15px; 
+          position: sticky; top: 0; background: rgba(255,255,255,0.98); 
+          z-index: 10; padding: 10px 0; backdrop-filter: blur(5px);
         }
         
-        .group-title { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0; text-transform: capitalize; }
+        /* Removed Blue Pill to fix 'slash' look */
+        /* .blue-pill { width: 4px; height: 22px; background: #0ea5e9; border-radius: 4px; } */
+        
+        .group-title { font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0; }
 
-        /* MOBILE OPTIMIZED GRID */
+        /* GRID */
         .subcategory-grid {
           display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
         }
         
-        @media (max-width: 380px) {
-          .subcategory-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        
         @media (min-width: 768px) {
-          .subcategory-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 20px; }
-          .category-sidebar { width: 110px; flex: 0 0 110px; }
+          .subcategory-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 24px; }
+          .category-sidebar { width: 120px; flex: 0 0 120px; }
           .icon-box { width: 60px; height: 60px; }
-          .cat-name { font-size: 11px; }
+          .cat-name { font-size: 12px; }
         }
 
-        /* SUB ITEM */
+        /* SUB ITEM - TRANSPARENT */
         .sub-item {
-          background: #fff; 
+          background: transparent; /* Fixed transparency */
           border-radius: 12px; padding: 8px;
           display: flex; flex-direction: column; align-items: center;
           cursor: pointer;
-          border: 1px solid #f8fafc;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-          transition: all 0.2s ease;
+          transition: transform 0.1s;
         }
-        .sub-item:active { transform: scale(0.95); border-color: #f85606; }
+        .sub-item:active { transform: scale(0.96); }
         
         .sub-img-box {
           width: 100%; aspect-ratio: 1; position: relative;
           margin-bottom: 8px; overflow: hidden; 
-          background: transparent; 
+          background: transparent; /* Transparent background */
         }
         .sub-title { 
-          font-size: 11px; text-align: center; color: #475569; font-weight: 600; 
+          font-size: 11px; text-align: center; color: #334155; font-weight: 600; 
           line-height: 1.3;
         }
         
         /* IMAGE LOADING EFFECTS */
-        .fade-img { opacity: 0; transition: opacity 0.3s ease-in-out; }
-        .fade-img.loaded { opacity: 1; }
+        .fade-img {
+          opacity: 0; transition: opacity 0.4s ease-in-out;
+        }
+        .fade-img.loaded {
+          opacity: 1;
+        }
 
-        /* VIP PREMIUM SHIMMER ANIMATION */
+        /* SHIMMER ANIMATION */
         .shimmer-loader {
-          position: absolute; inset: 0;
+          position: absolute; top: 0; left: 0; width: 100%; height: 100%;
           background: #f1f5f9;
-          background-image: linear-gradient(90deg, #f1f5f9 0px, #e2e8f0 40px, #f1f5f9 80px);
-          background-size: 300px 100%; 
-          animation: premiumShimmer 1.2s infinite ease-in-out;
+          background-image: linear-gradient(to right, #f1f5f9 0%, #e2e8f0 20%, #f1f5f9 40%, #f1f5f9 100%);
+          background-repeat: no-repeat;
+          background-size: 800px 100%; 
+          animation: shimmer 1.5s infinite linear forwards;
           border-radius: 8px;
         }
-        @keyframes premiumShimmer { 
-          0% { background-position: -300px 0; } 
-          100% { background-position: 300px 0; } 
-        }
+        @keyframes shimmer { 0% { background-position: -468px 0; } 100% { background-position: 468px 0; } }
 
         .placeholder { width: 100%; height: 100%; background: #f1f5f9; border-radius: 8px; }
         .placeholder-text { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #cbd5e1; font-size: 10px; }
       `}</style>
 
+     
       <div className="category-layout">
         
         {/* SIDEBAR */}
@@ -294,8 +301,8 @@ export default function CategoryClientPage({ mainCats }: { mainCats: Category[] 
           {mainCats.map((cat, catIndex) => (
             <div key={cat.id} id={`group-${cat.id}`} className="category-group">
               
-              {/* THE FIXED HEADER */}
               <div className="group-header">
+                {/* Blue pill removed to fix UI complaint */}
                 <h2 className="group-title">{cat.name}</h2>
               </div>
 
