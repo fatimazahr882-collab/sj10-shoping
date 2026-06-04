@@ -1,10 +1,9 @@
-// src/app/products/[slug]/not-found.tsx
+// src/app/not-found.tsx
 "use client";
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
 import useSWR from 'swr';
 import ProductCard, { type Product } from '@/components/ProductCard';
 import LatestProductsExplore from '@/components/LatestProductsExplore';
@@ -12,23 +11,21 @@ import LatestProductsExplore from '@/components/LatestProductsExplore';
 const API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://products.sj10.pk/api";
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
-export default function ProductNotFound() {
+export default function GlobalNotFound() {
   const pathname = usePathname();
   const [searchKeyword, setSearchKeyword] = useState("");
 
-  // 1. URL se purani product ka naam nikalna (e.g., /products/blue-cotton-shirt-123 -> "blue cotton shirt")
+  // URL se purani product ka keyword nikalna
   useEffect(() => {
     const slug = pathname.split('/').pop() || '';
-    // Hyphens aur numbers hata kar clean keyword banayein
     const cleanSlug = slug.replace(/[0-9-]/g, ' ').replace(/\s+/g, ' ').trim();
-    // Shuru ke 2-3 words lein taake search result achay aayein
     const keyword = cleanSlug.split(' ').slice(0, 3).join(' ');
     setSearchKeyword(keyword);
   }, [pathname]);
 
-  // 2. Milti-julti products API se fetch karna
-  const { data: relatedData, isLoading: isRelatedLoading } = useSWR(
-    searchKeyword ? `${API_BASE}/products/search-results?q=${encodeURIComponent(searchKeyword)}&limit=10` : null,
+  // Milti-julti products API se fetch karna
+  const { data: relatedData } = useSWR(
+    searchKeyword && searchKeyword.length > 2 ? `${API_BASE}/products/search-results?q=${encodeURIComponent(searchKeyword)}&limit=10` : null,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -36,10 +33,9 @@ export default function ProductNotFound() {
   const relatedProducts: Product[] = relatedData?.products || (Array.isArray(relatedData) ? relatedData : []);
 
   return (
-    <div className="not-found-wrapper">
-      {/* 🔴 CSS STYLING */}
+    <div className="global-404-wrapper">
       <style jsx>{`
-        .not-found-wrapper {
+        .global-404-wrapper {
           min-height: 100vh;
           background: #f8fafc;
           padding-bottom: 80px;
@@ -47,13 +43,12 @@ export default function ProductNotFound() {
           overflow-x: hidden;
         }
 
-        /* 🟢 Animated Hero Section */
         .hero-section {
           background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
           padding: 60px 20px;
           text-align: center;
           border-bottom: 1px solid #ffedd5;
-          position: relative;
+          animation: fadeIn 0.5s ease-out;
         }
 
         .emoji-container {
@@ -68,6 +63,7 @@ export default function ProductNotFound() {
           box-shadow: 0 10px 25px rgba(249, 115, 22, 0.2);
           margin-bottom: 20px;
           position: relative;
+          animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         .broken-heart {
@@ -113,11 +109,11 @@ export default function ProductNotFound() {
           box-shadow: 0 15px 25px rgba(248, 86, 6, 0.4);
         }
 
-        /* 🟢 Related Products Horizontal Slider */
         .related-section {
           max-width: 1400px;
           margin: 40px auto;
           padding: 0 20px;
+          animation: slideUp 0.6s ease-out;
         }
 
         .section-header {
@@ -149,84 +145,74 @@ export default function ProductNotFound() {
           scroll-snap-align: start;
         }
 
+        .latest-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+
+        @media (min-width: 640px) {
+          .latest-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        }
         @media (min-width: 768px) {
+          .latest-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; }
           .slider-item { flex: 0 0 220px; }
           .title { font-size: 36px; }
         }
+        @media (min-width: 1024px) {
+          .latest-grid { grid-template-columns: repeat(5, 1fr); }
+        }
 
-        /* 🟢 Animations */
         @keyframes float {
           0%, 100% { transform: translateY(0) rotate(0deg); }
           50% { transform: translateY(-10px) rotate(10deg); }
         }
+        @keyframes popIn {
+          0% { transform: scale(0); }
+          100% { transform: scale(1); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
 
-      {/* 🔴 BEAUTIFUL APOLOGY HERO SECTION */}
+      {/* 🔴 APOLOGY HERO SECTION */}
       <div className="hero-section">
-        <motion.div 
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 15 }}
-          className="emoji-container"
-        >
+        <div className="emoji-container">
           😔
           <div className="broken-heart">💔</div>
-        </motion.div>
+        </div>
 
-        <motion.h1 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="title"
-        >
-          Maazrat Chahte Hain! 🥺
-        </motion.h1>
+        <h1 className="title">Maazrat Chahte Hain! 🥺</h1>
         
-        <motion.p 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="subtitle"
-        >
+        <p className="subtitle">
           Aap jo product dekhna chah rahe hain wo shayad <strong>Sold Out</strong> ho chuki hai ya uska link update ho gaya hai. Lekin fikar na karein, hum aapko khali hath wapis nahi janay denge! 🎁
-        </motion.p>
+        </p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Link href="/explore" className="home-btn">
-            <i className="fas fa-shopping-bag"></i> Continue Shopping
-          </Link>
-        </motion.div>
+        <Link href="/explore" className="home-btn">
+          <i className="fas fa-shopping-bag"></i> Nayi Products Dekhein
+        </Link>
       </div>
 
       {/* 🔴 RELATED PRODUCTS SLIDER (Based on Dead Slug Keywords) */}
       {relatedProducts.length > 0 && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="related-section"
-        >
+        <div className="related-section">
           <h2 className="section-header">
             🛍️ Milti Julti Products (Khas Aap Ke Liye)
           </h2>
           <div className="product-slider">
-            {relatedProducts.map((p, index) => (
-              <motion.div 
-                key={p.id} 
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="slider-item"
-              >
+            {relatedProducts.map((p) => (
+              <div key={p.id} className="slider-item">
                 <ProductCard product={p} />
-              </motion.div>
+              </div>
             ))}
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* 🔴 LATEST PRODUCTS FALLBACK (Standard Grid) */}
@@ -234,9 +220,7 @@ export default function ProductNotFound() {
         <h2 className="section-header">
           🔥 Hamari Nayi Collection Check Karein
         </h2>
-        
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-          {/* Reuse the LatestProductsExplore component for a live feed */}
+        <div className="latest-grid">
           <LatestProductsExplore 
             searchQuery="" 
             filterVideo={false} 
@@ -244,7 +228,6 @@ export default function ProductNotFound() {
           />
         </div>
       </div>
-
     </div>
   );
 }
