@@ -3,9 +3,10 @@ import { notFound, permanentRedirect } from "next/navigation";
 import ProductDetailClient from "@/components/ProductDetailClient";
 import { Product } from "@/components/ProductCard";
 
-// ⚡ ISR CONFIGURATION (Change 3600 to 2592000)
-export const revalidate = 2592000; 
-export const dynamicParams = true;
+// ⚡ ISR CONFIGURATION
+export const dynamic = 'force-static'; // ✅ ADD THIS: Next.js ko static on-demand render karne par majboor karega
+export const revalidate = 2592000;     // 1 Month Cache
+export const dynamicParams = true;     // Naye products par on-demand page generate hoga
 
 // ⚡ CONSTANTS
 const SITE_URL = "https://www.sj10.pk";
