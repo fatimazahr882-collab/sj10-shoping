@@ -3,9 +3,9 @@ import { notFound, permanentRedirect } from "next/navigation";
 import ProductDetailClient from "@/components/ProductDetailClient";
 import { Product } from "@/components/ProductCard";
 
-// ⚡ ISR CONFIGURATION
-export const revalidate = 3600; 
-export const dynamicParams = true; 
+// ⚡ ISR CONFIGURATION (Change 3600 to 2592000)
+export const revalidate = 2592000; 
+export const dynamicParams = true;
 
 // ⚡ CONSTANTS
 const SITE_URL = "https://www.sj10.pk";
@@ -31,8 +31,8 @@ async function getProduct(slug: string) {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/slug/${encodedSlug}`,
       { 
-        next: { revalidate: 3600 }, 
-        headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=59' } 
+         next: { revalidate: 2592000 }, // <--- Changed to 1 Month
+        headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=2592000, stale-while-revalidate=86400' } // <--- Updated Headers
       }
     );
     return res.ok ? await res.json() : null;
@@ -48,7 +48,7 @@ async function getRelatedProducts(categoryId: string | number, currentId: string
     // ✅ STRICT LIMIT 7 from API
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?category_id=${categoryId}&limit=7`,
-      { next: { revalidate: 3600 } }
+      { next: { revalidate: 2592000 } }
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -64,7 +64,7 @@ async function getSellerProducts(supplierId: string | number, currentId: string 
     // ✅ STRICT LIMIT 7 from API
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?supplierId=${supplierId}&limit=7`,
-      { next: { revalidate: 3600 } }
+      { next: { revalidate: 2592000 } }
     );
     if (!res.ok) return [];
     const data = await res.json();
