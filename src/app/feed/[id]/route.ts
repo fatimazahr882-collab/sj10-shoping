@@ -26,9 +26,10 @@ export async function GET(
   const cleanId = id.replace('.xml', '');
   const page = Number(cleanId) + 1;
 
+  // ⚡ NEXT.JS FETCH CACHE: 7 Days (604800 Seconds)
   const res = await fetch(
     `${API_URL}/products/shopping-feed?limit=${LIMIT}&page=${page}`,
-    { cache: 'no-store' }
+    { next: { revalidate: 604800 } } 
   );
 
   const data = await res.json();
@@ -42,18 +43,15 @@ export async function GET(
 <description>Best Online Shopping in Pakistan</description>`;
 
   products.forEach((p: any) => {
-    // URL Construction
     const slug = p.link || ""; 
     const fullLink = `${BASE_URL}/products/${encodeURIComponent(slug)}`;
 
-    // 🔥 IMAGE HANDLING: Main + Additional
     const images = Array.isArray(p.image_links) ? p.image_links : [p.image_link];
     const mainImage = escapeXml(images[0] || "");
     const additionalImages = images.slice(1, 10).map((img: string) => 
         `<g:additional_image_link>${escapeXml(img)}</g:additional_image_link>`
     ).join('');
 
-    // 🔥 BRAND HANDLING: Use product brand or default to SJ10
     const brand = p.brand && p.brand.trim() !== "" ? p.brand : "SJ10";
 
     const priceStr = `${p.price} PKR`;
@@ -86,7 +84,8 @@ export async function GET(
   return new Response(xml, {
     headers: { 
         "Content-Type": "application/xml",
-        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=59"
+        // ⚡ CLOUDFLARE CDN CACHE: 7 Days (604800 Seconds)
+        "Cache-Control": "public, s-maxage=604800, stale-while-revalidate=86400"
     },
   });
 }

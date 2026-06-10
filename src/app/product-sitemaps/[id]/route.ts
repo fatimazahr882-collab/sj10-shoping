@@ -31,9 +31,9 @@ export async function GET(
   const cleanId = id.replace('.xml', '');
   const page = Number(cleanId) + 1;
 
-  // ⚡ FIX 1: Cache the heavy product URL fetch for 3 days
+  // ⚡ NEXT.JS FETCH CACHE: 15 Days (1296000 Seconds)
   const res = await fetch(`${API_URL}/products/sitemap-urls?limit=${LIMIT}&page=${page}`, { 
-      next: { revalidate: 259200 } 
+      next: { revalidate: 1296000 } 
   });
   const data = await res.json();
   const products = data.products ||[];
@@ -81,8 +81,8 @@ export async function GET(
   return new Response(xml, {
     headers: { 
       "Content-Type": "application/xml", 
-      // ⚡ FIX 2: Tell Cloudflare/CDN to cache this for 3 days
-      "Cache-Control": "public, s-maxage=259200, stale-while-revalidate=86400" 
+      // ⚡ CLOUDFLARE CDN CACHE: 15 Days (1296000 Seconds)
+      "Cache-Control": "public, s-maxage=1296000, stale-while-revalidate=86400" 
     },
   });
 }
