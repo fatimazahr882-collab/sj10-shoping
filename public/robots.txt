@@ -31,7 +31,26 @@ Disallow: /search/
 Disallow: /*?* 
 
 # ==========================================
-# 3. STRICTLY BLOCK AI FROM TRAINING ON DATA
+# 3. 🔥 BLOCK AGGRESSIVE SEO SCRAPERS (NEW) 🔥
+# These bots drain Turso Quota without giving any sales
+# ==========================================
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DataForSeoBot
+Disallow: /
+
+# ==========================================
+# 4. STRICTLY BLOCK AI FROM TRAINING ON DATA
 # ==========================================
 # Block OpenAI Training Bot
 User-agent: GPTBot
