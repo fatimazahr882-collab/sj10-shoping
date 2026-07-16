@@ -3,7 +3,7 @@ import { Product } from '@/components/ProductCard';
 
 // ⚡ SERVER-SIDE FIX: Servers do not have CORS. 
 // We hardcode the absolute live URLs here so SSR never fails on relative '/api-proxy' paths.
-const SERVER_API_BASE = "https://products.sj10.pk/api";
+const SERVER_API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL;
 const SERVER_CART_API_BASE = "https://sj10-cart.vercel.app/api";
 
 export interface HomeData {
