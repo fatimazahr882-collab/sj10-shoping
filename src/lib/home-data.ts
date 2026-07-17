@@ -4,7 +4,7 @@ import { Product } from '@/components/ProductCard';
 // ⚡ SERVER-SIDE FIX: Servers do not have CORS. 
 // We hardcode the absolute live URLs here so SSR never fails on relative '/api-proxy' paths.
 const SERVER_API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL;
-const SERVER_CART_API_BASE = "https://sj10-cart.vercel.app/api";
+const SERVER_CART_API_BASE = process.env.NEXT_PUBLIC_CART_API_URL;
 
 export interface HomeData {
   banners: any[];
@@ -16,7 +16,7 @@ export interface HomeData {
   initialExploreFeed: any[]; 
   totalExploreCount: number;
 }
-
+// Timeout wrapper to prevent Vercel/Server crashes if the database is slow
 // Timeout wrapper to prevent Vercel/Server crashes if the database is slow
 const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 8000) => {
   const controller = new AbortController();
