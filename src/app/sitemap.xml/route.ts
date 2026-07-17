@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 
 const BASE_URL = "https://www.sj10.pk";
-const API_URL = "https://products.sj10.pk/api"; // Or your env var
+const API_URL = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://api.sj10.pk/api";
 const PRODUCTS_PER_SITEMAP = 1000;
 
 export async function GET(request: NextRequest) {
