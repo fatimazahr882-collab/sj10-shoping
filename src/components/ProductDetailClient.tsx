@@ -277,7 +277,7 @@ export default function ProductDetailClient({ product, relatedProducts, sellerPr
   useEffect(() => {
     const fetchIpLocation = async () => {
       try {
-        const res = await fetch('https://ipapi.co/json/');
+        const res = await fetch('https://ipinfo.io/json/');
         const data = await res.json();
         if (data && data.country_code === 'PK' && data.city) {
           const detectedCity = data.city;

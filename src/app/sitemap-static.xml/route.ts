@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 
 const BASE_URL = "https://www.sj10.pk";
-const API_URL = "https://products.sj10.pk/api";
+const API_URL = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://api.sj10.pk/api";
 
 export async function GET(request: NextRequest) {
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
