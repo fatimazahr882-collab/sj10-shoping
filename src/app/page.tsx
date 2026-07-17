@@ -17,7 +17,8 @@ import CategoryRows from '@/components/CategoryRows';
 import ExploreHomepage from '@/components/ExploreHomepage';
 import LazySection from '@/components/LazySection';
 // ⚡ ISR: Cache page for 1 hour to ensure ultra-fast TTFB and performance
-export const revalidate = 3600; 
+// ⚡ TEMPORARY FIX: Disable Cache Completely for Home Page
+export const revalidate = 0;
 
 const SITE_URL = "https://www.sj10.pk";
 
