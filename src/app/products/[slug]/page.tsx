@@ -5,7 +5,7 @@ import { Product } from "@/components/ProductCard";
 
 // ⚡ ISR CONFIGURATION
 export const dynamic = 'force-static'; // ✅ ADD THIS: Next.js ko static on-demand render karne par majboor karega
-export const revalidate = 2592000;     // 1 Month Cache
+export const revalidate = 0;    // 1 Month Cache
 export const dynamicParams = true;     // Naye products par on-demand page generate hoga
 
 // ⚡ CONSTANTS
@@ -29,11 +29,10 @@ async function getProduct(slug: string) {
   }
 
   try {
-    const res = await fetch(
+   const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/slug/${encodedSlug}`,
       { 
-         next: { revalidate: 2592000 }, // <--- Changed to 1 Month
-        headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=2592000, stale-while-revalidate=86400' } // <--- Updated Headers
+        cache: 'no-store' // 🚨 Tells Vercel: Do NOT cache internally! Always ask Redis/Nginx Gateway.
       }
     );
     return res.ok ? await res.json() : null;
@@ -49,7 +48,7 @@ async function getRelatedProducts(categoryId: string | number, currentId: string
     // ✅ STRICT LIMIT 7 from API
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?category_id=${categoryId}&limit=7`,
-      { next: { revalidate: 2592000 } }
+      { cache: 'no-store' }
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -65,7 +64,7 @@ async function getSellerProducts(supplierId: string | number, currentId: string 
     // ✅ STRICT LIMIT 7 from API
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?supplierId=${supplierId}&limit=7`,
-      { next: { revalidate: 2592000 } }
+      { cache: 'no-store' }
     );
     if (!res.ok) return [];
     const data = await res.json();
