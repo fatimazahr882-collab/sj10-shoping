@@ -1,20 +1,23 @@
 # ==========================================
-# 1. ALLOW STANDARD SEARCH & AI SUGGESTIONS
+# 1. ALLOW SEARCH & AI BROWSING (RECOMMENDED FOR TRAFFIC)
 # ==========================================
 User-agent: *
 Allow: /
 Allow: /profile/blog/
+Allow: /search/
 
-# Allow ChatGPT Search to show SJ10 in AI results
+# Allow ChatGPT Search & Perplexity to show SJ10 in AI results
 User-agent: OAI-SearchBot
 Allow: /
-
-# Allow users to browse SJ10 links inside ChatGPT
 User-agent: ChatGPT-User
 Allow: /
-
-# Allow Perplexity AI Search
 User-agent: PerplexityBot
+Allow: /
+
+# Allow OpenAI & Gemini to crawl for Search (Crucial for AI recommendations)
+User-agent: GPTBot
+Allow: /
+User-agent: Google-Extended
 Allow: /
 
 # ==========================================
@@ -27,12 +30,9 @@ Disallow: /checkout/
 Disallow: /auth/
 Disallow: /orders/
 Disallow: /api/
-Disallow: /search/
-Disallow: /*?* 
 
 # ==========================================
-# 3. 🔥 BLOCK AGGRESSIVE SEO SCRAPERS (NEW) 🔥
-# These bots drain Turso Quota without giving any sales
+# 3. 🔥 BLOCK AGGRESSIVE SEO SCRAPERS (Saves Server Quota) 🔥
 # ==========================================
 User-agent: AhrefsBot
 Disallow: /
@@ -47,31 +47,6 @@ User-agent: MJ12bot
 Disallow: /
 
 User-agent: DataForSeoBot
-Disallow: /
-
-# ==========================================
-# 4. STRICTLY BLOCK AI FROM TRAINING ON DATA
-# ==========================================
-# Block OpenAI Training Bot
-User-agent: GPTBot
-Disallow: /
-
-# Block Google Gemini Training Bot
-User-agent: Google-Extended
-Disallow: /
-
-# Block Claude AI Training Bot
-User-agent: ClaudeBot
-Disallow: /
-User-agent: anthropic-ai
-Disallow: /
-
-# Block Common Crawl (Used by LLaMA and others for training)
-User-agent: CCBot
-Disallow: /
-
-# Block Facebook/Meta AI Training
-User-agent: FacebookBot
 Disallow: /
 
 # ==========================================
