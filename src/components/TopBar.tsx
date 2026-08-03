@@ -27,15 +27,24 @@ export default function TopBar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Suggestions & Keyboard Navigation States
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1); // 🟢 KEYBOARD SELECTION INDEX
+  const [isNavigatingSearch, setIsNavigatingSearch] = useState(false); // 🟢 INSTANT LOADING ANIMATION
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+  const suggestionListRef = useRef<HTMLDivElement>(null);
 
   const [showFullHeader, setShowFullHeader] = useState(true);
   const lastScrollY = useRef(0);
+
+  // Reset navigation indicator on page change
+  useEffect(() => {
+    setIsNavigatingSearch(false);
+  }, [pathname]);
 
   // 🟢 GPU ACCELERATED SMOOTH SCROLL
   useEffect(() => {
@@ -73,6 +82,21 @@ export default function TopBar() {
     return () => clearInterval(interval);
   }, []);
 
+  // Reset selected keyboard index when suggestions change
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [suggestions]);
+
+  // 🟢 AUTO-SCROLL ACTIVE KEYBOARD SUGGESTION INTO VIEW
+  useEffect(() => {
+    if (selectedIndex >= 0 && suggestionListRef.current) {
+      const activeEl = suggestionListRef.current.children[selectedIndex] as HTMLElement;
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    }
+  }, [selectedIndex]);
+
   const fetchSuggestions = useCallback(async (q: string) => {
     if (q.length < 2) { 
       setSuggestions([]); 
@@ -105,24 +129,59 @@ export default function TopBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const triggerSearch = (queryToSearch: string) => {
+    setShowSuggestions(false);
+    setIsNavigatingSearch(true); // Trigger Top Loading Line
+    router.push(`/search?q=${encodeURIComponent(queryToSearch)}`);
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalQuery = searchQuery.trim() || SEARCH_KEYWORDS[placeholderIndex];
-    setShowSuggestions(false);
-    router.push(`/search?q=${encodeURIComponent(finalQuery)}`);
+    triggerSearch(finalQuery);
   };
 
   const handleSuggClick = (title: string) => {
     setSearchQuery(title);
-    setShowSuggestions(false);
-    router.push(`/search?q=${encodeURIComponent(title)}`);
+    triggerSearch(title);
   };
 
-  // 🟢 STRICTLY RESTRICTED TO HOME, EXPLORE, AND SEARCH PAGES ONLY!
+  // 🟢 ADVANCED KEYBOARD NAVIGATION HANDLER (UP, DOWN, ENTER, ESC)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === 'Enter') handleSearchSubmit(e);
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
+        handleSuggClick(suggestions[selectedIndex].title);
+      } else {
+        handleSearchSubmit(e);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
   const showSearchBar = pathname === '/' || pathname.startsWith('/explore') || pathname.startsWith('/search');
 
   return (
     <>
+      {/* 🟢 TOP INSTANT LOADING PROGRESS LINE */}
+      {isNavigatingSearch && (
+        <div className="instant-search-loader">
+          <div className="loader-bar-slide"></div>
+        </div>
+      )}
+
       {/* ⚡ INSTANT CRITICAL DISPLAY TOGGLES */}
       <style dangerouslySetInnerHTML={{ __html: `
         .desktop-topbar-block { display: none !important; }
@@ -137,8 +196,23 @@ export default function TopBar() {
       <style dangerouslySetInnerHTML={{ __html: `
         .container { max-width: 1400px; margin: 0 auto; padding: 0 15px; width: 100%; box-sizing: border-box; }
 
+        /* 🟢 INSTANT SEARCH PAGE TRANSITION LOADER */
+        .instant-search-loader {
+          position: fixed; top: 0; left: 0; right: 0; height: 3px;
+          z-index: 1000000; background: rgba(248, 86, 6, 0.2); overflow: hidden;
+        }
+        .loader-bar-slide {
+          height: 100%; width: 50%;
+          background: linear-gradient(90deg, #f85606, #ff8a00, #3b82f6);
+          animation: lineSlide 1s infinite linear;
+        }
+        @keyframes lineSlide {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+
         /* ========================================================= */
-        /* 🟢 GLOBAL SEARCH SUGGESTIONS PANEL (MOBILE & DESKTOP)      */
+        /* 🟢 GLOBAL SEARCH SUGGESTIONS PANEL (KEYBOARD ENABLED)      */
         /* ========================================================= */
         .pro-suggestions { 
           position: absolute !important; 
@@ -166,15 +240,18 @@ export default function TopBar() {
           display: flex !important; 
           gap: 12px !important; 
           align-items: center !important; 
-          transition: all 0.2s !important; 
+          transition: all 0.15s ease !important; 
           background: #ffffff !important;
           -webkit-tap-highlight-color: transparent;
+          border-left: 4px solid transparent;
         }
 
-        .sugg-item:hover, .sugg-item:active { 
+        /* 🟢 KEYBOARD & HOVER SELECTION HIGHLIGHT */
+        .sugg-item:hover, .sugg-item:active, .sugg-item.keyboard-selected { 
           background: #fff7ed !important; 
           color: #f85606 !important; 
           padding-left: 24px !important; 
+          border-left-color: #f85606 !important;
         }
 
         .sugg-icon { 
@@ -188,17 +265,18 @@ export default function TopBar() {
         }
 
         /* ========================================== */
-        /* MOBILE VIEW (ADVANCED STICKY ORANGE BAR)   */
+        /* MOBILE VIEW STYLES                         */
         /* ========================================== */
         @media (max-width: 768px) {
           .sj10-master-topbar { 
             position: fixed; left: 0; width: 100%; z-index: 9997; 
-            transition: top 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            top: 65px; 
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             will-change: top;
             transform: translateZ(0);
           }
-          .sj10-master-topbar.header-visible { top: 65px; }
-          .sj10-master-topbar.header-hidden { top: 0px !important; }
+          .sj10-master-topbar.header-visible { transform: translateY(0); }
+          .sj10-master-topbar.header-hidden { transform: translateY(-150%); }
 
           body { padding-top: 135px !important; }
 
@@ -237,14 +315,14 @@ export default function TopBar() {
         }
 
         /* ========================================== */
-        /* DESKTOP VIEW (ADVANCE STICKY ORANGE BAR)   */
+        /* DESKTOP VIEW STYLES                        */
         /* ========================================== */
         @media (min-width: 769px) {
           .sj10-master-topbar { 
             position: fixed !important; left: 0; width: 100%; 
             z-index: 9999 !important; 
             top: 32px !important; 
-            transition: top 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             will-change: top;
             transform: translateZ(0);
           }
@@ -353,7 +431,16 @@ export default function TopBar() {
                   </div>
                 </div>
 
-                <input type="text" className="mob-search-input" value={searchQuery} autoComplete="off" aria-label="Search" onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)} />
+                <input 
+                  type="text" 
+                  className="mob-search-input" 
+                  value={searchQuery} 
+                  autoComplete="off" 
+                  aria-label="Search" 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  onKeyDown={handleKeyDown}
+                />
                 
                 {searchQuery && (
                   <button type="button" onClick={() => { setSearchQuery(''); setSuggestions([]); }} style={{ border:'none', background:'none', color:'#94a3b8', padding:'0 6px', zIndex:3, cursor:'pointer' }}>
@@ -364,11 +451,15 @@ export default function TopBar() {
                 <button type="submit" className="mob-search-btn" aria-label="Submit"><i className="fas fa-search"></i></button>
               </form>
 
-              {/* 🟢 MOBILE FLOATING APP-STYLE SUGGESTIONS DROPDOWN */}
+              {/* 🟢 MOBILE FLOATING APP-STYLE SUGGESTIONS DROPDOWN (KEYBOARD SUPPORTED) */}
               {showSuggestions && suggestions.length > 0 && (
-                <div className="pro-suggestions">
+                <div className="pro-suggestions" ref={suggestionListRef}>
                   {suggestions.map((s, i) => (
-                    <div key={i} className="sugg-item" onClick={() => handleSuggClick(s.title)}>
+                    <div 
+                      key={i} 
+                      className={`sugg-item ${selectedIndex === i ? 'keyboard-selected' : ''}`} 
+                      onClick={() => handleSuggClick(s.title)}
+                    >
                       <i className="fas fa-search sugg-icon"></i>
                       <span style={{ flex: 1 }}>{s.title}</span>
                       <i className="fas fa-chevron-right" style={{ fontSize: '11px', color: '#cbd5e1' }}></i>
@@ -416,7 +507,15 @@ export default function TopBar() {
                         </div>
                       </div>
 
-                      <input type="text" value={searchQuery} autoComplete="off" aria-label="Search" onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)} />
+                      <input 
+                        type="text" 
+                        value={searchQuery} 
+                        autoComplete="off" 
+                        aria-label="Search" 
+                        onChange={(e) => setSearchQuery(e.target.value)} 
+                        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                        onKeyDown={handleKeyDown}
+                      />
                       <button type="submit" className="pro-search-btn" aria-label="Submit"><i className="fas fa-search"></i></button>
                     </form>
 
@@ -427,10 +526,15 @@ export default function TopBar() {
                       </ClientOnly>
                     </Link>
 
+                    {/* 🟢 DESKTOP SUGGESTIONS DROPDOWN (KEYBOARD SUPPORTED) */}
                     {showSuggestions && suggestions.length > 0 && (
-                      <div className="pro-suggestions">
+                      <div className="pro-suggestions" ref={suggestionListRef}>
                         {suggestions.map((s, i) => (
-                          <div key={i} className="sugg-item" onClick={() => handleSuggClick(s.title)}>
+                          <div 
+                            key={i} 
+                            className={`sugg-item ${selectedIndex === i ? 'keyboard-selected' : ''}`} 
+                            onClick={() => handleSuggClick(s.title)}
+                          >
                             <i className="fas fa-search sugg-icon"></i> {s.title}
                           </div>
                         ))}
