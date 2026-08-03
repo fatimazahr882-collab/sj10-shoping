@@ -1,7 +1,6 @@
 // src/lib/home-data.ts
 import { Product } from '@/components/ProductCard';
 
-// ⚡ Vercel par fail hone se bachanay ke liye Fallback URLs lazmi hain
 const SERVER_API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://products.sj10.pk/api";
 const SERVER_CART_API_BASE = process.env.NEXT_PUBLIC_CART_API_URL || "https://sj10-cart.vercel.app/api";
 
@@ -16,9 +15,7 @@ export interface HomeData {
   totalExploreCount: number;
 }
 
-// 🛑 THE MAIN FIX: Timeout ko 8000ms (8 sec) se barha kar 20000ms (20 sec) kar diya hai.
-// Is se heavy data aane mein aasaani hogi aur connection katega nahi.
-const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 20000) => {
+const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 5000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -34,20 +31,19 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 2
 
 export async function getStaticHomeData(): Promise<HomeData> {
   try {
-    // ⚡ Cache ko completely bypass karein taake hamesha fresh data aaye
-    const fetchOptions = { cache: 'no-store' as RequestCache };
+    const fetchOptions = { next: { revalidate: 300 } }; // 5 Mins Cache
 
-    const [homeRes, discountRes, categoryRowsRes, exploreRes] = await Promise.all([
+    // 🟢 REMOVED HEAVY 6-SECOND EXPLORE-FEED FROM SERVER SIDE!
+    // Fast APIs only (Total execution time: ~100ms)
+    const [homeRes, discountRes, categoryRowsRes] = await Promise.all([
       fetchWithTimeout(`${SERVER_API_BASE}/products/homepage-data`, fetchOptions),
       fetchWithTimeout(`${SERVER_CART_API_BASE}/discount-sections`, fetchOptions),
-      fetchWithTimeout(`${SERVER_API_BASE}/products/category-rows`, fetchOptions),
-      fetchWithTimeout(`${SERVER_API_BASE}/products/explore-feed?page=1&limit=40&sort=smart_ranking`, fetchOptions)
+      fetchWithTimeout(`${SERVER_API_BASE}/products/category-rows`, fetchOptions)
     ]);
 
     const fullData = homeRes.ok ? await homeRes.json() : {};
     const discountData = discountRes.ok ? await discountRes.json() : [];
     const categoryRowsData = categoryRowsRes.ok ? await categoryRowsRes.json() : [];
-    const exploreData = exploreRes.ok ? await exploreRes.json() : { products: [], totalCount: 0 };
 
     return {
       banners: fullData.banners || [],
@@ -56,8 +52,8 @@ export async function getStaticHomeData(): Promise<HomeData> {
       popularProducts: fullData.popularProducts || fullData.popularMixed || [], 
       discountSections: discountData || [],
       categoryRows: categoryRowsData || [],
-      initialExploreFeed: exploreData.products || [],
-      totalExploreCount: exploreData.totalCount || 0
+      initialExploreFeed: [], // Explore Feed will load via SWR lazily on scroll
+      totalExploreCount: 0
     };
   } catch (error) {
     console.error('Static Home Data Fetch Error:', error);

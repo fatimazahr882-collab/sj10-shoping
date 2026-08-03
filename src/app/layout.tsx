@@ -10,6 +10,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ConditionalTopBar from "@/components/ConditionalTopBar";
 import NotificationManager from "@/components/NotificationManager";
+import GlobalProgressBar from "@/components/GlobalProgressBar"; // 🟢 GLOBAL PROGRESS BAR
 
 // Contexts
 import { AuthProvider } from "@/components/AuthProvider";
@@ -85,6 +86,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-orange-500 selection:text-white">
         
+        {/* 🟢 GLOBAL INSTANT PAGE SWITCHING PROGRESS BAR */}
+        <Suspense fallback={null}>
+          <GlobalProgressBar />
+        </Suspense>
+
         <GoogleOAuthProvider clientId={googleClientId}>
           <AuthProvider>
             <CartProvider>

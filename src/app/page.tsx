@@ -16,14 +16,10 @@ import DynamicDiscountSections from '@/components/DynamicDiscountSections';
 import CategoryRows from '@/components/CategoryRows';
 import ExploreHomepage from '@/components/ExploreHomepage';
 import LazySection from '@/components/LazySection';
-// ⚡ ISR: Cache page for 1 hour to ensure ultra-fast TTFB and performance
-// ⚡ TEMPORARY FIX: Disable Cache Completely for Home Page
-export const revalidate = 0;
 
 const SITE_URL = "https://www.sj10.pk";
 
-// 🚀 ADVANCED SEO METADATA
-// 🚀 PRO-LEVEL SEO METADATA (Updated for Maximum Ranking)
+// 🚀 PRO-LEVEL SEO METADATA
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "SJ10 - Best Online Shopping & Zero-Investment Reselling in Pakistan | Cash on Delivery & Reselling",
@@ -60,11 +56,6 @@ export const metadata: Metadata = {
     description: "Premium shopping experience with fast COD and wholesale rates. Join SJ10 today!",
     images: [`${SITE_URL}/logo.png`],
   },
-  // Google bot ko batana ke ye site Mobile Friendly hai aur AIO (AI Optimization) ke liye ready hai
-  other: {
-     // Agar aapke paas console code hai
-    "facebook-domain-verification": "YOUR_CODE_HERE",
-  },
   robots: { 
     index: true, 
     follow: true, 
@@ -79,11 +70,9 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  // SSR Fetch occurs here. HTML is generated containing all product links for Googlebot.
   const initialData = await getStaticHomeData();
 
-  // 🚀 ADVANCED STRUCTURED DATA (JSON-LD)
-  // 🚀 ADVANCED STRUCTURED DATA (JSON-LD)
+  // 🚀 STRUCTURED DATA (JSON-LD)
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -119,7 +108,6 @@ export default async function HomePage() {
           "query-input": "required name=search_term_string"
         }
       },
-      // ✅ ADDED: Service Schema for Reselling (High SEO Value)
       {
         "@type": "Service",
         "serviceType": "Reselling Platform",
@@ -130,8 +118,7 @@ export default async function HomePage() {
     ]
   };
 
- 
-return (
+  return (
     <div className="homepage-wrapper">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       
@@ -139,9 +126,10 @@ return (
         SJ10 Online Shopping Pakistan - Buy Fashion, Electronics, Home Decor & Groceries
       </h1>
 
-      {/* ========================================== */}
-      {/* 🟢 VIP AREA: INSTANT LOAD (Above the fold)   */}
-      {/* ========================================== */}
+      {/* ========================================================= */}
+      {/* 🟢 VIP AREA: ABOVE THE FOLD (ONLY INITIAL VIEWPORT LOAD)  */}
+      {/* ONLY BANNERS & TOP CATEGORIES ARE RENDERED ON FIRST PAINT */}
+      {/* ========================================================= */}
       
       {/* Hero Banners */}
       <div className="desktop-banner-layout">
@@ -159,45 +147,46 @@ return (
         <MobileStripBanner key="mobile-banner" />  
       </div>
       
-      {/* Categories & Promoted (Googlebot loves seeing products instantly) */}
+      {/* Top Categories Grid (First Viewport Category Icons Only) */}
       {initialData.subCatRow1?.length > 0 && (
         <HomeSubcategories subcategories={initialData.subCatRow1} title="Explore Categories" priority={true} />
       )}
-      
-      <PromotedSection products={initialData.promotedTop50} />
-      
 
-      {/* ========================================== */}
-      {/* 🟡 WAITING AREA: LAZY LOAD (On Scroll)       */}
-      {/* ========================================== */}
+      {/* ========================================================= */}
+      {/* 🟡 LAZY LOADED AREA: BELOW THE FOLD (DEFERRED ON SCROLL)  */}
+      {/* ALL HEAVY PRODUCT SECTIONS ARE RENDERED ONLY ON USER SCROLL*/}
+      {/* ========================================================= */}
 
-      {/* Jab user thora neeche aayega toh ye load hoga */}
+      {/* 1. Promoted Section (Lazy Loaded) */}
+      <LazySection height="350px" offset="150px">
+        <PromotedSection products={initialData.promotedTop50} />
+      </LazySection>
+
+      {/* 2. Dynamic Discount Sections (Lazy Loaded) */}
       <LazySection height="300px" offset="200px">
         <DynamicDiscountSections sections={initialData.discountSections} />
       </LazySection>
 
-
-       {/* Latest Products real-time data fetch karta hai, isko chupana bohat faide mand hai */}
-      <LazySection height="400px" offset="300px">
+      {/* 3. Real-Time Latest Arrivals (Lazy Loaded) */}
+      <LazySection height="400px" offset="250px">
         <LatestProducts /> 
       </LazySection>
 
-
+      {/* 4. Popular Products (Lazy Loaded) */}
       <LazySection height="350px" offset="200px">
         {initialData.popularProducts?.length > 0 && (
           <PopularProducts products={initialData.popularProducts} />
         )}
       </LazySection>
       
-     
-      
+      {/* 5. Category Rows (Lazy Loaded) */}
       <LazySection height="500px" offset="300px">
         {initialData.categoryRows?.length > 0 && (
           <CategoryRows initialData={initialData.categoryRows} />
         )}
       </LazySection>
 
-      {/* Explore feed sab se heavy hai, isko end mein rakhenge */}
+      {/* 6. Infinite Explore Feed (Lazy Loaded) */}
       <LazySection height="800px" offset="400px">
         <section className="explore-feed-section" id="explore-section">
           <ExploreHomepage 
@@ -207,20 +196,20 @@ return (
         </section>
       </LazySection>
 
-      {/* Final SEO Text Block - Isko end mein rakhein */}
+      {/* 7. SEO Text Footer Block (Lazy Loaded at Bottom) */}
       <LazySection height="300px" offset="100px">
         <section className="seo-footer-section">
           <div className="seo-container">
             <div className="seo-quick-links">
-              <Link href="/" className="seo-link-card">
+              <Link href="/" className="seo-link-card" prefetch={false}>
                 <div className="seo-icon-wrapper"><i className="fas fa-home seo-icon text-blue"></i></div>
                 <div className="seo-link-text"><strong>Home</strong><span>Start Shopping</span></div>
               </Link>
-              <Link href="/category" className="seo-link-card">
+              <Link href="/category" className="seo-link-card" prefetch={false}>
                 <div className="seo-icon-wrapper"><i className="fas fa-th-large seo-icon text-orange"></i></div>
                 <div className="seo-link-text"><strong>Category</strong><span>Browse All</span></div>
               </Link>
-              <Link href="/explore" className="seo-link-card">
+              <Link href="/explore" className="seo-link-card" prefetch={false}>
                 <div className="seo-icon-wrapper"><i className="fas fa-fire seo-icon text-red"></i></div>
                 <div className="seo-link-text"><strong>Explore</strong><span>Trending Items</span></div>
               </Link>
