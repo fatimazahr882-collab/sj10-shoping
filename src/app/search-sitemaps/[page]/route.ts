@@ -1,12 +1,15 @@
 // src/app/search-sitemaps/[page]/route.ts
 import { NextResponse } from 'next/server';
 
+// 🚨 FORCES VERCEL TO NEVER STATICALLY CACHE THIS ROUTE AT BUILD TIME!
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: Request, { params }: { params: Promise<{ page: string }> }) {
   const resolvedParams = await params;
   const rawPage = resolvedParams.page || '1';
   const pageNum = rawPage.replace('.xml', '') || '1';
 
-  // 🚨 SMART DYNAMIC HOST DETECTOR (Auto-detects Localhost 4006 vs Live Server)
   const isLocal = process.env.NODE_ENV === 'development';
   const API_BASE = isLocal 
     ? "http://localhost:4006/api" 
@@ -14,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ page: st
 
   try {
     const res = await fetch(`${API_BASE}/products/sitemap-search-${pageNum}.xml`, {
-      cache: 'no-store' // Local testing par Vercel fetch cache bypass karein!
+      cache: 'no-store' // Bypasses Vercel fetch cache!
     });
 
     if (!res.ok) {
