@@ -1,93 +1,111 @@
 // src/app/search/page.tsx
 import { Metadata } from 'next';
-import { Suspense } from 'react';
-import SearchClientWrapper from './SearchClientWrapper';
+import SearchClientPage from '@/components/SearchClientPage';
+
+const API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://sj10-cart.vercel.app/api";
 
 type Props = {
   searchParams: Promise<{ q?: string }>;
 };
 
-const SITE_URL = "https://www.sj10.pk";
-const API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://api.sj10.pk/api";
-
-// 🚀 DYNAMIC SEO METADATA
+// 🟢 1. CLEAN KEYWORD-FOCUSED SEO BROWSER TAB TITLE
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const resolvedParams = await searchParams;
-  const query = resolvedParams.q ? decodeURIComponent(resolvedParams.q).trim() : '';
-  const displayQ = query || 'Products';
+  const { q = "" } = await searchParams;
+  const cleanQuery = q.trim();
+  
+  // Clean format: Buy {Keyword} Online at Best Price in Pakistan | SJ10.pk
+  const title = cleanQuery 
+    ? `Buy ${cleanQuery} Online at Best Price in Pakistan | SJ10.pk`
+    : `Online Shopping in Pakistan - Best Prices | SJ10.pk`;
+  
+  const description = cleanQuery
+    ? `Find top deals & wholesale prices on ${cleanQuery} in Pakistan at SJ10. Cash on delivery (COD) & fast shipping to Karachi, Lahore, Islamabad, Rawalpindi, Peshawar.`
+    : `Search thousands of products on SJ10. Electronics, Fashion, Home Decor at wholesale rates in Pakistan.`;
 
-  const title = `Buy ${displayQ} Online in Pakistan at Wholesale Rates | COD | SJ10`;
-  const description = `Shop best deals for ${displayQ} in Pakistan. Wholesale prices, 3-5 days fast delivery, 7-day returns & Cash on Delivery nationwide at SJ10.pk.`;
+  const canonicalUrl = `https://www.sj10.pk/search${cleanQuery ? `?q=${encodeURIComponent(cleanQuery)}` : ''}`;
 
   return {
     title,
     description,
-    keywords: [`${displayQ} Pakistan`, `${displayQ} online shopping`, `buy ${displayQ} wholesale`, `SJ10 ${displayQ}`],
-    alternates: { canonical: `${SITE_URL}/search?q=${encodeURIComponent(query)}` },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title,
       description,
-      url: `${SITE_URL}/search?q=${encodeURIComponent(query)}`,
-      siteName: 'SJ10 Shopping Pakistan',
-      type: 'website',
+      url: canonicalUrl,
+      type: "website",
+      siteName: "SJ10.pk",
+      locale: "en_PK",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
     }
   };
 }
 
-async function getInitialData(query: string) {
-  if (!query) return { products: [], totalCount: 0 };
+// 🟢 2. SSR FETCHER FOR GOOGLEBOT (INSTANT FIRST 40 PRODUCTS)
+async function getInitialSearchResults(query: string) {
+  if (!query.trim()) return { products: [], totalCount: 0 };
   try {
-    const res = await fetch(`${API_BASE}/products/search?q=${encodeURIComponent(query)}&page=1&limit=40`, {
-      cache: 'no-store'
+    const res = await fetch(`${API_BASE}/products/search-results?q=${encodeURIComponent(query)}&page=1&limit=40`, {
+      next: { revalidate: 3600 } // Cache SSR response for 1 hour
     });
-    return res.ok ? await res.json() : { products: [], totalCount: 0 };
+    if (!res.ok) return { products: [], totalCount: 0 };
+    return await res.json();
   } catch (e) {
     return { products: [], totalCount: 0 };
   }
 }
 
 export default async function SearchPage({ searchParams }: Props) {
-  const resolvedParams = await searchParams;
-  const query = resolvedParams.q ? decodeURIComponent(resolvedParams.q).trim() : '';
-  const initialData = await getInitialData(query);
+  const { q = "" } = await searchParams;
+  const initialData = await getInitialSearchResults(q);
 
-  // 🤖 GOOGLEBOT ITEMLIST SCHEMA FOR SEARCH INDEXING
-  const googleItemListSchema = {
+  // 🟢 3. GOOGLEBOT JSON-LD STRUCTURED DATA SCHEMA
+  const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "name": `Search Results for ${query} on SJ10 Pakistan`,
+    "name": `Search Results for ${q}`,
     "numberOfItems": initialData.products?.length || 0,
-    "itemListElement": (initialData.products || []).map((p: any, idx: number) => ({
-      "@type": "ListItem",
-      "position": idx + 1,
-      "item": {
-        "@type": "Product",
-        "name": p.title || p.t,
-        "image": p.image_url || p.img,
-        "offers": {
-          "@type": "Offer",
-          "priceCurrency": "PKR",
-          "price": p.discounted_price || p.dp || p.price,
-          "availability": "https://schema.org/InStock"
-        },
-        "url": `${SITE_URL}/products/${p.slug || p.s}-${p.sku}`
-      }
-    }))
+    "itemListElement": (initialData.products || []).slice(0, 10).map((product: any, index: number) => {
+      const img = Array.isArray(product.image_urls) 
+        ? product.image_urls[0] 
+        : (typeof product.image_urls === 'string' && product.image_urls.startsWith('[') ? JSON.parse(product.image_urls)[0] : product.image_urls);
+      
+      const priceVal = parseFloat(product.discounted_price || product.price || 0);
+
+      return {
+        "@type": "ListItem",
+        "position": index + 1,
+        "item": {
+          "@type": "Product",
+          "name": product.title,
+          "image": img || "https://www.sj10.pk/placeholder.jpg",
+          "url": `https://www.sj10.pk/products/${product.slug}`,
+          "offers": {
+            "@type": "Offer",
+            "priceCurrency": "PKR",
+            "price": priceVal,
+            "availability": product.quantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+          }
+        }
+      };
+    })
   };
 
   return (
     <>
+      {/* Inject Structured Data for Googlebot */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(googleItemListSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500 font-bold">Loading SJ10 Search...</div>}>
-        <SearchClientWrapper 
-          initialQuery={query} 
-          initialProducts={initialData.products || []} 
-          initialTotalCount={initialData.totalCount || 0} 
-        />
-      </Suspense>
+      <SearchClientPage 
+        initialQuery={q} 
+        initialProducts={initialData.products || []} 
+        initialTotalCount={initialData.totalCount || 0} 
+      />
     </>
   );
 }

@@ -1,3 +1,4 @@
+// src/components/TopBar.tsx
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -10,7 +11,7 @@ import ClientOnly from './ClientOnly';
 
 const DEFAULT_DP = "https://pub-1390981b409c46698da5dc6c45e08eaa.r2.dev/product/SJ10-285129/SJ10-285129-1-20260201-072541.webp";
 
-const SEARCH_KEYWORDS =[
+const SEARCH_KEYWORDS = [
   "Women's Fashion", "Men's Collection", "Electronics", "Smart Watches", 
   "Wireless Earbuds", "Sneakers", "Perfumes", "Makeup Kits", "Home Decor"
 ];
@@ -21,14 +22,14 @@ export default function TopBar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const[mounted, setMounted] = useState(false);
-  const[isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const[searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   
-  const[suggestions, setSuggestions] = useState<any[]>([]);
-  const[showSuggestions, setShowSuggestions] = useState(false);
-  const[placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -36,7 +37,7 @@ export default function TopBar() {
   const [showFullHeader, setShowFullHeader] = useState(true);
   const lastScrollY = useRef(0);
 
-  // 🟢 GPU ACCELERATED SMOOTH SCROLL (60fps No Lag)
+  // 🟢 GPU ACCELERATED SMOOTH SCROLL
   useEffect(() => {
     let ticking = false;
     const handleScroll = () => {
@@ -59,19 +60,25 @@ export default function TopBar() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  },[]);
+  }, []);
 
-  useEffect(() => { setMounted(true); },[]);
+  useEffect(() => { 
+    setMounted(true); 
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setPlaceholderIndex((prev) => (prev + 1) % SEARCH_KEYWORDS.length);
     }, 2500); 
     return () => clearInterval(interval);
-  },[]);
+  }, []);
 
   const fetchSuggestions = useCallback(async (q: string) => {
-    if (q.length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
+    if (q.length < 2) { 
+      setSuggestions([]); 
+      setShowSuggestions(false); 
+      return; 
+    }
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/suggestions-text?q=${encodeURIComponent(q)}`);
       if (res.ok) {
@@ -79,13 +86,15 @@ export default function TopBar() {
         setSuggestions(data);
         setShowSuggestions(true);
       }
-    } catch (e) {}
-  },[]);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchSuggestions(searchQuery), 200);
     return () => clearTimeout(timer);
-  },[searchQuery, fetchSuggestions]);
+  }, [searchQuery, fetchSuggestions]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -94,7 +103,7 @@ export default function TopBar() {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  },[]);
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,19 +118,77 @@ export default function TopBar() {
     router.push(`/search?q=${encodeURIComponent(title)}`);
   };
 
-  const showSearchBar = pathname === '/' || pathname.startsWith('/explore');
+  // 🟢 STRICTLY RESTRICTED TO HOME, EXPLORE, AND SEARCH PAGES ONLY!
+  const showSearchBar = pathname === '/' || pathname.startsWith('/explore') || pathname.startsWith('/search');
 
   return (
     <>
+      {/* ⚡ INSTANT CRITICAL DISPLAY TOGGLES */}
       <style dangerouslySetInnerHTML={{ __html: `
-        /* --- DEVICE ISOLATION --- */
-        @media (min-width: 769px) { .mobile-topbar-block { display: none !important; } .desktop-topbar-block { display: block !important; } }
-        @media (max-width: 768px) { .desktop-topbar-block { display: none !important; } .mobile-topbar-block { display: block !important; } }
+        .desktop-topbar-block { display: none !important; }
+        .mobile-topbar-block { display: block !important; }
 
+        @media (min-width: 769px) {
+          .desktop-topbar-block { display: block !important; }
+          .mobile-topbar-block { display: none !important; }
+        }
+      ` }} />
+
+      <style dangerouslySetInnerHTML={{ __html: `
         .container { max-width: 1400px; margin: 0 auto; padding: 0 15px; width: 100%; box-sizing: border-box; }
 
+        /* ========================================================= */
+        /* 🟢 GLOBAL SEARCH SUGGESTIONS PANEL (MOBILE & DESKTOP)      */
+        /* ========================================================= */
+        .pro-suggestions { 
+          position: absolute !important; 
+          top: calc(100% + 8px) !important; 
+          left: 0 !important; 
+          right: 0 !important; 
+          background: #ffffff !important; 
+          border-radius: 16px !important; 
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25) !important; 
+          z-index: 100000 !important; 
+          overflow: hidden !important; 
+          border: 1px solid #e2e8f0 !important;
+          max-height: 280px !important;
+          overflow-y: auto !important;
+          animation: fadeInDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        }
+
+        .sugg-item { 
+          padding: 13px 18px !important; 
+          font-size: 13.5px !important; 
+          font-weight: 600 !important; 
+          color: #0f172a !important; 
+          cursor: pointer !important; 
+          border-bottom: 1px solid #f1f5f9 !important; 
+          display: flex !important; 
+          gap: 12px !important; 
+          align-items: center !important; 
+          transition: all 0.2s !important; 
+          background: #ffffff !important;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .sugg-item:hover, .sugg-item:active { 
+          background: #fff7ed !important; 
+          color: #f85606 !important; 
+          padding-left: 24px !important; 
+        }
+
+        .sugg-icon { 
+          color: #f85606 !important; 
+          font-size: 13px !important; 
+        }
+
+        @keyframes fadeInDown {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
         /* ========================================== */
-        /* MOBILE VIEW (ADVANCE STICKY ORANGE BAR)    */
+        /* MOBILE VIEW (ADVANCED STICKY ORANGE BAR)   */
         /* ========================================== */
         @media (max-width: 768px) {
           .sj10-master-topbar { 
@@ -130,10 +197,7 @@ export default function TopBar() {
             will-change: top;
             transform: translateZ(0);
           }
-          /* Top par hone per mobile header (65px) ke neechay */
           .sj10-master-topbar.header-visible { top: 65px; }
-          
-          /* 🟢 SCROLL KARNE PER BILKUL TOP (0px) PAR PERMANENT STICKY! */
           .sj10-master-topbar.header-hidden { top: 0px !important; }
 
           body { padding-top: 135px !important; }
@@ -142,6 +206,7 @@ export default function TopBar() {
             background: linear-gradient(90deg, #f85606 0%, #ff8a00 100%); 
             padding: 8px 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            position: relative;
           }
           
           .mob-search-form {
@@ -178,15 +243,12 @@ export default function TopBar() {
           .sj10-master-topbar { 
             position: fixed !important; left: 0; width: 100%; 
             z-index: 9999 !important; 
-            transition: top 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            top: 32px !important; 
+            transition: top 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             will-change: top;
             transform: translateZ(0);
           }
-          
-          /* 🟢 Top par hone per white bar ke neechay (32px) */
           .sj10-master-topbar.header-visible { top: 32px !important; }
-          
-          /* 🟢 SCROLL KARNE PER WHITE BAR SLIDE UP HOGI AUR ORANGE BAR TOP (0px) PAR STICKY RAHEGI! */
           .sj10-master-topbar.header-hidden { 
             top: 0px !important; 
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
@@ -203,7 +265,6 @@ export default function TopBar() {
           
           .nav-grid { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
           
-          /* 🟢 DESKTOP VIDEO LOGO FIX (White circular base) */
           .nav-left { display: flex; align-items: center; padding-right: 15px; }
           .desktop-logo-vid { 
             height: 52px !important; 
@@ -259,10 +320,6 @@ export default function TopBar() {
             10%, 20% { transform: rotate(10deg) scale(1.1); }
             25% { transform: rotate(0deg) scale(1); }
           }
-          
-          .pro-suggestions { position: absolute; top: calc(100% + 8px); left: 0; right: 0; background: white; border-radius: 12px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); z-index: 10000; overflow: hidden; border: 1px solid #f0f0f0; }
-          .sugg-item { padding: 12px 15px; font-size: 13px; font-weight: 600; color: #374151; cursor: pointer; border-bottom: 1px solid #f8f8f8; display: flex; gap: 10px; align-items: center; transition: all 0.2s; }
-          .sugg-item:hover { background: #fff7ed; color: #f85606; padding-left: 20px; }
 
           .nav-right { display: flex; align-items: center; gap: 22px; }
           .login-signup-pill { background: #ffffff; color: #f85606; border: none; padding: 9px 22px; border-radius: 50px; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.1); transition: 0.2s; }
@@ -284,7 +341,7 @@ export default function TopBar() {
         {/* MOBILE VIEW SEARCH BAR */}
         <div className="mobile-topbar-block">
           {showSearchBar && (
-            <div style={{ position: 'relative' }} ref={searchRef}>
+            <div style={{ position: 'relative', width: '100%' }} ref={searchRef}>
               <form className="mob-search-form" onSubmit={handleSearchSubmit}>
                 <i className="fas fa-search" style={{ color: '#94a3b8', fontSize: '14px', marginRight: '6px' }}></i>
 
@@ -297,14 +354,24 @@ export default function TopBar() {
                 </div>
 
                 <input type="text" className="mob-search-input" value={searchQuery} autoComplete="off" aria-label="Search" onChange={(e) => setSearchQuery(e.target.value)} onFocus={() => suggestions.length > 0 && setShowSuggestions(true)} />
+                
+                {searchQuery && (
+                  <button type="button" onClick={() => { setSearchQuery(''); setSuggestions([]); }} style={{ border:'none', background:'none', color:'#94a3b8', padding:'0 6px', zIndex:3, cursor:'pointer' }}>
+                    <i className="fas fa-times-circle"></i>
+                  </button>
+                )}
+
                 <button type="submit" className="mob-search-btn" aria-label="Submit"><i className="fas fa-search"></i></button>
               </form>
 
+              {/* 🟢 MOBILE FLOATING APP-STYLE SUGGESTIONS DROPDOWN */}
               {showSuggestions && suggestions.length > 0 && (
                 <div className="pro-suggestions">
                   {suggestions.map((s, i) => (
                     <div key={i} className="sugg-item" onClick={() => handleSuggClick(s.title)}>
-                      <i className="fas fa-search sugg-icon"></i> {s.title}
+                      <i className="fas fa-search sugg-icon"></i>
+                      <span style={{ flex: 1 }}>{s.title}</span>
+                      <i className="fas fa-chevron-right" style={{ fontSize: '11px', color: '#cbd5e1' }}></i>
                     </div>
                   ))}
                 </div>
@@ -318,7 +385,7 @@ export default function TopBar() {
           <div className="main-nav-area">
             <div className="container nav-grid">
               
-              {/* 🟢 DESKTOP LOGO (PROPER VIDEO TAG WITH CLEAR BG) */}
+              {/* DESKTOP LOGO */}
               <div className="nav-left">
                 <Link href="/" style={{ textDecoration: 'none' }} aria-label="Go to SJ10 Homepage">
                   <span className="sr-only">SJ10 Homepage</span>

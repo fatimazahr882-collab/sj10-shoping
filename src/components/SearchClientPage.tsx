@@ -1,8 +1,7 @@
 // src/components/SearchClientPage.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useMemo } from 'react';
 import ProductCardLite from '@/components/ProductCardLite';
 
 const API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://sj10-cart.vercel.app/api";
@@ -28,9 +27,15 @@ const SilverSkeletonCard = () => (
   </div>
 );
 
+// Helper to truncate long keywords for button
+const truncateKeyword = (text: string, maxLen: number = 18) => {
+  if (!text) return "";
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  return trimmed.substring(0, maxLen) + "...";
+};
+
 export default function SearchClientPage({ initialQuery, initialProducts, initialTotalCount }: Props) {
-  const router = useRouter();
-  const [query, setQuery] = useState(initialQuery);
   const [products, setProducts] = useState<any[]>(initialProducts);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   
@@ -39,24 +44,19 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
   const [loadingNextPage, setLoadingNextPage] = useState(false);
   const [hasMore, setHasMore] = useState(initialProducts.length >= 40);
 
+  // Truncate keyword for clean Load More button UI
+  const displayKeyword = useMemo(() => truncateKeyword(initialQuery, 18), [initialQuery]);
+
   // Sync state when URL query changes
   useEffect(() => {
-    setQuery(initialQuery);
     setProducts(initialProducts);
     setTotalCount(initialTotalCount);
     setPage(1);
     setHasMore(initialProducts.length >= 40);
+    setLoading(false);
   }, [initialQuery, initialProducts, initialTotalCount]);
 
-  // Handle Search Submit from top input
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setLoading(true);
-    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-  };
-
-  // 🟢 MANUAL "LOAD MORE" ACTION (FETCHOES NEXT 40 PRODUCTS)
+  // 🟢 MANUAL "LOAD MORE" ACTION (FETCHES NEXT 40 PRODUCTS)
   const handleLoadMore = async () => {
     if (loadingNextPage || !hasMore) return;
 
@@ -83,86 +83,38 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
   };
 
   return (
-    <div className="search-page-wrapper">
+    <div className="sj10-search-page-root">
       <style jsx global>{`
-        .search-page-wrapper {
+        /* 🟢 STRICT VERTICAL PAGE LAYOUT WITH GENERATED TOP SPACING */
+        .sj10-search-page-root {
           min-height: 100vh;
           background-color: #f8fafc;
           font-family: 'Poppins', sans-serif;
           padding-bottom: 100px;
+          width: 100% !important;
+          display: block !important;
         }
 
-        .search-container {
+        .sj10-search-inner-wrapper {
           max-width: 1400px;
           margin: 0 auto;
-          padding: 0 16px;
+          padding: 25px 16px 40px !important; /* 🟢 Top padding 25px ensures no overlap! */
+          display: flex !important;
+          flex-direction: column !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
         }
 
-        /* 🟢 TOP STICKY SEARCH INPUT BAR */
-        .top-search-bar-sticky {
-          position: sticky;
-          top: 70px;
-          z-index: 40;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(12px);
-          border-bottom: 1px solid #e2e8f0;
-          padding: 12px 16px;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-        }
-        @media (min-width: 769px) {
-          .top-search-bar-sticky { top: 32px; }
-        }
-
-        .top-search-form {
-          max-width: 700px;
-          margin: 0 auto;
-          display: flex;
-          align-items: center;
-          background: #f1f5f9;
-          border: 2px solid #e2e8f0;
-          border-radius: 50px;
-          padding: 4px 6px 4px 18px;
-          transition: all 0.3s ease;
-        }
-        .top-search-form:focus-within {
-          border-color: #f85606;
-          background: #ffffff;
-          box-shadow: 0 0 0 4px rgba(248, 86, 6, 0.12);
-        }
-        .top-search-input {
-          flex: 1;
-          border: none;
-          background: transparent;
-          outline: none;
-          font-size: 15px;
-          font-weight: 600;
-          color: #0f172a;
-        }
-        .top-search-btn {
-          background: linear-gradient(135deg, #f85606, #ff8a00);
-          color: white;
-          border: none;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          font-size: 16px;
-          transition: transform 0.2s;
-        }
-        .top-search-btn:hover { transform: scale(1.05); }
-
-        /* 🟢 ANIMATED TITLE BANNER */
-        .results-banner {
-          padding: 24px 0 16px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
+        /* 1. ANIMATED TITLE BANNER (Sits comfortably under header) */
+        .sj10-results-banner {
+          display: flex !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+          width: 100% !important;
+          margin-bottom: 24px !important;
           flex-wrap: wrap;
           gap: 12px;
-          animation: slideInDown 0.4s ease-out;
+          animation: slideInDown 0.3s ease-out;
         }
         .results-title {
           font-size: 24px;
@@ -190,17 +142,19 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
           box-shadow: 0 2px 8px rgba(248, 86, 6, 0.08);
         }
 
-        /* 🟢 RESPONSIVE PRODUCT GRID (2 ON MOBILE, 5 ON DESKTOP) */
-        .search-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 12px;
+        /* 2. RESPONSIVE PRODUCT GRID (2 ON MOBILE, 5 ON DESKTOP) */
+        .sj10-search-grid {
+          display: grid !important;
+          grid-template-columns: repeat(2, 1fr) !important;
+          gap: 12px !important;
+          width: 100% !important;
+          margin-bottom: 30px !important;
         }
-        @media (min-width: 640px) { .search-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
-        @media (min-width: 1024px) { .search-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; } }
-        @media (min-width: 1280px) { .search-grid { grid-template-columns: repeat(5, 1fr); gap: 24px; } }
+        @media (min-width: 640px) { .sj10-search-grid { grid-template-columns: repeat(3, 1fr) !important; gap: 16px !important; } }
+        @media (min-width: 1024px) { .sj10-search-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 20px !important; } }
+        @media (min-width: 1280px) { .sj10-search-grid { grid-template-columns: repeat(5, 1fr) !important; gap: 24px !important; } }
 
-        /* 🟢 SILVER SHIMMER SKELETON CARD STYLING */
+        /* 3. SILVER SHIMMER SKELETON CARD STYLING */
         .skeleton-card-container {
           background: #ffffff;
           border: 1px solid #f1f5f9;
@@ -228,7 +182,7 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
           background: linear-gradient(
             90deg,
             rgba(255, 255, 255, 0) 0%,
-            rgba(255, 255, 255, 0.7) 50%,
+            rgba(255, 255, 255, 0.75) 50%,
             rgba(255, 255, 255, 0) 100%
           );
           animation: silverSweep 1.6s infinite linear;
@@ -240,7 +194,7 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
         .sj10-watermark {
           font-size: 32px;
           font-weight: 900;
-          color: rgba(255, 255, 255, 0.7);
+          color: rgba(255, 255, 255, 0.75);
           letter-spacing: 3px;
           text-shadow: 0 2px 6px rgba(0,0,0,0.08);
           z-index: 2;
@@ -263,28 +217,29 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
         .w-40 { width: 40%; }
         .h-price { height: 18px; background: #fed7aa; }
 
-        /* 🟢 CENTERED ANIMATED "LOAD MORE" BUTTON */
-        .load-more-wrapper {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          margin: 50px 0 30px;
+        /* 4. CENTERED DYNAMIC "LOAD MORE" BUTTON */
+        .sj10-load-more-center {
+          display: flex !important;
+          justify-content: center !important;
+          align-items: center !important;
+          width: 100% !important;
+          margin: 40px 0 50px !important;
         }
         .animated-load-more-btn {
           background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
           color: #ffffff;
           border: none;
-          padding: 16px 48px;
+          padding: 16px 44px;
           border-radius: 50px;
           font-size: 15px;
           font-weight: 800;
           cursor: pointer;
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
           transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-          letter-spacing: 0.5px;
+          letter-spacing: 0.3px;
         }
         .animated-load-more-btn:hover {
           background: linear-gradient(135deg, #f85606 0%, #ea580c 100%);
@@ -293,18 +248,20 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
         }
         .animated-load-more-btn:active { transform: scale(0.97); }
 
-        /* 🟢 BEAUTIFUL RICH COLORFUL SEO TEXT BLOCK */
-        .seo-rich-content-block {
+        /* 5. COLORFUL RICH SEO TEXT BLOCK AT THE VERY BOTTOM */
+        .sj10-seo-block {
+          width: 100% !important;
           background: #ffffff;
           border-radius: 24px;
-          padding: 40px;
-          margin-top: 60px;
+          padding: 35px;
+          margin-top: 50px !important;
           border: 1px solid #e2e8f0;
           box-shadow: 0 10px 30px rgba(0,0,0,0.03);
           position: relative;
           overflow: hidden;
+          box-sizing: border-box !important;
         }
-        .seo-rich-content-block::before {
+        .sj10-seo-block::before {
           content: '';
           position: absolute;
           top: 0; left: 0; right: 0;
@@ -342,35 +299,15 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
           border: 1px solid #cbd5e1;
         }
 
-        /* Animations */
-        @keyframes slideInDown { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
       `}</style>
 
-      {/* 1. TOP STICKY SEARCH BAR */}
-      <div className="top-search-bar-sticky">
-        <form className="top-search-form" onSubmit={handleSearchSubmit}>
-          <input
-            type="text"
-            className="top-search-input"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products, brands, or categories..."
-          />
-          {query && (
-            <button type="button" onClick={() => setQuery('')} style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0 8px' }}>
-              <i className="fas fa-times-circle"></i>
-            </button>
-          )}
-          <button type="submit" className="top-search-btn" aria-label="Submit Search">
-            <i className="fas fa-search"></i>
-          </button>
-        </form>
-      </div>
+      {/* 🟢 VERTICAL STACKED CONTAINER */}
+      <div className="sj10-search-inner-wrapper">
 
-      <div className="search-container">
-        {/* 2. ANIMATED TITLE BANNER */}
-        <div className="results-banner">
+        {/* 1. ANIMATED TITLE BANNER */}
+        <div className="sj10-results-banner">
           <h1 className="results-title">
             <i className="fas fa-search" style={{ color: '#f85606', fontSize: '20px' }}></i>
             Results for <span className="keyword-highlight">"{initialQuery}"</span>
@@ -381,27 +318,27 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
           </span>
         </div>
 
-        {/* 3. SHIMMER LOADING FOR INITIAL SEARCH */}
+        {/* 2. INITIAL SHIMMER LOADING */}
         {loading && (
-          <div className="search-grid">
+          <div className="sj10-search-grid">
             {[...Array(10)].map((_, i) => (
               <SilverSkeletonCard key={i} />
             ))}
           </div>
         )}
 
-        {/* 4. NO RESULTS EMPTY STATE */}
+        {/* 3. NO RESULTS EMPTY STATE */}
         {!loading && products.length === 0 && (
           <div style={{ textAlign: 'center', padding: '80px 20px', background: 'white', borderRadius: '20px', margin: '20px 0', border: '1px solid #f1f5f9' }}>
             <i className="fas fa-search-minus" style={{ fontSize: '56px', color: '#cbd5e1', marginBottom: '16px' }}></i>
             <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px' }}>No products found</h2>
-            <p style={{ color: '#64748b', fontSize: '14px' }}>We couldn't find any match for "{initialQuery}". Check your spelling or try another term.</p>
+            <p style={{ color: '#64748b', fontSize: '14px' }}>We couldn't find any match for "{initialQuery}". Check your spelling or try another search term.</p>
           </div>
         )}
 
-        {/* 5. PRODUCT GRID (2 ON MOBILE, 5 ON DESKTOP) */}
+        {/* 4. PRODUCT GRID (2 ON MOBILE, 5 ON DESKTOP) */}
         {!loading && products.length > 0 && (
-          <div className="search-grid">
+          <div className="sj10-search-grid">
             {products.map((p, i) => (
               <div key={`${p.id}-${i}`}>
                 <ProductCardLite product={{
@@ -423,7 +360,7 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
               </div>
             ))}
 
-            {/* APPEND SHIMMER SKELETON CARDS WHILE LOADING NEXT 40 PRODUCTS */}
+            {/* APPEND SHIMMER CARDS WHILE LOADING NEXT 40 PRODUCTS */}
             {loadingNextPage && (
               [...Array(10)].map((_, i) => (
                 <SilverSkeletonCard key={`next-skel-${i}`} />
@@ -432,9 +369,9 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
           </div>
         )}
 
-        {/* 6. CENTERED ANIMATED "LOAD MORE" BUTTON */}
+        {/* 5. CENTERED DYNAMIC "LOAD MORE" BUTTON */}
         {!loading && hasMore && products.length > 0 && (
-          <div className="load-more-wrapper">
+          <div className="sj10-load-more-center">
             <button className="animated-load-more-btn" onClick={handleLoadMore} disabled={loadingNextPage}>
               {loadingNextPage ? (
                 <>
@@ -442,7 +379,7 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
                 </>
               ) : (
                 <>
-                  <span>Load More Products</span>
+                  <span>Load More {displayKeyword ? `"${displayKeyword}"` : "Products"}</span>
                   <i className="fas fa-arrow-down"></i>
                 </>
               )}
@@ -450,8 +387,8 @@ export default function SearchClientPage({ initialQuery, initialProducts, initia
           </div>
         )}
 
-        {/* 7. COLORFUL RICH SEO TEXT BLOCK FOR GOOGLE RANKING */}
-        <div className="seo-rich-content-block">
+        {/* 6. COLORFUL RICH SEO TEXT BLOCK AT THE VERY BOTTOM */}
+        <div className="sj10-seo-block">
           <h2 className="seo-h2">Buy {initialQuery || "Products"} Online at Best Price in Pakistan</h2>
           <p className="seo-p">
             Welcome to <strong>SJ10 Shopping</strong>, Pakistan's leading multi-vendor online marketplace. Are you looking to buy <strong>{initialQuery}</strong> at genuine wholesale prices? You are in the right place! We bring you thousands of verified items from top Pakistani suppliers across Karachi, Lahore, Islamabad, Rawalpindi, Faisalabad, and Peshawar.

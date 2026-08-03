@@ -55,6 +55,18 @@ export default function Header() {
   
   return (
     <>
+      {/* ⚡ INSTANT CRITICAL CSS (STOPS 1-SECOND FLASH / FOUC) */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        /* Default state: Hide desktop elements globally BEFORE first paint */
+        .desktop-header-block { display: none !important; }
+        .mobile-header-block { display: flex !important; }
+
+        @media (min-width: 769px) {
+          .desktop-header-block { display: block !important; }
+          .mobile-header-block { display: none !important; }
+        }
+      `}} />
+
       <header className={`global-sticky-header ${showFullHeader ? 'header-visible' : 'header-hidden'}`}>
         
         {/* ========================================== */}
@@ -77,7 +89,7 @@ export default function Header() {
         </div>
 
         {/* ========================================== */}
-        {/* DESKTOP VIEW (Strictly 32px Slim Bar)     */}
+        {/* DESKTOP VIEW (Strictly 32px Slim Bar)      */}
         {/* ========================================== */}
         <div className="desktop-header-block">
           <div className="desktop-header-inner">
@@ -123,16 +135,6 @@ export default function Header() {
         .global-sticky-header.header-visible { transform: translateY(0); }
         .global-sticky-header.header-hidden { transform: translateY(-100%); }
 
-        /* --- DEVICE DISPLAY TOGGLES --- */
-        @media (min-width: 769px) {
-          .mobile-header-block { display: none !important; }
-          .desktop-header-block { display: block !important; }
-        }
-        @media (max-width: 768px) {
-          .desktop-header-block { display: none !important; }
-          .mobile-header-block { display: flex !important; }
-        }
-
         /* --- MOBILE HEADER STYLES --- */
         .mobile-header-block {
           justify-content: space-between; align-items: center;
@@ -143,6 +145,12 @@ export default function Header() {
           position: absolute; top: -6px; right: -10px; background-color: #ff8a00; color: white;
           border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
           font-size: 10px; font-weight: bold; border: 2px solid white; z-index: 10;
+        }
+
+        @media (max-width: 768px) { 
+          .global-sticky-header { height: 65px !important; }
+          .global-sticky-header.header-hidden { transform: translateY(-100%); }
+          body { padding-top: 135px !important; } 
         }
 
         /* --- DESKTOP SLIM BAR STYLES (STRICT 32px LOCK) --- */
@@ -171,7 +179,7 @@ export default function Header() {
 
           .sell-badge-top {
             background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa;
-            padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 800;
+            padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 800;
             display: inline-flex; align-items: center; gap: 4px; text-decoration: none; transition: all 0.2s;
             height: 20px !important; line-height: 18px !important;
           }
@@ -208,10 +216,10 @@ export default function Header() {
           }
           
           @keyframes slideFadeUp {
-            0% { opacity: 0; transform: translateY(8px); }
+            0% { opacity: 0; transform: translateY(6px); }
             10% { opacity: 1; transform: translateY(0); }
             90% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-8px); }
+            100% { opacity: 0; transform: translateY(-6px); }
           }
         }
       `}</style>
