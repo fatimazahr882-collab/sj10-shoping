@@ -54,3 +54,4 @@ Disallow: /
 # ==========================================
 Sitemap: https://www.sj10.pk/sitemap.xml
 Sitemap: https://www.sj10.pk/sitemap-static.xml
+Sitemap: https://www.sj10.pk/sitemap-search.xml
