@@ -7,23 +7,22 @@ export const revalidate = 0;
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string[] }> }) {
   const resolvedParams = await params;
   const slugParts = resolvedParams.slug || ['1.xml'];
-  
-  // Combine slug parts (e.g. ["1.xml"] -> "1.xml")
   const rawFileName = slugParts.join('/');
   const pageNum = rawFileName.replace('.xml', '') || '1';
 
   const isLocal = process.env.NODE_ENV === 'development';
+  
+  // 🚨 MASTER NGINX GATEWAY ENDPOINT (Optimized for Cloudflare Edge Caching)
   const targetUrl = isLocal 
     ? `http://localhost:4006/api/products/sitemap-search-${pageNum}.xml`
-    : `http://129.159.235.244:4006/api/products/sitemap-search-${pageNum}.xml`;
+    : `https://api.sj10.pk/api/products/sitemap-search-${pageNum}.xml`;
 
-  console.log(`🔥 [CATCH-ALL SITEMAP] Request for Page: ${pageNum} | Fetching from: ${targetUrl}`);
+  console.log(`📡 [SITEMAP PROXY] Requesting: ${targetUrl}`);
 
   try {
     const res = await fetch(targetUrl, {
-      cache: 'no-store',
+      cache: 'no-store', // Always ask Nginx Gateway for fresh or CDN-cached XML
       headers: {
-        'x-internal-api-key': 'Pakistanc456',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'application/xml, text/xml, */*'
       }
@@ -42,7 +41,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       status: 200,
       headers: {
         'Content-Type': 'application/xml',
-        'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+        // ⚡ CLOUDFLARE EDGE CDN CACHING: Cache sitemaps for 24 Hours globally!
+        'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400',
       },
     });
 
