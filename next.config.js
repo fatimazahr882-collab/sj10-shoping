@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    unoptimized: true, // ✅ Moved inside images object (Next.js standard)
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: 'media.sj10.pk' },
       { protocol: 'https', hostname: 'res.cloudinary.com' },
@@ -12,52 +12,44 @@ const nextConfig = {
       { protocol: 'https', hostname: 'static.markaz.app' }
     ],
   },
-  
-  // 🔥 FORCE HEADERS FOR CLOUDFLARE BYPASS 🔥
+
+  // 🚨 GLOBAL MASTER SWITCH: Force NO CACHE on Vercel for ALL pages/components!
   async headers() {
     return [
       {
-        // 1. Force Cache on Product Pages
-        source: '/products/:slug*',
+        source: '/((?!_next/static|_next/image|favicon.ico|logo.mp4|logo.png).*)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=3600, s-maxage=2592000, stale-while-revalidate=86400',
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
           },
         ],
       },
+    ];
+  },
+
+  // Existing Sitemaps Rewrites
+  async rewrites() {
+    const API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://api.sj10.pk/api";
+    return [
       {
-        // 2. Force Cache on Explore Page
-        source: '/explore',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, s-maxage=2592000, stale-while-revalidate=86400',
-          },
-        ],
+        source: '/sitemap-search.xml',
+        destination: `${API_BASE}/products/sitemap-search.xml`,
       },
       {
-        // 3. Force Cache on Main Categories Page
-        source: '/category',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, s-maxage=2592000, stale-while-revalidate=86400',
-          },
-        ],
+        source: '/sitemap-search-:page.xml',
+        destination: `${API_BASE}/products/sitemap-search-:page.xml`,
       },
-      {
-        // 4. Force Cache on Specific Category Pages
-        source: '/category/:slug*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, s-maxage=2592000, stale-while-revalidate=86400',
-          },
-        ],
-      }
     ];
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
