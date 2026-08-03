@@ -11,23 +11,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ page: st
 
   const isLocal = process.env.NODE_ENV === 'development';
   
-  // 🚨 DIRECT P1 WORKER IP CALL (Bypasses Nginx 301 Redirects & Cloudflare WAF!)
+  // Try Live Domain API first, fallback to Direct IP
   const targetUrl = isLocal 
     ? `http://localhost:4006/api/products/sitemap-search-${pageNum}.xml`
-    : `http://129.159.235.244:4006/api/products/sitemap-search-${pageNum}.xml`;
+    : `https://api.sj10.pk/api/products/sitemap-search-${pageNum}.xml`;
 
   try {
     const res = await fetch(targetUrl, {
       cache: 'no-store',
       headers: {
         'x-internal-api-key': 'Pakistanc456',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept': 'application/xml, text/xml, */*'
       }
     });
 
     if (!res.ok) {
-      console.error(`🔴 Vercel Fetch to ${targetUrl} failed with status: ${res.status}`);
-      return new NextResponse('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>', {
+      const errText = await res.text().catch(() => '');
+      // 🚨 LIVE DIAGNOSTIC XML ERROR OUTPUT
+      return new NextResponse(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><error>HTTP_STATUS_${res.status}</error><target>${targetUrl}</target><details>${errText.substring(0, 100)}</details></urlset>`, {
         status: 200,
         headers: { 'Content-Type': 'application/xml' }
       });
@@ -44,8 +46,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ page: st
     });
 
   } catch (error: any) {
-    console.error("🔴 Vercel Sitemap Fetch Crash:", error.message);
-    return new NextResponse('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>', {
+    // 🚨 LIVE DIAGNOSTIC CRASH OUTPUT
+    return new NextResponse(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><error>FETCH_CRASH</error><message>${error.message}</message><target>${targetUrl}</target></urlset>`, {
       status: 200,
       headers: { 'Content-Type': 'application/xml' }
     });
