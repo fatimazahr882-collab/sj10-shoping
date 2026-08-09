@@ -55,15 +55,31 @@ export default function Header() {
   
   return (
     <>
-      {/* ⚡ INSTANT CRITICAL CSS (STOPS 1-SECOND FLASH / FOUC) */}
+      {/* ⚡ INSTANT CRITICAL PRE-PAINT CSS (PREVENTS 0.5s ICON & LOGO FLASH) */}
       <style dangerouslySetInnerHTML={{ __html: `
-        /* Default state: Hide desktop elements globally BEFORE first paint */
         .desktop-header-block { display: none !important; }
         .mobile-header-block { display: flex !important; }
 
         @media (min-width: 769px) {
           .desktop-header-block { display: block !important; }
           .mobile-header-block { display: none !important; }
+        }
+
+        /* 🟢 PRE-LOCK DIMENSIONS BEFORE EXTERNAL CSS LOADS */
+        .mobile-logo-vid {
+          width: 55px !important;
+          height: 55px !important;
+          aspect-ratio: 1 / 1 !important;
+          object-fit: cover !important;
+          border-radius: 50% !important;
+        }
+        .fa-heart, .fa-bag-shopping, .fa-bell {
+          font-size: 20px !important;
+          width: 20px !important;
+          height: 20px !important;
+          display: inline-flex !important;
+          align-items: center !important;
+          justify-content: center !important;
         }
       `}} />
 
@@ -150,7 +166,6 @@ export default function Header() {
         @media (max-width: 768px) { 
           .global-sticky-header { height: 65px !important; }
           .global-sticky-header.header-hidden { transform: translateY(-100%); }
-          body { padding-top: 135px !important; } 
         }
 
         /* --- DESKTOP SLIM BAR STYLES (STRICT 32px LOCK) --- */

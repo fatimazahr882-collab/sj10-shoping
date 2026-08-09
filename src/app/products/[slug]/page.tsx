@@ -4,9 +4,9 @@ import ProductDetailClient from "@/components/ProductDetailClient";
 import { Product } from "@/components/ProductCard";
 
 // ⚡ ISR CONFIGURATION
-export const dynamic = 'force-static'; // ✅ ADD THIS: Next.js ko static on-demand render karne par majboor karega
-export const revalidate = 0;    // 1 Month Cache
-export const dynamicParams = true;     // Naye products par on-demand page generate hoga
+export const dynamic = 'force-static'; 
+export const revalidate = 0;    
+export const dynamicParams = true;     
 
 // ⚡ CONSTANTS
 const SITE_URL = "https://www.sj10.pk";
@@ -32,7 +32,7 @@ async function getProduct(slug: string) {
    const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/slug/${encodedSlug}`,
       { 
-        cache: 'no-store' // 🚨 Tells Vercel: Do NOT cache internally! Always ask Redis/Nginx Gateway.
+        cache: 'no-store' // Tells Vercel: Do NOT cache internally! Always ask Redis/Gateway.
       }
     );
     return res.ok ? await res.json() : null;
@@ -45,7 +45,6 @@ async function getProduct(slug: string) {
 async function getRelatedProducts(categoryId: string | number, currentId: string | number) {
   if (!categoryId) return [];
   try {
-    // ✅ STRICT LIMIT 7 from API
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?category_id=${categoryId}&limit=7`,
       { cache: 'no-store' }
@@ -61,7 +60,6 @@ async function getRelatedProducts(categoryId: string | number, currentId: string
 async function getSellerProducts(supplierId: string | number, currentId: string | number) {
   if (!supplierId) return [];
   try {
-    // ✅ STRICT LIMIT 7 from API
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/explore-feed?supplierId=${supplierId}&limit=7`,
       { cache: 'no-store' }
@@ -76,31 +74,33 @@ async function getSellerProducts(supplierId: string | number, currentId: string 
 }
 
 // --- 2. HELPERS (Images & Text Formatting) ---
-function getAbsoluteImageUrl(imageInput: any): string {
-  let imageUrl = `${SITE_URL}/placeholder.jpg`; 
+function getAllAbsoluteImageUrls(imageInput: any): string[] {
+  let imageUrls: string[] = [`${SITE_URL}/placeholder.jpg`]; 
   try {
     let rawImgs = imageInput;
     if (typeof imageInput === 'string') {
       try { rawImgs = JSON.parse(imageInput); } catch(e) { rawImgs = [imageInput]; }
     }
     
-    if (Array.isArray(rawImgs) && rawImgs.length > 0 && rawImgs[0]) {
-      const img = rawImgs[0];
-      if (img.startsWith("http")) imageUrl = img;
-      else if (img.startsWith("/")) imageUrl = `${SITE_URL}${img}`;
-      else imageUrl = `${R2_URL}/${img}`;
+    if (Array.isArray(rawImgs) && rawImgs.length > 0) {
+      imageUrls = rawImgs.map(img => {
+        if (!img) return `${SITE_URL}/placeholder.jpg`;
+        if (img.startsWith("http")) return img;
+        if (img.startsWith("/")) return `${SITE_URL}${img}`;
+        return `${R2_URL}/${img}`;
+      });
     }
   } catch(e) {
     console.error("Image Parse Error:", e);
   }
-  return imageUrl;
+  return imageUrls;
 }
 
 function getStrikethroughText(text: string) {
   return text.split('').map(char => char + '\u0336').join('');
 }
 
-// --- 3. METADATA GENERATION ---
+// --- 3. METADATA GENERATION (WhatsApp, Facebook, Twitter & Google Search) ---
 export async function generateMetadata(
   { params }: Props,
   parent: ResolvingMetadata
@@ -109,12 +109,14 @@ export async function generateMetadata(
   const product = await getProduct(resolvedParams.slug);
 
   if (!product) {
-    return { title: "Product Not Found | SJ10", robots: { index: false } };
+    return { title: "Product Not Found | SJ10 Shopping", robots: { index: false } };
   }
 
-  const mainImage = getAbsoluteImageUrl(product.image_urls);
-  const price = parseFloat(product.price) || 0;
-  const discountPrice = parseFloat(product.discounted_price || product.price) || 0;
+  const allImages = getAllAbsoluteImageUrls(product.image_urls);
+  const mainImage = allImages[0] || `${SITE_URL}/placeholder.jpg`;
+  
+  const originalPrice = parseFloat(product.price) || 0;
+  const discountPrice = parseFloat(product.discounted_price || product.price) || originalPrice;
   const formatPKR = (num: number) => new Intl.NumberFormat('en-PK').format(num);
 
   const exactSlug = product.sku && String(product.sku).trim() !== '' 
@@ -126,8 +128,8 @@ export async function generateMetadata(
   const videoBadge = hasVideo ? '▶️ [VIDEO] ' : '';
 
   let priceDisplay = `💰 Rs. ${formatPKR(discountPrice)}`;
-  if (discountPrice < price) {
-    const oldPriceStrike = getStrikethroughText(`Rs. ${formatPKR(price)}`);
+  if (discountPrice < originalPrice) {
+    const oldPriceStrike = getStrikethroughText(`Rs. ${formatPKR(originalPrice)}`);
     priceDisplay = `✅ Rs. ${formatPKR(discountPrice)} | ❌ ${oldPriceStrike}`;
   }
 
@@ -135,15 +137,15 @@ export async function generateMetadata(
   if (product.avg_rating && product.avg_rating > 0) {
     const starCount = Math.round(product.avg_rating);
     const stars = '⭐'.repeat(starCount > 5 ? 5 : starCount);
-    starDisplay = ` | ${stars} ${product.avg_rating}/5 (${product.review_count || 0} Reviews)`;
+    starDisplay = ` | ${stars} ${product.avg_rating}/5 (${product.review_count || product.total_reviews_count || 0} Reviews)`;
   }
 
   const socialTitle = `${videoBadge}${product.title}`;
-  const seoTitle = `${product.title} - Best Price in Pakistan | SJ10`;
+  const seoTitle = `Buy ${product.title} Online at Best Price in Pakistan | SJ10`;
   
   const baseDesc = product.description 
-    ? product.description.substring(0, 140).replace(/\n/g, ' ') 
-    : `Buy ${product.title} online in Pakistan.`;
+    ? product.description.replace(/<[^>]*>?/gm, '').substring(0, 150).replace(/\n/g, ' ') 
+    : `Buy ${product.title} online at wholesale price in Pakistan with Cash on Delivery at SJ10.pk.`;
     
   const richSocialDescription = `${priceDisplay}${starDisplay}\n\n${baseDesc}...`;
 
@@ -151,14 +153,25 @@ export async function generateMetadata(
     title: seoTitle,
     description: baseDesc, 
     alternates: { canonical: fullProductUrl },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
     openGraph: {
       title: socialTitle,
       description: richSocialDescription, 
       url: fullProductUrl, 
-      siteName: 'SJ10 Shopping',
-      images: [{ url: mainImage, alt: product.title }],
+      siteName: 'SJ10 Shopping Pakistan',
+      images: allImages.map(img => ({ url: img, alt: product.title })),
       locale: 'en_PK',
-      type: 'website', 
+      type: 'article', 
     },
     twitter: {
       card: 'summary_large_image',
@@ -169,7 +182,7 @@ export async function generateMetadata(
   };
 }
 
-// --- 4. MAIN PAGE COMPONENT ---
+// --- 4. MAIN SERVER PAGE COMPONENT ---
 export default async function ProductDetailPage({ params }: Props) {
   const resolvedParams = await params;
   const currentSlug = resolvedParams.slug;
@@ -198,11 +211,11 @@ export default async function ProductDetailPage({ params }: Props) {
 
   // PREPARE GOOGLE SCHEMA (JSON-LD)
   const priceVal = parseFloat(String(product.discounted_price || product.price));
-  const mainImageAbsolute = getAbsoluteImageUrl(product.image_urls);
+  const allImagesAbsolute = getAllAbsoluteImageUrls(product.image_urls);
   const exactSlug = product.sku && String(product.sku).trim() !== '' ? `${product.slug}-${product.sku}` : product.slug;
   const fullProductUrl = `${SITE_URL}/products/${exactSlug}`;
 
-  // ✅ GENERATE BREADCRUMB SCHEMA FOR GOOGLE
+  // 1. BREADCRUMB SCHEMA FOR GOOGLE
   const breadcrumbList = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -226,40 +239,127 @@ export default async function ProductDetailPage({ params }: Props) {
     ]
   };
 
+  // 2. 🟢 ADVANCED GOOGLE MERCHANT & PRODUCT SCHEMA
+  const productReviews = Array.isArray(product.reviews) ? product.reviews : [];
+  
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.title,
-    "image": [mainImageAbsolute],
-    "description": product.description ? product.description.substring(0, 5000) : product.title,
+    "image": allImagesAbsolute, // 🟢 Passes ALL images to Google Image Search!
+    "description": product.description ? product.description.replace(/<[^>]*>?/gm, '').substring(0, 5000) : product.title,
     "sku": product.sku || String(product.id),
-    "mpn": String(product.id),
-    "brand": { "@type": "Brand", "name": product.supplier?.name || "SJ10 Shopping" },
+    "mpn": product.sku || String(product.id),
+    "brand": { 
+      "@type": "Brand", 
+      "name": product.supplier?.brand_name || product.supplier?.name || "SJ10 Shopping" 
+    },
     "offers": {
       "@type": "Offer",
       "url": fullProductUrl, 
       "priceCurrency": "PKR",
       "price": priceVal,
-      "priceValidUntil": "2026-12-31", 
+      "priceValidUntil": "2027-12-31", 
       "itemCondition": "https://schema.org/NewCondition",
       "availability": product.quantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      "seller": { "@type": "Organization", "name": "SJ10 Shopping" }
+      "seller": { 
+        "@type": "Organization", 
+        "name": product.supplier?.brand_name || "SJ10 Shopping Pakistan" 
+      },
+      // 🟢 GOOGLE MERCHANT SHIPPING DETAILS
+      "shippingDetails": {
+        "@type": "OfferShippingDetails",
+        "shippingRate": {
+          "@type": "MonetaryAmount",
+          "value": 165,
+          "currency": "PKR"
+        },
+        "shippingDestination": {
+          "@type": "DefinedRegion",
+          "addressCountry": "PK"
+        },
+        "deliveryTime": {
+          "@type": "ShippingDeliveryTime",
+          "handlingTime": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2, "unitCode": "DAY" },
+          "transitTime": { "@type": "QuantitativeValue", "minValue": 2, "maxValue": 4, "unitCode": "DAY" }
+        }
+      },
+      // 🟢 GOOGLE MERCHANT 7-DAY RETURN POLICY
+      "hasMerchantReturnPolicy": {
+        "@type": "MerchantReturnPolicy",
+        "applicableCountry": "PK",
+        "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+        "merchantReturnDays": 7,
+        "returnMethod": "https://schema.org/ReturnByMail",
+        "returnFees": "https://schema.org/FreeReturn"
+      }
     },
+    // 🟢 AGGREGATE RATING SCHEMA
     ...(product.avg_rating && parseFloat(String(product.avg_rating)) > 0 ? {
       "aggregateRating": {
         "@type": "AggregateRating",
-        "ratingValue": parseFloat(String(product.avg_rating)),
-        "reviewCount": parseInt(String(product.review_count)) || 1,
+        "ratingValue": parseFloat(String(product.avg_rating)).toFixed(1),
+        "reviewCount": parseInt(String(product.review_count || product.total_reviews_count || 1)),
         "bestRating": "5",
         "worstRating": "1"
       }
+    } : {}),
+    // 🟢 INDIVIDUAL CUSTOMER REVIEWS SCHEMA
+    ...(productReviews.length > 0 ? {
+      "review": productReviews.slice(0, 5).map((r: any) => ({
+        "@type": "Review",
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": r.rating || 5,
+          "bestRating": "5"
+        },
+        "author": {
+          "@type": "Person",
+          "name": r.user_name || "Verified Customer"
+        },
+        "reviewBody": r.comment || "Great product quality!",
+        "datePublished": r.created_at || new Date().toISOString()
+      }))
     } : {})
+  };
+
+  // 3. 🟢 GOOGLE FAQ PAGE SCHEMA (Long-Tail Search Boost)
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": `Is Cash on Delivery (COD) available for ${product.title}?`,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": `Yes, Cash on Delivery (COD) is available across all cities in Pakistan including Karachi, Lahore, Islamabad, Rawalpindi, Peshawar, Multan, and Quetta.`
+        }
+      },
+      {
+        "@type": "Question",
+        "name": `How long will delivery take for ${product.title}?`,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": `Standard delivery takes 2 to 4 business days across Pakistan via courier partners like Leopards, TCS, and PostEx.`
+        }
+      },
+      {
+        "@type": "Question",
+        "name": `What is the return policy for ${product.title}?`,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": `SJ10 Shopping offers a 7-day hassle-free return and replacement policy for defective or damaged items.`
+        }
+      }
+    ]
   };
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbList) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
       
       <ProductDetailClient 
         product={product} 

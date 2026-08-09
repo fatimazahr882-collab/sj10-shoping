@@ -27,12 +27,11 @@ export default function TopBar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Suggestions & Keyboard Navigation States
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1); // 🟢 KEYBOARD SELECTION INDEX
-  const [isNavigatingSearch, setIsNavigatingSearch] = useState(false); // 🟢 INSTANT LOADING ANIMATION
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [isNavigatingSearch, setIsNavigatingSearch] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -41,12 +40,12 @@ export default function TopBar() {
   const [showFullHeader, setShowFullHeader] = useState(true);
   const lastScrollY = useRef(0);
 
-  // Reset navigation indicator on page change
+  const showSearchBar = pathname === '/' || pathname.startsWith('/explore') || pathname.startsWith('/search');
+
   useEffect(() => {
     setIsNavigatingSearch(false);
   }, [pathname]);
 
-  // 🟢 GPU ACCELERATED SMOOTH SCROLL
   useEffect(() => {
     let ticking = false;
     const handleScroll = () => {
@@ -82,12 +81,10 @@ export default function TopBar() {
     return () => clearInterval(interval);
   }, []);
 
-  // Reset selected keyboard index when suggestions change
   useEffect(() => {
     setSelectedIndex(-1);
   }, [suggestions]);
 
-  // 🟢 AUTO-SCROLL ACTIVE KEYBOARD SUGGESTION INTO VIEW
   useEffect(() => {
     if (selectedIndex >= 0 && suggestionListRef.current) {
       const activeEl = suggestionListRef.current.children[selectedIndex] as HTMLElement;
@@ -131,7 +128,7 @@ export default function TopBar() {
 
   const triggerSearch = (queryToSearch: string) => {
     setShowSuggestions(false);
-    setIsNavigatingSearch(true); // Trigger Top Loading Line
+    setIsNavigatingSearch(true);
     router.push(`/search?q=${encodeURIComponent(queryToSearch)}`);
   };
 
@@ -146,7 +143,6 @@ export default function TopBar() {
     triggerSearch(title);
   };
 
-  // 🟢 ADVANCED KEYBOARD NAVIGATION HANDLER (UP, DOWN, ENTER, ESC)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!showSuggestions || suggestions.length === 0) {
       if (e.key === 'Enter') handleSearchSubmit(e);
@@ -171,8 +167,6 @@ export default function TopBar() {
     }
   };
 
-  const showSearchBar = pathname === '/' || pathname.startsWith('/explore') || pathname.startsWith('/search');
-
   return (
     <>
       {/* 🟢 TOP INSTANT LOADING PROGRESS LINE */}
@@ -182,21 +176,41 @@ export default function TopBar() {
         </div>
       )}
 
-      {/* ⚡ INSTANT CRITICAL DISPLAY TOGGLES */}
+      {/* ⚡ CRITICAL PRE-PAINT LAYOUT LOCK (PREVENTS 0.5s FLASH & HIDES MOBILE BAR IF NO SEARCH) */}
       <style dangerouslySetInnerHTML={{ __html: `
         .desktop-topbar-block { display: none !important; }
-        .mobile-topbar-block { display: block !important; }
+        .mobile-topbar-block { display: ${showSearchBar ? 'block' : 'none'} !important; }
 
         @media (min-width: 769px) {
           .desktop-topbar-block { display: block !important; }
           .mobile-topbar-block { display: none !important; }
         }
+
+        .sj10-master-topbar {
+          position: fixed !important; left: 0 !important; width: 100% !important;
+          z-index: 9998 !important;
+          box-sizing: border-box !important;
+        }
+
+        @media (max-width: 768px) {
+          .sj10-master-topbar {
+            top: 65px !important;
+            display: ${showSearchBar ? 'block' : 'none'} !important;
+          }
+        }
+
+        @media (min-width: 769px) {
+          .sj10-master-topbar { top: 32px !important; }
+        }
+
+        /* Lock Input & Logo Sizes Before Hydration */
+        .pro-search-box input, .mob-search-input { font-family: inherit; }
+        .desktop-logo-vid { width: 52px !important; height: 52px !important; aspect-ratio: 1 / 1 !important; }
       ` }} />
 
       <style dangerouslySetInnerHTML={{ __html: `
         .container { max-width: 1400px; margin: 0 auto; padding: 0 15px; width: 100%; box-sizing: border-box; }
 
-        /* 🟢 INSTANT SEARCH PAGE TRANSITION LOADER */
         .instant-search-loader {
           position: fixed; top: 0; left: 0; right: 0; height: 3px;
           z-index: 1000000; background: rgba(248, 86, 6, 0.2); overflow: hidden;
@@ -211,9 +225,6 @@ export default function TopBar() {
           100% { transform: translateX(200%); }
         }
 
-        /* ========================================================= */
-        /* 🟢 GLOBAL SEARCH SUGGESTIONS PANEL (KEYBOARD ENABLED)      */
-        /* ========================================================= */
         .pro-suggestions { 
           position: absolute !important; 
           top: calc(100% + 8px) !important; 
@@ -246,7 +257,6 @@ export default function TopBar() {
           border-left: 4px solid transparent;
         }
 
-        /* 🟢 KEYBOARD & HOVER SELECTION HIGHLIGHT */
         .sugg-item:hover, .sugg-item:active, .sugg-item.keyboard-selected { 
           background: #fff7ed !important; 
           color: #f85606 !important; 
@@ -272,13 +282,11 @@ export default function TopBar() {
             position: fixed; left: 0; width: 100%; z-index: 9997; 
             top: 65px; 
             transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            will-change: top;
+            will-change: transform;
             transform: translateZ(0);
           }
           .sj10-master-topbar.header-visible { transform: translateY(0); }
           .sj10-master-topbar.header-hidden { transform: translateY(-150%); }
-
-          body { padding-top: 135px !important; }
 
           .mobile-topbar-block {
             background: linear-gradient(90deg, #f85606 0%, #ff8a00 100%); 
@@ -323,7 +331,7 @@ export default function TopBar() {
             z-index: 9999 !important; 
             top: 32px !important; 
             transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            will-change: top;
+            will-change: transform;
             transform: translateZ(0);
           }
           .sj10-master-topbar.header-visible { top: 32px !important; }
@@ -331,8 +339,6 @@ export default function TopBar() {
             top: 0px !important; 
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
           }
-
-          body { padding-top: 110px !important; }
 
           .main-nav-area { 
             background: linear-gradient(90deg, #1e3a8a 0%, #1e40af 15%, #f85606 40%, #ff8a00 100%); 
@@ -417,8 +423,8 @@ export default function TopBar() {
       <div className={`sj10-master-topbar ${showFullHeader ? 'header-visible' : 'header-hidden'}`}>
 
         {/* MOBILE VIEW SEARCH BAR */}
-        <div className="mobile-topbar-block">
-          {showSearchBar && (
+        {showSearchBar && (
+          <div className="mobile-topbar-block">
             <div style={{ position: 'relative', width: '100%' }} ref={searchRef}>
               <form className="mob-search-form" onSubmit={handleSearchSubmit}>
                 <i className="fas fa-search" style={{ color: '#94a3b8', fontSize: '14px', marginRight: '6px' }}></i>
@@ -451,7 +457,6 @@ export default function TopBar() {
                 <button type="submit" className="mob-search-btn" aria-label="Submit"><i className="fas fa-search"></i></button>
               </form>
 
-              {/* 🟢 MOBILE FLOATING APP-STYLE SUGGESTIONS DROPDOWN (KEYBOARD SUPPORTED) */}
               {showSuggestions && suggestions.length > 0 && (
                 <div className="pro-suggestions" ref={suggestionListRef}>
                   {suggestions.map((s, i) => (
@@ -468,8 +473,8 @@ export default function TopBar() {
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* DESKTOP VIEW NAV BAR */}
         <div className="desktop-topbar-block">
@@ -526,7 +531,6 @@ export default function TopBar() {
                       </ClientOnly>
                     </Link>
 
-                    {/* 🟢 DESKTOP SUGGESTIONS DROPDOWN (KEYBOARD SUPPORTED) */}
                     {showSuggestions && suggestions.length > 0 && (
                       <div className="pro-suggestions" ref={suggestionListRef}>
                         {suggestions.map((s, i) => (

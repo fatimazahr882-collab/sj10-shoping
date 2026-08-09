@@ -1,11 +1,10 @@
-// src/components/AuthProvider.tsx (FINAL, CORRECTED VERSION)
-"use client"; // This entire file is for the client
+// src/components/AuthProvider.tsx
+"use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import apiClient from "@/lib/apiClient";
 import { useRouter } from "next/navigation";
 
-// Define the shape of your user profile
 export type UserProfile = {
   profile_pic: string;
   id: string;
@@ -13,47 +12,41 @@ export type UserProfile = {
   full_name: string;
   phone: string | null;
   role: string;
+  brand_name?: string | null;
+  address?: string | null;
 };
 
-// Define the shape of dashboard stats
 export type DashboardStatsType = {
   total_sales: number;
   completed_orders: number;
   total_profit: number;
 };
 
-// Define the shape of the context's value
 interface AuthContextType {
   user: UserProfile | null;
   isLoading: boolean;
-  login: (token: string) => Promise<void>;
+  login: (token: string, shouldRedirect?: boolean) => Promise<void>;
   signOut: () => void;
-  // Dashboard Stats
   dashboardStats: DashboardStatsType | null;
   isStatsLoading: boolean;
   refreshDashboardStats: () => Promise<void>;
 }
 
-// Create the context with a default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// --- Create the Provider Component ---
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Stats State
   const [dashboardStats, setDashboardStats] = useState<DashboardStatsType | null>(null);
   const [isStatsLoading, setIsStatsLoading] = useState(true);
 
   const router = useRouter();
 
   const fetchAndSetUser = useCallback(async () => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken') || localStorage.getItem('user_token');
     if (!token) {
       setIsLoading(false);
       setUser(null);
-      // Also reset stats if no user
       setDashboardStats(null);
       setIsStatsLoading(false);
       return;
@@ -63,17 +56,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profileData = await apiClient('user/profile', 'GET');
       setUser(profileData);
     } catch (error) {
-      console.error("Failed to fetch profile. Token might be invalid.", error);
-      localStorage.removeItem('authToken'); // Clean up bad token
+      console.error("Failed to fetch profile.", error);
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user_token');
       setUser(null);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Separate function to fetch stats so it doesn't block the main user load
   const refreshDashboardStats = useCallback(async () => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('authToken') || localStorage.getItem('user_token');
     if (!token) {
       setDashboardStats(null);
       setIsStatsLoading(false);
@@ -81,39 +74,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // NOTE: Ensure your backend has this endpoint 'orders/stats/dashboard'
-      // If not, you may need to adjust the endpoint path.
       const stats = await apiClient('orders/stats/dashboard', 'GET');
-
-      // Basic validation/fallback
       setDashboardStats(stats || { total_sales: 0, completed_orders: 0, total_profit: 0 });
     } catch (error) {
-      console.error("Failed to fetch dashboard stats", error);
-      // Fallback to zeros on error so UI doesn't crash
       setDashboardStats({ total_sales: 0, completed_orders: 0, total_profit: 0 });
     } finally {
       setIsStatsLoading(false);
     }
   }, []);
 
-  // Initial Data Load
   useEffect(() => {
-    // 1. Fetch User
     fetchAndSetUser();
-    // 2. Fetch Stats (simultaneously)
     refreshDashboardStats();
   }, [fetchAndSetUser, refreshDashboardStats]);
 
-
-  const login = async (token: string) => {
+  // 🟢 ALLOW STAYING ON CURRENT PAGE (shouldRedirect = false)
+  const login = async (token: string, shouldRedirect: boolean = true) => {
     localStorage.setItem('authToken', token);
-    await fetchAndSetUser(); // Re-fetch the user profile after logging in
-    await refreshDashboardStats(); // Also fetch stats
-    router.push('/profile'); // Redirect after successful login and profile fetch
+    localStorage.setItem('user_token', token);
+    await fetchAndSetUser();
+    await refreshDashboardStats();
+    if (shouldRedirect) {
+      router.push('/profile');
+    }
   };
 
   const signOut = () => {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('user_token');
     setUser(null);
     setDashboardStats(null);
     router.push('/auth');
@@ -132,7 +120,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// --- Create the Custom Hook ---
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
