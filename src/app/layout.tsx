@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 import ConditionalTopBar from "@/components/ConditionalTopBar";
 import NotificationManager from "@/components/NotificationManager";
 import GlobalProgressBar from "@/components/GlobalProgressBar";
+import FontAwesomeLoader from "@/components/FontAwesomeLoader"; // 🟢 Added
 
 // Contexts
 import { AuthProvider } from "@/components/AuthProvider";
@@ -62,19 +63,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${poppins.variable} scroll-smooth`} suppressHydrationWarning>
       <head>
-        {/* 🟢 Preconnect to CDN */}
         <link rel="preconnect" href="https://media.sj10.pk" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
-        
-        {/* 🟢 Clean FontAwesome Stylesheet (Restores All Icons Instantly) */}
-        <link 
-          rel="stylesheet" 
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          crossOrigin="anonymous" 
-          referrerPolicy="no-referrer"
-        />
       </head>
       <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-orange-500 selection:text-white" suppressHydrationWarning>
+        <FontAwesomeLoader />
+        
         <Suspense fallback={null}>
           <GlobalProgressBar />
         </Suspense>

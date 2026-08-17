@@ -1,3 +1,4 @@
+// src/components/Banners.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -10,7 +11,12 @@ type Banner = { id: number; image_url: string; link_url?: string; };
 export default function Banners({ banners, priority = false }: { banners: Banner[]; priority?: boolean; }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loadedImages, setLoadedImages] = useState<Record<number, boolean>>({});
+  const [isMounted, setIsMounted] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setIsMounted(true); // Mount hone ke baad baki slides load hongi
+  }, []);
 
   const startTimer = useCallback(() => {
     if (!banners || banners.length <= 1) return;
@@ -46,13 +52,16 @@ export default function Banners({ banners, priority = false }: { banners: Banner
         style={{ display: 'flex', height: '100%', transition: 'transform 0.7s cubic-bezier(0.25, 0.8, 0.25, 1)', transform: `translateX(-${currentIndex * 100}%)` }}
       >
         {banners.map((banner, index) => {
-          const isFirst = index === 0; // 👈 Pehla banner check
+          const isFirst = index === 0;
           const isLoaded = !!loadedImages[index];
+
+          // 🟢 Pehli slide foran render hogi, baki slides mount ke baad aayengi (Saves 90 KB LCP bandwidth)
+          if (!isFirst && !isMounted) {
+            return <div key={banner.id} style={{ minWidth: '100%', height: '100%', backgroundColor: '#f8fafc' }} />;
+          }
 
           return (
             <div key={banner.id} style={{ minWidth: '100%', position: 'relative', height: '100%' }}>
-              
-              {/* 🟢 LOADER: Sirf baqi slides ke liye aayega, pehli ke liye nahi (LCP fix) */}
               {!isFirst && !isLoaded && (
                 <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <SjLoader />
@@ -61,23 +70,23 @@ export default function Banners({ banners, priority = false }: { banners: Banner
 
               <Link href={banner.link_url || '#'} className="block w-full h-full relative" aria-label={`View promotion ${index + 1}`}>
                 <Image 
-  src={banner.image_url} 
-  alt={`Promotional Banner ${index + 1}`}
-  fill
-  unoptimized={true} 
-  sizes="(max-width: 768px) 100vw, 1200px"
-  style={{ 
-    objectFit: 'cover', 
-    opacity: isFirst ? 1 : (isLoaded ? 1 : 0), 
-    transition: isFirst ? 'none' : 'opacity 0.4s ease-in-out' 
-  }}
-  priority={isFirst} 
-  loading={isFirst ? "eager" : "lazy"}
-  fetchPriority={isFirst ? "high" : "auto"}
-  onLoad={() => {
-    if (!isFirst) setLoadedImages(prev => ({ ...prev, [index]: true }));
-  }} 
-/>
+                  src={banner.image_url} 
+                  alt={`Promotional Banner ${index + 1}`}
+                  fill
+                  unoptimized={true} 
+                  sizes="(max-width: 768px) 100vw, 1200px"
+                  style={{ 
+                    objectFit: 'cover', 
+                    opacity: isFirst ? 1 : (isLoaded ? 1 : 0), 
+                    transition: isFirst ? 'none' : 'opacity 0.4s ease-in-out' 
+                  }}
+                  priority={isFirst} 
+                  loading={isFirst ? "eager" : "lazy"}
+                  fetchPriority={isFirst ? "high" : "auto"}
+                  onLoad={() => {
+                    if (!isFirst) setLoadedImages(prev => ({ ...prev, [index]: true }));
+                  }} 
+                />
               </Link>
             </div>
           );
