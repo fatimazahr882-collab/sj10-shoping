@@ -62,20 +62,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${poppins.variable} scroll-smooth`} suppressHydrationWarning>
       <head>
+        {/* 🟢 Preconnect to CDN */}
         <link rel="preconnect" href="https://media.sj10.pk" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
         
-        {/* 🟢 ZERO-BLOCKING ASYNC STYLESHEET (Saves 900ms Blocking Delay) */}
+        {/* 🟢 Clean FontAwesome Stylesheet (Restores All Icons Instantly) */}
         <link 
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          media="print" 
-          // @ts-ignore
-          onLoad="this.media='all'" 
+          crossOrigin="anonymous" 
+          referrerPolicy="no-referrer"
         />
-        <noscript>
-          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-        </noscript>
       </head>
       <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-orange-500 selection:text-white" suppressHydrationWarning>
         <Suspense fallback={null}>
