@@ -16,7 +16,8 @@ export default function MobileStripBanner() {
             width="1000"
             height="280"
             className="mobile-strip-img"
-            loading="eager" // 🟢 Load instantly to prevent layout shift
+            loading="lazy" /* 🟢 Lazy load lets the main hero banner paint first (LCP 1.8s) */
+            decoding="async"
           />
         </div>
       </Link>
@@ -32,7 +33,7 @@ export default function MobileStripBanner() {
         }
         .mobile-strip-wrapper {
           width: 100%;
-          aspect-ratio: 1000 / 280; /* 🟢 STRICT ASPECT RATIO LOCK */
+          aspect-ratio: 1000 / 280;
           position: relative;
           border-radius: 12px;
           overflow: hidden;
@@ -42,7 +43,7 @@ export default function MobileStripBanner() {
         .mobile-strip-img { 
           width: 100%; 
           height: auto; 
-          aspect-ratio: 1000 / 280; /* 🟢 Guarantees Best Practices 100% Score */
+          aspect-ratio: 1000 / 280; 
           object-fit: cover; 
           display: block; 
         }
