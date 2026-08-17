@@ -97,12 +97,13 @@ export default function ProductCard({ product }: { product: Product | null }) {
                 {isImgLoading && <SjLoader />}
                 
                 {/* ✅ PERFORMANCE & FIX: Image is hidden until onLoad fires */}
+// Inside src/components/ProductCard.tsx:
 <Image 
     src={firstImage} 
     alt={product.title || "Product"} 
     fill 
-    sizes="(max-width: 640px) 150px, (max-width: 1024px) 200px, 220px" 
-    quality={45} 
+    sizes="(max-width: 640px) 150px, (max-width: 1024px) 180px, 200px" 
+    quality={40} 
     unoptimized={true} 
     className="main-image object-cover"
     style={{ opacity: isImgLoading ? 0 : 1 }}

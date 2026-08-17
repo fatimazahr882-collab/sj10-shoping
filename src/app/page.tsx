@@ -157,20 +157,21 @@ export default async function HomePage() {
       {/* ALL HEAVY PRODUCT SECTIONS ARE RENDERED ONLY ON USER SCROLL*/}
       {/* ========================================================= */}
 
-      {/* 1. Promoted Section (Lazy Loaded) */}
-      <LazySection height="350px" offset="150px">
-        <PromotedSection products={initialData.promotedTop50} />
-      </LazySection>
+      // In src/app/page.tsx:
+{/* 1. Promoted Section (Lazy Loaded only when close to viewport) */}
+<LazySection height="350px" offset="80px">
+  <PromotedSection products={initialData.promotedTop50} />
+</LazySection>
 
-      {/* 2. Dynamic Discount Sections (Lazy Loaded) */}
-      <LazySection height="300px" offset="200px">
-        <DynamicDiscountSections sections={initialData.discountSections} />
-      </LazySection>
+{/* 2. Dynamic Discount Sections */}
+<LazySection height="300px" offset="80px">
+  <DynamicDiscountSections sections={initialData.discountSections} />
+</LazySection>
 
-      {/* 3. Real-Time Latest Arrivals (Lazy Loaded) */}
-      <LazySection height="400px" offset="250px">
-        <LatestProducts /> 
-      </LazySection>
+{/* 3. Real-Time Latest Arrivals */}
+<LazySection height="400px" offset="80px">
+  <LatestProducts /> 
+</LazySection>
 
       {/* 4. Popular Products (Lazy Loaded) */}
       <LazySection height="350px" offset="200px">
