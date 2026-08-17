@@ -153,11 +153,18 @@ export default function ProductDelivery({ warranty, showToast }: { warranty?: an
       {/* Header */}
       <div className="pd-header">
         <div className="pd-header-title">
-          <i className="fas fa-truck-fast pd-icon-green"></i>
+          <i className="fas fa-truck-fast pd-icon-green" aria-hidden="true"></i>
           <span>Delivery Information</span>
         </div>
-        <button className="pd-re-detect-btn" onClick={manualDetect} disabled={isDetectingLocation}>
-          <i className={isDetectingLocation ? "fas fa-spinner fa-spin" : "fas fa-location-crosshairs"}></i>
+        
+        {/* 🟢 FIXED: Added aria-label for accessibility */}
+        <button 
+          className="pd-re-detect-btn" 
+          onClick={manualDetect} 
+          disabled={isDetectingLocation}
+          aria-label="Refresh GPS Location"
+        >
+          <i className={isDetectingLocation ? "fas fa-spinner fa-spin" : "fas fa-location-crosshairs"} aria-hidden="true"></i>
           {isDetectingLocation ? 'Locating...' : 'GPS Refresh'}
         </button>
       </div>
@@ -165,9 +172,13 @@ export default function ProductDelivery({ warranty, showToast }: { warranty?: an
       {/* Address Box */}
       <div className="pd-address-box">
         <div className="pd-address-top">
-          <span className="pd-lbl">Deliver To:</span>
+          {/* 🟢 FIXED: Linked label with input via htmlFor */}
+          <label htmlFor="city-selector" className="pd-lbl">Deliver To:</label>
           <div className="pd-select-wrapper">
+            {/* 🟢 FIXED: Added id and aria-label */}
             <select 
+              id="city-selector"
+              aria-label="Select Delivery City"
               className="pd-city-select" 
               value={deliveryCity} 
               onChange={(e) => {
@@ -177,18 +188,18 @@ export default function ProductDelivery({ warranty, showToast }: { warranty?: an
             >
               {PAKISTANI_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
             </select>
-            <i className="fas fa-chevron-down pd-select-arrow"></i>
+            <i className="fas fa-chevron-down pd-select-arrow" aria-hidden="true"></i>
           </div>
         </div>
         <div className="pd-address-full">
-          <i className="fas fa-map-marker-alt pd-pin"></i>
+          <i className="fas fa-map-marker-alt pd-pin" aria-hidden="true"></i>
           <span>{detailedLocation}</span>
         </div>
       </div>
 
       {/* Estimated Date */}
       <div className="pd-est-row">
-        <i className="far fa-calendar-check pd-cal-icon"></i>
+        <i className="far fa-calendar-check pd-cal-icon" aria-hidden="true"></i>
         <div>
           <span className="pd-lbl-est">Get It By: </span>
           <span className="pd-date-highlight">{estimatedDateRange}</span>
@@ -208,10 +219,18 @@ export default function ProductDelivery({ warranty, showToast }: { warranty?: an
               key={c.id} 
               className={`pd-courier-item ${isSelected ? 'selected-partner' : ''}`}
               onClick={() => setSelectedCourier(c.id)}
+              role="radio"
+              aria-checked={isSelected}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  setSelectedCourier(c.id);
+                }
+              }}
             >
               <div className="pd-c-left">
                 <div className="pd-c-badge" style={{ backgroundColor: c.bg, color: c.color }}>
-                  <i className={`fas ${c.icon}`}></i>
+                  <i className={`fas ${c.icon}`} aria-hidden="true"></i>
                 </div>
                 <div className="pd-c-info">
                   <span className="pd-c-name">{c.name}</span>
@@ -227,15 +246,20 @@ export default function ProductDelivery({ warranty, showToast }: { warranty?: an
         })}
       </div>
 
-      {/* Toggle View All Options Button */}
-      <button className="pd-toggle-btn" onClick={() => setShowAllOptions(!showAllOptions)}>
+      {/* 🟢 FIXED: Added aria-expanded and descriptive label */}
+      <button 
+        className="pd-toggle-btn" 
+        onClick={() => setShowAllOptions(!showAllOptions)}
+        aria-expanded={showAllOptions}
+        aria-label={showAllOptions ? "Show fewer courier options" : "View all courier options"}
+      >
         <span>{showAllOptions ? "Show fewer options" : "View all 4 courier options"}</span>
-        <i className={`fas fa-arrow-right pd-arrow-slide ${showAllOptions ? 'rotate-up' : ''}`}></i>
+        <i className={`fas fa-arrow-right pd-arrow-slide ${showAllOptions ? 'rotate-up' : ''}`} aria-hidden="true"></i>
       </button>
 
       {/* Warranty Footer Badge */}
       <div className="pd-warranty-box">
-        <i className="fas fa-shield-halved pd-shield"></i>
+        <i className="fas fa-shield-halved pd-shield" aria-hidden="true"></i>
         <div>
           <span className="pd-w-lbl">Warranty Details: </span>
           <strong className="pd-w-val">{formattedWarranty}</strong>
@@ -312,7 +336,7 @@ export default function ProductDelivery({ warranty, showToast }: { warranty?: an
           padding: 12px 16px; background: #ffffff; border-radius: 12px; border: 1.5px solid #e2e8f0;
           cursor: pointer; transition: all 0.2s ease;
         }
-        .pd-courier-item:hover { border-color: #cbd5e1; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .pd-courier-item:hover, .pd-courier-item:focus { border-color: #cbd5e1; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.03); outline: none; }
         .pd-courier-item.selected-partner { border-color: #00b862; background: #f0fdf4; }
 
         .pd-c-left { display: flex; align-items: center; gap: 12px; }
@@ -340,7 +364,7 @@ export default function ProductDelivery({ warranty, showToast }: { warranty?: an
           border-radius: 10px; margin-top: 14px; width: 100%; display: flex;
           align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;
         }
-        .pd-toggle-btn:hover { background: #f0fdf4; border-color: #bbf7d0; }
+        .pd-toggle-btn:hover, .pd-toggle-btn:focus { background: #f0fdf4; border-color: #bbf7d0; outline: none; }
         .pd-arrow-slide { transition: transform 0.2s; }
         .pd-toggle-btn:hover .pd-arrow-slide { transform: translateX(3px); }
         .pd-arrow-slide.rotate-up { transform: rotate(-90deg); }

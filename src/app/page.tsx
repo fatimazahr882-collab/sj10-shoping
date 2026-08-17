@@ -157,7 +157,7 @@ export default async function HomePage() {
       {/* ALL HEAVY PRODUCT SECTIONS ARE RENDERED ONLY ON USER SCROLL*/}
       {/* ========================================================= */}
 
-      // In src/app/page.tsx:
+     
 {/* 1. Promoted Section (Lazy Loaded only when close to viewport) */}
 <LazySection height="350px" offset="80px">
   <PromotedSection products={initialData.promotedTop50} />
