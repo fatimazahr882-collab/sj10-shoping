@@ -1,11 +1,23 @@
 // src/components/StripBanner.tsx
 "use client";
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 const DESKTOP_STRIP_URL = "https://media.sj10.pk/banners/animated-strip-ezgif.com-video-to-webp-converter.webp";
 
 export default function StripBanner() {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    if (window.innerWidth >= 769) {
+      setIsDesktop(true);
+    }
+  }, []);
+
+  // 🟢 Mobile par 0 KB download hoga
+  if (!isDesktop) return null;
+
   return (
     <div className="desktop-strip-only">
       <div className="container">
@@ -24,29 +36,26 @@ export default function StripBanner() {
       </div>
 
       <style jsx>{`
-        .desktop-strip-only { display: none; }
-        @media (min-width: 769px) {
-          .desktop-strip-only { 
-            display: block !important; 
-            width: 100%; 
-            margin: 18px 0; 
-          }
-          .desktop-strip-wrapper {
-            width: 100%;
-            aspect-ratio: 1200 / 170; /* 🟢 Spacing lock */
-            position: relative;
-            border-radius: 12px;
-            overflow: hidden;
-            background-color: #f1f5f9;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-          }
-          .desktop-strip-img { 
-            width: 100%; 
-            height: auto; 
-            aspect-ratio: 1200 / 170; /* 🟢 100% Aspect Ratio lock */
-            object-fit: cover; 
-            display: block; 
-          }
+        .desktop-strip-only { 
+          display: block; 
+          width: 100%; 
+          margin: 18px 0; 
+        }
+        .desktop-strip-wrapper {
+          width: 100%;
+          aspect-ratio: 1200 / 170;
+          position: relative;
+          border-radius: 12px;
+          overflow: hidden;
+          background-color: #f1f5f9;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+        .desktop-strip-img { 
+          width: 100%; 
+          height: auto; 
+          aspect-ratio: 1200 / 170; 
+          object-fit: cover; 
+          display: block; 
         }
       `}</style>
     </div>
