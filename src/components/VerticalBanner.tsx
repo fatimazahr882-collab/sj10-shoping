@@ -16,38 +16,26 @@ type VerticalBannerItem = {
 
 const API_BASE = process.env.NEXT_PUBLIC_PRODUCT_API_URL || "https://products.sj10.pk/api";
 const fetcher = (url: string) => fetch(url).then(res => {
-    if (!res.ok) throw new Error("Failed to fetch vertical banners");
+    if (!res.ok) throw new Error("Failed to fetch");
     return res.json();
 });
 
 export default function VerticalBanner() {
-    const [isDesktop, setIsDesktop] = useState(false);
     const [currentIndex, setCurrentIndex] = useState(0);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // 🟢 1. MOBILE GUARD: Check if screen is Desktop (>= 768px)
-    useEffect(() => {
-        const checkDevice = () => {
-            setIsDesktop(window.innerWidth >= 768);
-        };
-        checkDevice();
-        window.addEventListener('resize', checkDevice);
-        return () => window.removeEventListener('resize', checkDevice);
-    }, []);
-
-    // 🟢 2. SWR CACHED FETCH (Sirf Desktop par API hit karega)
+    // SWR Fetcher for Desktop Vertical Banners
     const { data: banners, isLoading } = useSWR<VerticalBannerItem[]>(
-        isDesktop ? `${API_BASE}/products/vertical-banners` : null,
+        `${API_BASE}/products/vertical-banners`,
         fetcher,
         {
-            revalidateOnFocus: false,      // Tab switch karne par faltu fetch na kare
-            revalidateOnReconnect: false,  // Reconnect par bar bar hit na kare
-            dedupingInterval: 300000,      // 5 Minutes tak memory cache se instant dikhaye
+            revalidateOnFocus: false,
+            dedupingInterval: 300000, 
             keepPreviousData: true
         }
     );
 
-    // 🟢 3. AUTOMATIC VERTICAL ROTATION
+    // Automatic Rotation
     useEffect(() => {
         if (!banners || banners.length <= 1) return;
 
@@ -60,32 +48,13 @@ export default function VerticalBanner() {
         };
     }, [banners]);
 
-    // Agar mobile view hai toh kuch bhi render na karein (0 DOM nodes, 0 KB)
-    if (!isDesktop) return null;
-
-    // Loading Shimmer (Desktop layout shift rokne ke liye)
-    if (isLoading && !banners) {
-        return (
-            <div className="vertical-banner-container">
-                <div className="v-banner-shimmer"></div>
-                <style jsx>{`
-                    .v-banner-shimmer {
-                        width: 100%;
-                        height: 100%;
-                        background: #f1f5f9;
-                        animation: pulse 1.5s infinite ease-in-out;
-                        border-radius: 12px;
-                    }
-                    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-                `}</style>
-            </div>
-        );
+    if (!banners || banners.length === 0) {
+        // Fallback static structure so layout doesn't collapse
+        return <div className="vertical-banner-container desktop-only-v-banner"></div>;
     }
 
-    if (!banners || banners.length === 0) return null;
-
     return (
-        <div className="vertical-banner-container">
+        <div className="vertical-banner-container desktop-only-v-banner">
             <div 
                 className="vertical-slider"
                 style={{
@@ -129,6 +98,16 @@ export default function VerticalBanner() {
                     border-radius: 12px;
                     overflow: hidden;
                     position: relative;
+                }
+
+                .desktop-only-v-banner {
+                    display: none;
+                }
+
+                @media (min-width: 769px) {
+                    .desktop-only-v-banner {
+                        display: block !important;
+                    }
                 }
 
                 .vertical-slider {

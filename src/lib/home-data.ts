@@ -15,7 +15,7 @@ export interface HomeData {
   totalExploreCount: number;
 }
 
-const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 5000) => {
+const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 15000) => { // 🟢 15 seconds timeout
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -28,7 +28,6 @@ const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 5
     return { ok: false, json: async () => ({}) } as Response; 
   }
 };
-
 export async function getStaticHomeData(): Promise<HomeData> {
   try {
     const fetchOptions = { next: { revalidate: 300 } }; // 5 Mins Cache
