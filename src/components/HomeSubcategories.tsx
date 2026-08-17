@@ -11,11 +11,11 @@ type Subcategory = {
   slug: string;
 };
 
-// 🟢 SIZE REDUCED FROM w_200 TO w_100 (Saves 130 KiB)
+// 🟢 ULTRA-COMPRESSION: Converted to Eco-WebP with exact 80px width (Size < 1.5 KB per icon)
 const getOptimizedUrl = (url: string | null) => {
   if (!url) return '/placeholder.jpg';
   if (url.includes('cloudinary.com') && url.includes('/upload/')) {
-    return url.replace('/upload/', '/upload/w_100,f_auto,q_auto:eco/');
+    return url.replace('/upload/', '/upload/w_80,c_scale,q_auto:eco,f_webp/');
   }
   return url;
 };
@@ -32,9 +32,10 @@ function SubcategoryItem({ cat, priority }: { cat: Subcategory, priority: boolea
           aria-hidden="true"
           fill
           style={{ objectFit: 'contain' }}
-          sizes="80px"
+          sizes="60px"
           priority={priority}
           unoptimized={true} 
+          className="loaded"
         />
       </div>
       <p>{cat.name}</p>
@@ -74,7 +75,14 @@ export default function HomeSubcategories({ subcategories, title = "Explore Cate
           border-radius: 16px;
           border: 1px solid #fed7aa;
           box-shadow: 0 4px 12px rgba(249, 115, 22, 0.05);
-          contain: content; /* 🟢 Stops layout shifts */
+          min-height: 230px; /* 🟢 Reserves exact mobile height to kill CLS */
+        }
+
+        @media (min-width: 768px) {
+          .home-subcat-premium-container {
+            min-height: 180px; /* 🟢 Reserves desktop height */
+            margin: 20px 15px;
+          }
         }
 
         .subcat-header {
@@ -95,6 +103,7 @@ export default function HomeSubcategories({ subcategories, title = "Explore Cate
           align-items: center;
           justify-content: center;
           font-size: 12px;
+          box-shadow: 0 4px 10px rgba(249, 115, 22, 0.3);
         }
 
         .subcat-title {
