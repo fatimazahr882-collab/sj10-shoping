@@ -1,10 +1,9 @@
 // src/app/layout.tsx
-// @ts-expect-error - CSS imports are handled by Next.js at build time.
+// @ts-ignore
 import "./globals.css";
 import { Poppins } from "next/font/google";
 import { Suspense, type ReactNode } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-
 // Components
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
