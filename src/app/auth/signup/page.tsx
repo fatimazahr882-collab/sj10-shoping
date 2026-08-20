@@ -76,6 +76,7 @@ function SignupFormContent() {
 
   // 1. Submit Registration -> Send OTP
   // 1. Submit Registration -> Send OTP
+// 1. Submit Registration -> Send OTP
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGlobalError('');
@@ -87,15 +88,35 @@ function SignupFormContent() {
 
     setLoading(true); 
     try {
-      // 🟢 Phone number ko saaf karke backend ko bhejo
-      const cleanPhoneForApi = phone.startsWith('+') ? phone : `+${phone}`;
+      // 🟢 SMART PHONE CLEANER: (Double 92, Extra 0, aur Spaces ko theek karega)
+      let rawPhone = phone.replace(/\D/g, ''); // Sirf digits rakho
+
+      // 1. Agar double 92 lag gaya ho (e.g. 9292335...)
+      if (rawPhone.startsWith('9292')) {
+          rawPhone = rawPhone.substring(2);
+      }
+      // 2. Agar 92 ke baad 0 lag gaya ho (e.g. 920335...)
+      if (rawPhone.startsWith('9203')) {
+          rawPhone = '92' + rawPhone.substring(3);
+      }
+      // 3. Agar sirf 0335... likha ho
+      if (rawPhone.startsWith('03')) {
+          rawPhone = '92' + rawPhone.substring(1);
+      }
+      // 4. Agar sirf 335... (10 digits) likha ho
+      if (rawPhone.startsWith('3') && rawPhone.length === 10) {
+          rawPhone = '92' + rawPhone;
+      }
+
+      // Final format hamesha perfect '+923XXXXXXXXX' banega (Exactly 13 characters)
+      const finalFormattedPhone = rawPhone.startsWith('92') ? `+${rawPhone}` : `+92${rawPhone}`;
 
       const res = await fetch(`${getAuthUrl()}/auth/user/register`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ...formData, 
-          phone: cleanPhoneForApi
+          phone: finalFormattedPhone // 🟢 Clean Phone sent to backend
         })
       });
       const data = await res.json();
