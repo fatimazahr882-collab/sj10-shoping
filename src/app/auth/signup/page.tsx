@@ -1,46 +1,67 @@
 "use client";
-import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import Link from 'next/link';
 import PhoneInput from 'react-phone-input-2';
+// @ts-ignore
 import 'react-phone-input-2/lib/style.css';
 import { useGoogleLogin } from '@react-oauth/google';
-import { FaUser, FaEnvelope, FaLock, FaStore, FaEye, FaEyeSlash, FaCamera, FaGoogle, FaShippingFast, FaTags, FaShieldAlt } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaLock, FaStore, FaEye, FaEyeSlash, FaCamera, FaGoogle, FaShippingFast, FaTags, FaShieldAlt, FaGift } from 'react-icons/fa';
 import SuccessPopup from '@/components/SuccessPopup';
 
 const DEFAULT_PROFILE_PIC_URL = "https://media.sj10.pk/product/SJ10-285129/SJ10-285129-1-20260201-072541.webp";
 
-export default function SignupPage() {
+function SignupFormContent() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // --- View State ---
   const [step, setStep] = useState<'form' | 'otp'>('form');
 
   // --- Form States ---
-  const [formData, setFormData] = useState({ fullName: '', brandName: '', email: '', password: '', confirmPassword: '' });
-  const[phone, setPhone] = useState('');
+  const [formData, setFormData] = useState({ 
+    fullName: '', 
+    brandName: '', 
+    email: '', 
+    password: '', 
+    confirmPassword: '',
+    referralCode: '' // 🟢 Optional Referral Code Field
+  });
+  const [phone, setPhone] = useState('');
   const [passwordVisibility, setPasswordVisibility] = useState({ pass: false, confirm: false });
-  const[profilePicPreview, setProfilePicPreview] = useState(DEFAULT_PROFILE_PIC_URL);
+  const [profilePicPreview, setProfilePicPreview] = useState(DEFAULT_PROFILE_PIC_URL);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 🟢 AUTO-DETECT REFERRAL CODE FROM URL (?ref=SJ10-XXXXXX)
+  useEffect(() => {
+    const urlRef = searchParams.get('ref') || searchParams.get('referralCode');
+    if (urlRef) {
+      setFormData(prev => ({ ...prev, referralCode: urlRef.toUpperCase() }));
+    }
+  }, [searchParams]);
+
   // --- OTP States ---
-  const[otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // --- General & Error States ---
-  const [globalError, setGlobalError] = useState(''); // For errors not tied to a specific field
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({}); // ✅ NEW: Field specific errors
+  const [globalError, setGlobalError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
   const getAuthUrl = () => (process.env.NEXT_PUBLIC_ORDER_API_URL || 'http://localhost:4004').replace(/\/$/, '').replace(/\/api$/, '');
 
-  // Update form data and clear field-specific error when user types
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData,[e.target.name]: e.target.value });
-    if (fieldErrors[e.target.name]) setFieldErrors(prev => ({ ...prev, [e.target.name]: '' }));
+    const { name, value } = e.target;
+    setFormData({ 
+      ...formData, 
+      [name]: name === 'referralCode' ? value.toUpperCase() : value 
+    });
+    if (fieldErrors[name]) setFieldErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const handlePhoneChange = (value: string) => {
@@ -59,7 +80,6 @@ export default function SignupPage() {
     setGlobalError('');
     setFieldErrors({});
 
-    // Client-side check for password
     if (formData.password !== formData.confirmPassword) {
       return setFieldErrors({ confirmPassword: "Passwords do not match." });
     }
@@ -67,22 +87,24 @@ export default function SignupPage() {
     setLoading(true); 
     try {
       const res = await fetch(`${getAuthUrl()}/auth/user/register`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, phone: `+${phone}` })
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          ...formData, 
+          phone: `+${phone}`
+        })
       });
       const data = await res.json();
       
       if (!res.ok) {
-        // ✅ NEW: Map backend error to specific field or global error
         if (data.field) {
           setFieldErrors({ [data.field]: data.message });
         } else {
           setGlobalError(data.message);
         }
-        return; // Stop execution if there is an error
+        return;
       }
       
-      // Move to OTP screen on success
       setStep('otp');
     } catch (err: any) { 
       setGlobalError(err.message || "Server connection failed."); 
@@ -97,7 +119,6 @@ export default function SignupPage() {
     const newOtp = [...otp];
     newOtp[index] = value.substring(value.length - 1);
     setOtp(newOtp);
-    // Auto-focus next input
     if (value && index < 5) otpRefs.current[index + 1]?.focus();
   };
 
@@ -113,35 +134,49 @@ export default function SignupPage() {
     const otpString = otp.join('');
     if (otpString.length < 6) return setGlobalError("Please enter the complete 6-digit code.");
     
-    setLoading(true); setGlobalError('');
+    setLoading(true); 
+    setGlobalError('');
     try {
       const res = await fetch(`${getAuthUrl()}/auth/user/verify-email`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email, otp: otpString })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       
       setIsSuccess(true);
-      setTimeout(() => login(data.token), 2000); // Login after success popup
+      setTimeout(() => login(data.token), 2000);
 
-    } catch (err: any) { setGlobalError(err.message); } 
-    finally { setLoading(false); }
+    } catch (err: any) { 
+      setGlobalError(err.message); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
+  // 4. Google Login (Passes Referral Code as well)
   const handleGoogleClick = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      setLoading(true); setGlobalError('');
+      setLoading(true); 
+      setGlobalError('');
       try {
         const res = await fetch(`${getAuthUrl()}/auth/user/google`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accessToken: tokenResponse.access_token })
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            accessToken: tokenResponse.access_token,
+            referralCode: formData.referralCode // 🟢 Pass referral code to Google Auth
+          })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
         await login(data.token);
-      } catch (err: any) { setGlobalError("Google Signup Failed."); } 
-      finally { setLoading(false); }
+      } catch (err: any) { 
+        setGlobalError("Google Signup Failed."); 
+      } finally { 
+        setLoading(false); 
+      }
     },
     onError: () => setGlobalError("Google Signup error"),
   });
@@ -156,20 +191,18 @@ export default function SignupPage() {
     profilePicContainer: { position: 'relative', width: '90px', height: '90px', margin: '0 auto 20px auto', cursor: 'pointer' },
     profilePic: { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
     profilePicOverlay: { position: 'absolute', bottom: '0px', right: '0px', backgroundColor: '#2563eb', color: 'white', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '3px solid white' },
-    inputWrapper: { position: 'relative', marginBottom: '15px', textAlign: 'left' }, // Added textAlign left for inline errors
-    inputIcon: { position: 'absolute', top: '16px', left: '15px', color: '#9ca3af' }, // Adjusted top for alignment
+    inputWrapper: { position: 'relative', marginBottom: '15px', textAlign: 'left' },
+    inputIcon: { position: 'absolute', top: '16px', left: '15px', color: '#9ca3af' },
     input: { width: '100%', padding: '14px 45px', borderRadius: '12px', border: '2px solid #d1d5db', fontSize: '1rem', outline: 'none', backgroundColor: '#f9fafb', boxSizing: 'border-box', transition: 'border-color 0.2s' },
-    passwordIcon: { position: 'absolute', top: '16px', right: '15px', color: '#9ca3af', cursor: 'pointer' }, // Adjusted top
+    passwordIcon: { position: 'absolute', top: '16px', right: '15px', color: '#9ca3af', cursor: 'pointer' },
     button: { width: '100%', padding: '15px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', marginTop: '10px', transition: 'transform 0.1s ease' },
     globalError: { color: '#dc2626', backgroundColor: '#fee2e2', padding: '12px', borderRadius: '10px', marginBottom: '20px', fontSize: '14px', fontWeight: '500' },
-    inlineError: { color: '#dc2626', fontSize: '12px', fontWeight: '600', margin: '4px 0 0 4px' }, // ✅ NEW: Inline error style
+    inlineError: { color: '#dc2626', fontSize: '12px', fontWeight: '600', margin: '4px 0 0 4px' },
     footerText: { marginTop: '20px', fontSize: '14px', color: '#6b7280' },
     link: { color: '#2563eb', fontWeight: '700', cursor: 'pointer', textDecoration: 'none' },
     divider: { display: 'flex', alignItems: 'center', margin: '20px 0', color: '#9ca3af' },
     line: { flex: 1, height: '1px', backgroundColor: '#e5e7eb' },
     socialBtn: { width: '100%', padding: '15px', border: '1px solid #d1d5db', backgroundColor: 'white', borderRadius: '12px', cursor: 'pointer', fontSize: '15px', fontWeight: '600', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s ease' },
-    
-    // OTP Specific Styles
     otpContainer: { display: 'flex', justifyContent: 'center', gap: '10px', margin: '30px 0' },
     otpInput: { width: '50px', height: '60px', fontSize: '24px', fontWeight: '700', textAlign: 'center', borderRadius: '12px', border: '2px solid #e5e7eb', outline: 'none', backgroundColor: '#f8fafc', color: '#f97316', transition: '0.2s' },
   };
@@ -188,7 +221,6 @@ export default function SignupPage() {
         {isSuccess && <SuccessPopup message="Email Verified! Welcome to SJ10 🎉" onClose={() => {}} />}
         
         <div style={styles.card}>
-          {/* Global Error (Only shows if there's an error not tied to a specific field) */}
           {globalError && <p style={styles.globalError}><i className="fas fa-exclamation-circle"></i> {globalError}</p>}
 
           {/* ========================================================= */}
@@ -237,6 +269,23 @@ export default function SignupPage() {
                 <div style={styles.inputWrapper}>
                   <PhoneInput country={'pk'} value={phone} onChange={handlePhoneChange} containerStyle={{ marginBottom: fieldErrors.phone ? '4px' : '0' }} inputStyle={{...styles.input, paddingLeft: '50px', width: '100%', borderColor: fieldErrors.phone ? '#dc2626' : '#d1d5db', backgroundColor: fieldErrors.phone ? '#fef2f2' : '#f9fafb'}} />
                   {fieldErrors.phone && <p style={styles.inlineError}>{fieldErrors.phone}</p>}
+                </div>
+
+                {/* 🟢 OPTIONAL REFERRAL CODE INPUT */}
+                <div style={styles.inputWrapper}>
+                  <FaGift style={styles.inputIcon} />
+                  <input 
+                    name="referralCode" 
+                    placeholder="Referral Code (Optional)" 
+                    value={formData.referralCode}
+                    style={{...styles.input, textTransform: 'uppercase', fontFamily: 'monospace', fontWeight: 600}} 
+                    onChange={handleChange} 
+                  />
+                  {formData.referralCode && (
+                    <span style={{ fontSize: '11px', color: '#059669', fontWeight: 600, display: 'block', marginTop: '4px', marginLeft: '4px' }}>
+                      ✓ Referral code applied!
+                    </span>
+                  )}
                 </div>
                 
                 {/* Password */}
@@ -315,5 +364,13 @@ export default function SignupPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="h-screen flex items-center justify-center"><i className="fas fa-circle-notch fa-spin text-orange-500 text-3xl"></i></div>}>
+      <SignupFormContent />
+    </Suspense>
   );
 }

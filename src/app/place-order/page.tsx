@@ -9,9 +9,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     ShoppingBag, ArrowLeft, ArrowRight, Truck, ShieldCheck,
     Banknote, Palette, Ruler, AlertCircle, 
-    Sparkles, Zap, PackageCheck, Info, Star, Check
+    Sparkles, Zap, PackageCheck, Star
 } from 'lucide-react';
-// 1. ADD THIS HELPER FUNCTION (Copy from your ProductDetailClient)
+
 const getToken = () => {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem('user_token') || 
@@ -19,6 +19,7 @@ const getToken = () => {
            localStorage.getItem('authToken') ||
            sessionStorage.getItem('user_token');
 };
+
 // --- TYPES ---
 type Variant = {
     id: string | number;
@@ -43,6 +44,9 @@ type Product = {
     package_information?: string;
     colors?: string;
     sizes?: string;
+    supplier_id?: string;
+    supplier?: { id?: string; brand_name?: string; name?: string };
+    brand_name?: string;
 };
 
 // --- UTILS ---
@@ -77,66 +81,38 @@ const calculateCommission = (price: number) => {
     return 100;
 };
 
-// --- CENTERED SKELETON LOADER ---
 const SkeletonLoader = () => (
     <div className="skeleton-overlay">
         <style jsx>{`
             .skeleton-overlay { 
                 position: fixed; inset: 0; background: #f8fafc; z-index: 9999; 
-                overflow-y: auto; padding-bottom: 100px;
+                overflow-y: auto; padding-bottom: 120px;
             }
             .sk-container { max-width: 600px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-            
-            /* Header Mockup */
             .sk-header { display: flex; gap: 15px; align-items: center; margin-bottom: 10px; }
             .sk-circle { width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; }
             .sk-line { height: 10px; background: #e2e8f0; border-radius: 4px; width: 100%; }
-
-            /* Card Mockup */
-            .sk-card { background: white; border-radius: 24px; padding: 20px; display: flex; gap: 15px; border: 1px solid #f1f5f9; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
-            .sk-box { width: 90px; height: 90px; background: #e2e8f0; border-radius: 16px; flex-shrink: 0; }
-            .sk-content { flex: 1; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
-            
+            .sk-card { background: white; border-radius: 20px; padding: 20px; display: flex; gap: 15px; border: 1px solid #f1f5f9; }
+            .sk-box { width: 80px; height: 80px; background: #e2e8f0; border-radius: 12px; flex-shrink: 0; }
+            .sk-content { flex: 1; display: flex; flex-direction: column; gap: 10px; justify-content: center; }
             .animate-pulse { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
             @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         `}</style>
         
         <div className="sk-container">
-            {/* Header */}
             <div className="sk-header animate-pulse">
                 <div className="sk-circle"></div>
-                <div style={{width: '150px'}}><div className="sk-line" style={{height:'20px', marginBottom:'8px'}}></div><div className="sk-line" style={{width:'60%'}}></div></div>
+                <div style={{ width: '150px' }}><div className="sk-line" style={{ height: '18px', marginBottom: '6px' }}></div><div className="sk-line" style={{ width: '60%' }}></div></div>
             </div>
-
-            {/* Product Card - EXACTLY MATCHES CONTENT LAYOUT */}
             <div className="sk-card animate-pulse">
                 <div className="sk-box"></div>
                 <div className="sk-content">
-                    <div className="sk-line" style={{height:'18px', width:'90%'}}></div>
-                    <div className="sk-line" style={{height:'18px', width:'70%'}}></div>
-                    <div style={{display:'flex', gap:'10px', marginTop:'5px'}}>
-                        <div className="sk-line" style={{width:'50px', height:'20px', borderRadius:'8px'}}></div>
-                        <div className="sk-line" style={{width:'50px', height:'20px', borderRadius:'8px'}}></div>
-                    </div>
+                    <div className="sk-line" style={{ height: '16px', width: '85%' }}></div>
+                    <div className="sk-line" style={{ height: '14px', width: '60%' }}></div>
                 </div>
             </div>
-
-            {/* Price Card */}
-            <div className="sk-card animate-pulse" style={{flexDirection:'column'}}>
-                 <div style={{display:'flex', justifyContent:'space-between'}}>
-                    <div className="sk-line" style={{width:'100px'}}></div>
-                    <div className="sk-line" style={{width:'80px'}}></div>
-                 </div>
-                 <div className="sk-line" style={{height:'50px', borderRadius:'16px', marginTop:'10px'}}></div>
-            </div>
-
-            {/* Summary Card */}
-            <div className="sk-card animate-pulse" style={{flexDirection:'column', gap:'15px'}}>
-                <div className="sk-line" style={{width:'120px', marginBottom:'5px'}}></div>
-                <div style={{display:'flex', justifyContent:'space-between'}}><div className="sk-line" style={{width:'30%'}}></div><div className="sk-line" style={{width:'20%'}}></div></div>
-                <div style={{display:'flex', justifyContent:'space-between'}}><div className="sk-line" style={{width:'30%'}}></div><div className="sk-line" style={{width:'20%'}}></div></div>
-                <div style={{display:'flex', justifyContent:'space-between'}}><div className="sk-line" style={{width:'30%'}}></div><div className="sk-line" style={{width:'20%'}}></div></div>
-            </div>
+            <div className="sk-card animate-pulse" style={{ height: '120px' }}></div>
+            <div className="sk-card animate-pulse" style={{ height: '160px' }}></div>
         </div>
     </div>
 );
@@ -156,7 +132,7 @@ function PlaceOrderContent() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [flyingAnimation, setFlyingAnimation] = useState(false);
     const [flyStartPos, setFlyStartPos] = useState({ x: 0, y: 0 });
-    const [cartBurst, setCartBurst] = useState(false); // New Explosion State
+    const [cartBurst, setCartBurst] = useState(false);
 
     // Data States
     const [quantity, setQuantity] = useState(1);
@@ -164,47 +140,28 @@ function PlaceOrderContent() {
     const inputRef = useRef<HTMLInputElement>(null);
     const cartBtnRef = useRef<HTMLButtonElement>(null);
 
-    // --- FETCH ---
+    // --- FETCH PRODUCT ---
     useEffect(() => {
         const productId = searchParams.get('productId');
         if (!productId) { router.push('/'); return; }
 
-       const fetchProductData = async () => {
+        const fetchProductData = async () => {
             setLoading(true);
             try {
-                // Short wait to ensure DOM is ready for skeleton transition
-                await new Promise(r => setTimeout(r, 100)); 
-
-                // --- NEW CODE: ADD HEADERS & TOKEN ---
                 const token = getToken();
-                const headers: Record<string, string> = { 
-                    'Content-Type': 'application/json' 
-                };
-                if (token) {
-                    headers['Authorization'] = `Bearer ${token}`;
-                }
+                const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = `Bearer ${token}`;
 
-                const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/${productId}`, {
-                    headers: headers 
-                });
-                // --------------------------------------
-
-                if (!res.ok) {
-                    console.error("API Error Status:", res.status);
-                    throw new Error("Failed to load product");
-                }
+                const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/${productId}`, { headers });
+                if (!res.ok) throw new Error("Failed to load product");
 
                 const data: Product = await res.json();
                 if (typeof data.variants === 'string') {
-                    try { data.variants = JSON.parse(data.variants); } 
-                    catch (e) { data.variants = []; }
+                    try { data.variants = JSON.parse(data.variants); } catch (e) { data.variants = []; }
                 }
                 setProduct(data);
             } catch (error) {
-                console.error("Detailed Error:", error);
-                // --- FIX: STOP REDIRECTING BACK ---
-                // router.back(); // I commented this out so you can see the error
-                alert("Could not load product. Check console for details.");
+                console.error("Fetch Product Error:", error);
             } finally {
                 setLoading(false);
             }
@@ -212,13 +169,14 @@ function PlaceOrderContent() {
         fetchProductData();
     }, [searchParams, router]);
 
-    // --- CALCULATIONS ---
+    // Selected Variant
     const selectedVariant = useMemo(() => {
         const variantIdParam = searchParams.get('variantId');
         if (!product || !variantIdParam || !Array.isArray(product.variants)) return null;
-        return product.variants.find((v) => v.id == variantIdParam) || null;
+        return product.variants.find((v) => String(v.id) === String(variantIdParam)) || null;
     }, [product, searchParams]);
 
+    // Financial calculations
     const { finalPrice, finalColor, finalSize, finalImage } = useMemo(() => {
         let price = Number(product?.discounted_price || product?.price || 0);
         let color = cleanData(product?.colors) || "Standard";
@@ -267,7 +225,6 @@ function PlaceOrderContent() {
             return;
         }
 
-        // 1. Start Flying Animation
         if (cartBtnRef.current) {
             const rect = cartBtnRef.current.getBoundingClientRect();
             setFlyStartPos({ x: rect.left + rect.width / 2, y: rect.top });
@@ -276,11 +233,21 @@ function PlaceOrderContent() {
 
         setIsProcessing(true);
         const finalProfit = (userEnteredPrice || totalBaseCost) - totalBaseCost;
-        const options = { variantId: selectedVariant?.id, color: finalColor, size: finalSize, profit: finalProfit / quantity };
+        
+        const realSupplierId = product.supplier_id || product.supplier?.id || null;
+        const realBrandName = product.supplier?.brand_name || product.supplier?.name || product.brand_name || 'SJ10 Official';
+
+        const options = { 
+            variantId: selectedVariant?.id, 
+            color: finalColor, 
+            size: finalSize, 
+            profit: finalProfit / quantity,
+            supplier_id: realSupplierId,
+            supplier: { id: realSupplierId, brand_name: realBrandName }
+        };
 
         try {
             await addItemToCart(product.id.toString(), quantity, { options, profit: finalProfit });
-            // Animation is handling the delay visually
         } catch (error) { 
             setIsProcessing(false); 
             setFlyingAnimation(false); 
@@ -296,155 +263,223 @@ function PlaceOrderContent() {
         setIsProcessing(true);
         const finalSellingPrice = userEnteredPrice || totalBaseCost;
         const finalProfit = finalSellingPrice - totalBaseCost;
-        const options = { variantId: selectedVariant?.id, color: finalColor, size: finalSize, profit: finalProfit / quantity };
         
-        const directItem = {
-            productId: product.id, quantity, options,
-            displayDetails: { title: product.title, image_url: [finalImage], price_each: finalSellingPrice / quantity, base_cost: totalBaseCost, user_profit: finalProfit, subtotal: finalSellingPrice }
+        const realSupplierId = product.supplier_id || product.supplier?.id || null;
+        const realBrandName = product.supplier?.brand_name || product.supplier?.name || product.brand_name || 'SJ10 Official';
+        
+        const options = { 
+            variantId: selectedVariant?.id, 
+            color: finalColor, 
+            size: finalSize, 
+            profit: finalProfit / quantity,
+            supplier_id: realSupplierId,
+            supplier: { id: realSupplierId, brand_name: realBrandName }
         };
-        sessionStorage.setItem('checkoutState', JSON.stringify({ items: [directItem], totalPrice: finalSellingPrice, isDirectBuy: true }));
+
+        const directItem = {
+            productId: product.id,
+            product_id: product.id,
+            quantity,
+            options,
+            supplier_id: realSupplierId,
+            supplier: {
+                id: realSupplierId,
+                brand_name: realBrandName
+            },
+            displayDetails: { 
+                title: product.title, 
+                image_url: [finalImage], 
+                price_each: finalSellingPrice / quantity, 
+                base_cost: totalBaseCost, 
+                user_profit: finalProfit, 
+                subtotal: finalSellingPrice,
+                delivery_fee: deliveryFee * quantity,
+                system_commission: commissionFee * quantity,
+                brand_name: realBrandName
+            }
+        };
+        
+        sessionStorage.setItem('checkoutState', JSON.stringify({ 
+            items: [directItem], 
+            totalPrice: finalSellingPrice, 
+            isDirectBuy: true 
+        }));
         router.push('/checkout');
     };
 
-    // Callback when bag reaches top right
     const onAnimationComplete = () => {
         setFlyingAnimation(false);
-        setCartBurst(true); // Trigger explosion
+        setCartBurst(true);
         setTimeout(() => {
             setCartBurst(false);
             setIsProcessing(false);
             router.push('/cart');
-        }, 600);
+        }, 500);
     };
 
     if (loading) return <SkeletonLoader />;
 
     return (
-        <div className="page-wrapper">
+        <div className="place-order-root">
             <style jsx global>{`
-                body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #f8fafc; }
+                body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, sans-serif; background: #f8fafc; }
                 * { box-sizing: border-box; }
             `}</style>
             
             <style jsx>{`
-                .page-wrapper {
-                    position: fixed; inset: 0; z-index: 9999;
-                    background-color: #f8fafc; display: flex; flex-direction: column;
+                .place-order-root {
+                    min-height: 100vh;
+                    background-color: #f8fafc;
+                    display: flex;
+                    flex-direction: column;
+                    position: relative;
                 }
                 
                 /* HEADER */
-                .header {
-                    background: rgba(255,255,255,0.85); backdrop-filter: blur(12px);
-                    padding: 15px 20px; border-bottom: 1px solid #f1f5f9; 
-                    display: flex; align-items: center; gap: 15px; flex-shrink: 0;
+                .po-header {
+                    position: sticky; top: 0; z-index: 100;
+                    background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+                    padding: 12px 16px; border-bottom: 1px solid #eef2f6; 
+                    display: flex; align-items: center; gap: 14px;
                 }
-                .back-btn {
-                    width: 44px; height: 44px; border-radius: 50%; border: 1px solid #e2e8f0; background: white;
-                    display: flex; align-items: center; justify-content: center; cursor: pointer; color: #334155;
-                    transition: 0.2s;
+                .back-btn-pill {
+                    width: 38px; height: 38px; border-radius: 50%; border: 1px solid #e2e8f0; background: #f1f5f9;
+                    display: flex; align-items: center; justify-content: center; cursor: pointer; color: #1e293b;
+                    transition: 0.2s; flex-shrink: 0;
                 }
-                .back-btn:active { transform: scale(0.9); background: #f1f5f9; }
-                .header-title h1 { margin: 0; font-size: 1.2rem; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; }
-                .guarantee { font-size: 0.75rem; color: #64748b; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+                .back-btn-pill:hover { background: #e2e8f0; }
+                .po-title-block h1 { margin: 0; font-size: 17px; font-weight: 800; color: #0f172a; }
+                .guarantee-sub { font-size: 11.5px; color: #64748b; font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 
-                /* CONTENT */
-                .content-scroll { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 140px; }
-                .container { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+                /* SCROLLABLE CONTENT */
+                .scrollable-body {
+                    flex: 1;
+                    padding: 20px 14px 180px 14px; 
+                }
+                .body-container {
+                    max-width: 600px;
+                    margin: 0 auto;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                }
 
                 /* CARDS */
-                .card { background: white; border-radius: 28px; padding: 22px; box-shadow: 0 8px 30px -5px rgba(0,0,0,0.04); border: 1px solid #f1f5f9; }
+                .po-card {
+                    background: #ffffff;
+                    border-radius: 20px;
+                    padding: 20px;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+                    border: 1px solid #f1f5f9;
+                }
                 
                 /* PRODUCT */
-                .product-row { display: flex; gap: 18px; }
-                .img-wrapper { 
-                    width: 100px; height: 100px; border-radius: 20px; background: #f1f5f9; 
-                    position: relative; overflow: hidden; border: 1px solid #e2e8f0; flex-shrink: 0;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+                .product-row { display: flex; gap: 16px; align-items: center; }
+                .img-box { 
+                    width: 80px; height: 80px; border-radius: 12px; background: #f8fafc; 
+                    position: relative; overflow: hidden; border: 1.5px solid #e2e8f0; flex-shrink: 0;
                 }
-                .prod-details h3 { margin: 0 0 10px 0; font-size: 1rem; line-height: 1.4; color: #1e293b; font-weight: 700; }
+                .prod-details { flex: 1; min-width: 0; }
+                .prod-details h3 { margin: 0 0 8px 0; font-size: 14px; line-height: 1.4; color: #1e293b; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .pill { 
-                    display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; 
-                    padding: 5px 12px; border-radius: 10px; font-size: 0.75rem; font-weight: 700; 
-                    color: #3b82f6; border: 1px solid #dbeafe; margin-right: 8px; 
+                    display: inline-flex; align-items: center; gap: 4px; background: #f8fafc; 
+                    padding: 4px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 600; 
+                    color: #475569; border: 1px solid #e2e8f0; margin-right: 8px; 
                 }
 
-                /* INPUTS */
-                .qty-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-                .qty-label { display: flex; align-items: center; gap: 8px; font-weight: 800; color: #334155; font-size: 0.95rem; }
-                .qty-control { display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 6px; border-radius: 14px; border: 1px solid #e2e8f0; }
-                .qty-btn { width: 36px; height: 36px; border: none; background: white; border-radius: 10px; font-weight: bold; color: #334155; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.05); transition: 0.2s; }
+                /* QUANTITY & PRICING */
+                .qty-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+                .qty-lbl { display: flex; align-items: center; gap: 8px; font-weight: 800; color: #1e293b; font-size: 14px; }
+                .qty-controls { display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 4px; border-radius: 12px; border: 1px solid #e2e8f0; }
+                .qty-btn { width: 34px; height: 34px; border: none; background: white; border-radius: 8px; font-weight: 700; color: #334155; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.04); transition: 0.2s; }
                 .qty-btn:active { transform: scale(0.9); }
-                .qty-val { font-size: 1.1rem; font-weight: 800; width: 30px; text-align: center; color: #0f172a; }
+                .qty-val { font-size: 14px; font-weight: 800; width: 25px; text-align: center; color: #0f172a; }
 
-                .price-group { position: relative; margin-top: 10px; }
-                .price-input {
-                    width: 100%; padding: 18px 18px 18px 55px; font-size: 1.3rem; font-weight: 800;
-                    border: 2px solid #e2e8f0; border-radius: 18px; outline: none; transition: 0.3s;
-                    background: #fff; color: #0f172a; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+                .divider-line { width: 100%; height: 1px; background: #f1f5f9; margin: 16px 0; }
+
+                .price-input-wrapper { position: relative; margin-top: 10px; }
+                .custom-price-input {
+                    width: 100%; height: 50px; padding: 0 16px 0 46px; font-size: 16px; font-weight: 800;
+                    border: 1.5px solid #e2e8f0; border-radius: 14px; outline: none; transition: 0.2s;
+                    background: #f8fafc; color: #0f172a; font-family: monospace;
                 }
-                .price-input:focus { border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
-                .currency { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); font-weight: 800; color: #cbd5e1; font-size: 1.2rem; }
+                .custom-price-input:focus { border-color: #00b862; background: #ffffff; box-shadow: 0 0 0 3px rgba(0, 184, 98, 0.1); }
+                .currency-prefix { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-weight: 800; color: #94a3b8; font-size: 14px; }
                 
-                .profit-badge { 
-                    margin-top: 12px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); 
-                    border: 1px solid #a7f3d0; color: #047857; padding: 14px; border-radius: 16px; 
-                    display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.1);
+                .profit-notification-badge { 
+                    margin-top: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; 
+                    padding: 12px 16px; border-radius: 14px; display: flex; align-items: center; gap: 12px;
                 }
-                .error-msg { 
-                    color: #ef4444; font-size: 0.85rem; font-weight: 700; margin-top: 10px; 
-                    display: flex; align-items: center; gap: 6px; padding: 10px; background: #fef2f2; border-radius: 12px; 
+                .profit-icon-circle { background: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; color: #059669; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+                .profit-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #059669; letter-spacing: 0.5px; }
+                .profit-amount { font-size: 16px; font-weight: 900; color: #064e3b; }
+
+                .error-box { 
+                    color: #dc2626; font-size: 12px; font-weight: 700; margin-top: 10px; 
+                    display: flex; align-items: center; gap: 6px; padding: 10px 14px; background: #fef2f2; border-radius: 12px; 
                 }
 
-                /* BOTTOM DOCK */
-                .bottom-dock {
-                    background: rgba(255,255,255,0.95); backdrop-filter: blur(15px);
-                    padding: 15px 20px; border-top: 1px solid #f1f5f9;
-                    box-shadow: 0 -10px 40px rgba(0,0,0,0.06);
-                    padding-bottom: max(20px, env(safe-area-inset-bottom));
+                /* 🟢 FIXED: COST BREAKDOWN PROPER STYLING */
+                .breakdown-title { margin: 0 0 16px 0; font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.8px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+                .cost-list { display: flex; flex-direction: column; gap: 12px; } /* BUG FIXED HERE */
+                .cost-row { display: flex; justify-content: space-between; color: #64748b; font-size: 14px; font-weight: 500; }
+                .cost-val { color: #1e293b; font-weight: 700; }
+                .base-cost-total { border-top: 1px dashed #cbd5e1; padding-top: 12px; margin-top: 4px; font-size: 15px; font-weight: 800; color: #0f172a; }
+
+                /* 🟢 FIXED BOTTOM ACTION DOCK (PREMIUM UI) */
+                .po-bottom-dock {
+                    position: fixed !important;
+                    bottom: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    background: rgba(255, 255, 255, 0.98) !important;
+                    backdrop-filter: blur(15px) !important;
+                    -webkit-backdrop-filter: blur(15px) !important;
+                    padding: 12px 16px !important;
+                    padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+                    border-top: 1px solid #e2e8f0 !important;
+                    box-shadow: 0 -8px 25px rgba(0,0,0,0.08) !important;
+                    z-index: 99999 !important;
                 }
-                .dock-inner { display: flex; gap: 15px; max-width: 600px; margin: 0 auto; }
-                .btn {
-                    flex: 1; padding: 18px; border-radius: 18px; border: none; font-weight: 800; font-size: 1rem;
-                    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
-                    transition: transform 0.1s; letter-spacing: -0.3px;
+                .dock-inner-flex { 
+                    display: flex; gap: 12px; max-width: 600px; margin: 0 auto; width: 100%;
                 }
-                .btn:active { transform: scale(0.96); }
-                .btn-secondary { background: white; color: #334155; border: 2px solid #f1f5f9; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-                .btn-primary { 
-                    background: linear-gradient(135deg, #0f172a 0%, #334155 100%); 
-                    color: white; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25); 
+                .dock-btn {
+                    flex: 1; height: 50px; border-radius: 14px; border: none; font-weight: 800; font-size: 15px;
+                    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+                    transition: all 0.2s;
                 }
-                .btn-disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(1); }
+                .dock-btn:active { transform: scale(0.97); }
+                .btn-add-bag { background: #ffffff; color: #1e293b; border: 1.5px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+                .btn-add-bag:hover { background: #f8fafc; border-color: #cbd5e1; }
+                .btn-checkout-now { 
+                    background: linear-gradient(135deg, #00b862 0%, #009952 100%); 
+                    color: white; box-shadow: 0 4px 14px rgba(0, 184, 98, 0.35); 
+                }
+                .btn-checkout-now:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 184, 98, 0.4); }
+                .btn-disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(1); box-shadow: none; }
 
                 /* FLYING & BURST ANIMATIONS */
                 .fly-icon { 
-                    position: fixed; z-index: 10000; color: #4f46e5; pointer-events: none; 
-                    filter: drop-shadow(0 4px 8px rgba(79, 70, 229, 0.4));
+                    position: fixed; z-index: 100000; color: #f85606; pointer-events: none; 
+                    filter: drop-shadow(0 4px 8px rgba(248, 86, 6, 0.4));
                 }
                 .burst-effect {
-                    position: fixed; top: 15px; right: 15px; z-index: 10001; pointer-events: none;
+                    position: fixed; top: 15px; right: 15px; z-index: 100001; pointer-events: none;
                 }
             `}</style>
 
-            {/* FLYING BAG ANIMATION (CURVED PATH) */}
+            {/* FLYING BAG ANIMATION */}
             <AnimatePresence>
                 {flyingAnimation && (
                     <motion.div
                         initial={{ x: flyStartPos.x, y: flyStartPos.y, scale: 1, rotate: 0 }}
-                        animate={{ 
-                            x: window.innerWidth - 40, // Target Right (Cart Icon Area)
-                            y: 20, // Target Top
-                            scale: 0.4, 
-                            rotate: 360
-                        }}
-                        transition={{ 
-                            duration: 1.5, // SLOW & SMOOTH
-                            ease: "easeInOut", // Smooth curve feel
-                        }}
+                        animate={{ x: window.innerWidth - 40, y: 20, scale: 0.4, rotate: 360 }}
+                        transition={{ duration: 0.9, ease: "easeInOut" }}
                         onAnimationComplete={onAnimationComplete}
                         className="fly-icon"
                     >
-                        <ShoppingBag size={32} fill="currentColor" />
+                        <ShoppingBag size={28} fill="currentColor" />
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -465,24 +500,24 @@ function PlaceOrderContent() {
             </AnimatePresence>
 
             {/* HEADER */}
-            <header className="header">
-                <button className="back-btn" onClick={() => router.back()}>
-                    <ArrowLeft size={22}/>
+            <header className="po-header">
+                <button className="back-btn-pill" onClick={() => router.back()} type="button">
+                    <ArrowLeft size={18}/>
                 </button>
-                <div className="header-title">
-                    <h1>Review Order</h1>
-                    <div className="guarantee"><Sparkles size={12} className="text-indigo-500"/> Best Price Guaranteed</div>
+                <div className="po-title-block">
+                    <h1>Review & Set Price</h1>
+                    <div className="guarantee-sub"><Sparkles size={12} className="text-orange-500"/> Customize Reseller Profit</div>
                 </div>
             </header>
 
             {/* SCROLLABLE CONTENT */}
-            <div className="content-scroll">
-                <div className="container">
+            <div className="scrollable-body">
+                <div className="body-container">
                     
-                    {/* PRODUCT CARD */}
-                    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="card">
+                    {/* 1. PRODUCT CARD */}
+                    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} className="po-card">
                         <div className="product-row">
-                            <div className="img-wrapper">
+                            <div className="img-box">
                                 {!imageLoaded && (
                                     <div className="animate-pulse" style={{position:'absolute', inset:0, background:'#cbd5e1'}}/>
                                 )}
@@ -502,32 +537,32 @@ function PlaceOrderContent() {
                         </div>
                     </motion.div>
 
-                    {/* PRICING & QTY CARD */}
-                    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.1}} className="card">
+                    {/* 2. QUANTITY & CUSTOMER PRICE CARD */}
+                    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.1}} className="po-card">
                         <div className="qty-row">
-                            <div className="qty-label"><PackageCheck size={20} className="text-slate-600"/> Quantity</div>
-                            <div className="qty-control">
+                            <div className="qty-lbl"><PackageCheck size={20} className="text-slate-600"/> Quantity</div>
+                            <div className="qty-controls">
                                 <button className="qty-btn" onClick={() => quantity > 1 && setQuantity(q => q - 1)}>-</button>
                                 <span className="qty-val">{quantity}</span>
                                 <button className="qty-btn" onClick={() => setQuantity(q => q + 1)}>+</button>
                             </div>
                         </div>
                         
-                        <div style={{width:'100%', height:'1px', background:'#f1f5f9', margin:'20px 0'}}></div>
+                        <div className="divider-line"></div>
 
-                        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:'10px'}}>
-                            <label style={{fontWeight:'800', color:'#1e293b', fontSize:'0.95rem'}}>Customer Price</label>
-                            <span style={{fontSize:'0.75rem', background:'#f1f5f9', padding:'4px 8px', borderRadius:'6px', color:'#64748b', fontWeight:'600', border:'1px solid #e2e8f0'}}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <label style={{ fontWeight: 800, color: '#1e293b', fontSize: '14px' }}>Customer Selling Price</label>
+                            <span style={{ fontSize: '11px', background: '#f1f5f9', padding: '4px 10px', borderRadius: '8px', color: '#64748b', fontWeight: 700 }}>
                                 Min: Rs. {totalBaseCost}
                             </span>
                         </div>
                         
-                        <div className="price-group">
-                            <span className="currency">Rs.</span>
+                        <div className="price-input-wrapper">
+                            <span className="currency-prefix">Rs.</span>
                             <input 
                                 ref={inputRef}
                                 type="number" 
-                                className="price-input"
+                                className="custom-price-input"
                                 style={!isPriceValid ? {borderColor:'#fca5a5', background:'#fef2f2', color:'#b91c1c'} : isProfitable ? {borderColor:'#34d399', background:'#f0fdf4', color:'#065f46'} : {}}
                                 placeholder={totalBaseCost.toString()}
                                 value={sellingPriceInput}
@@ -537,73 +572,75 @@ function PlaceOrderContent() {
 
                         <AnimatePresence>
                             {sellingPriceInput && isProfitable && (
-                                <motion.div initial={{height:0, opacity:0, y:-10}} animate={{height:'auto', opacity:1, y:0}} className="profit-badge">
-                                    <div style={{background:'white', borderRadius:'50%', width:'32px', height:'32px', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 5px rgba(0,0,0,0.05)'}}>
-                                        <Star size={16} className="text-emerald-500" fill="currentColor"/>
+                                <motion.div initial={{height:0, opacity:0, y:-10}} animate={{height:'auto', opacity:1, y:0}} className="profit-notification-badge">
+                                    <div className="profit-icon-circle">
+                                        <Star size={16} fill="currentColor"/>
                                     </div>
                                     <div>
-                                        <div style={{fontSize:'0.7rem', fontWeight:'800', textTransform:'uppercase', color:'#059669', letterSpacing:'0.5px'}}>Your Net Profit</div>
-                                        <div style={{fontSize:'1.1rem', fontWeight:'900', color:'#064e3b'}}>Rs. {calculatedProfit.toLocaleString()}</div>
+                                        <div className="profit-title">Your Reseller Net Profit</div>
+                                        <div className="profit-amount">Rs. {calculatedProfit.toLocaleString()}</div>
                                     </div>
                                 </motion.div>
                             )}
                             {sellingPriceInput && !isPriceValid && (
-                                <motion.div initial={{opacity:0}} animate={{opacity:1}} className="error-msg">
-                                    <AlertCircle size={18} className="text-red-500"/> 
-                                    <span>Price too low. Minimum is <strong>Rs. {totalBaseCost}</strong></span>
+                                <motion.div initial={{opacity:0}} animate={{opacity:1}} className="error-box">
+                                    <AlertCircle size={16}/> 
+                                    <span>Price too low. Minimum allowed is <strong>Rs. {totalBaseCost}</strong></span>
                                 </motion.div>
                             )}
                         </AnimatePresence>
                     </motion.div>
 
-                    {/* SUMMARY CARD */}
-                    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.2}} className="card">
-                        <h4 style={{margin:'0 0 18px 0', fontSize:'0.8rem', textTransform:'uppercase', color:'#94a3b8', letterSpacing:'1px', fontWeight:'800', display:'flex', alignItems:'center', gap:'8px'}}>
-                            <Banknote size={16}/> Cost Breakdown
+                    {/* 3. COST BREAKDOWN */}
+                    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay:0.2}} className="po-card">
+                        <h4 className="breakdown-title">
+                            <Banknote size={16}/> Base Cost Breakdown
                         </h4>
-                        <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
-                            <div style={{display:'flex', justifyContent:'space-between', color:'#64748b', fontSize:'0.9rem', fontWeight:'500'}}>
-                                <span>Wholesale Price</span><span style={{color:'#334155', fontWeight:'700'}}>Rs. {(finalPrice * quantity).toLocaleString()}</span>
+                        
+                        {/* 🟢 THE FIX IS HERE: flex-direction: column in CSS now works perfectly */}
+                        <div className="cost-list">
+                            <div className="cost-row">
+                                <span>Wholesale Price</span><span className="cost-val">Rs. {(finalPrice * quantity).toLocaleString()}</span>
                             </div>
-                            <div style={{display:'flex', justifyContent:'space-between', color:'#64748b', fontSize:'0.9rem', fontWeight:'500'}}>
-                                <span>Delivery Fee</span><span style={{color:'#334155', fontWeight:'700'}}>Rs. {(deliveryFee * quantity).toLocaleString()}</span>
+                            <div className="cost-row">
+                                <span>Delivery Fee</span><span className="cost-val">Rs. {(deliveryFee * quantity).toLocaleString()}</span>
                             </div>
-                            <div style={{display:'flex', justifyContent:'space-between', color:'#64748b', fontSize:'0.9rem', fontWeight:'500'}}>
-                                <span>Platform Fee</span><span style={{color:'#334155', fontWeight:'700'}}>Rs. {(commissionFee * quantity).toLocaleString()}</span>
+                            <div className="cost-row">
+                                <span>Platform / Handling Fee</span><span className="cost-val">Rs. {(commissionFee * quantity).toLocaleString()}</span>
                             </div>
-                            <div style={{borderTop:'1px dashed #cbd5e1', paddingTop:'15px', marginTop:'5px', display:'flex', justifyContent:'space-between', fontSize:'1rem', fontWeight:'800', color:'#0f172a'}}>
-                                <span>Total Base Cost</span><span>Rs. {totalBaseCost.toLocaleString()}</span>
+                            <div className="cost-row base-cost-total">
+                                <span>Total Minimum Cost</span><span>Rs. {totalBaseCost.toLocaleString()}</span>
                             </div>
                         </div>
                     </motion.div>
 
-                    {/* BADGES */}
-                    <div style={{display:'flex', justifyContent:'center', gap:'25px', opacity:0.7, paddingBottom:'20px'}}>
-                        <div style={{display:'flex', gap:'6px', fontSize:'0.75rem', fontWeight:'700', color:'#475569', alignItems:'center', textTransform:'uppercase', letterSpacing:'0.5px'}}>
-                            <ShieldCheck size={16} className="text-emerald-500"/> Secure Checkout
+                    {/* 4. TRUST BADGES */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '25px', padding: '10px 0', opacity: 0.7 }}>
+                        <div style={{ display: 'flex', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#475569', alignItems: 'center' }}>
+                            <ShieldCheck size={16} className="text-emerald-500"/> 100% Safe COD
                         </div>
-                        <div style={{display:'flex', gap:'6px', fontSize:'0.75rem', fontWeight:'700', color:'#475569', alignItems:'center', textTransform:'uppercase', letterSpacing:'0.5px'}}>
+                        <div style={{ display: 'flex', gap: '6px', fontSize: '12px', fontWeight: 700, color: '#475569', alignItems: 'center' }}>
                             <Truck size={16} className="text-blue-500"/> Fast Delivery
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* BOTTOM DOCK */}
-            <div className="bottom-dock">
-                <div className="dock-inner">
-                    <button ref={cartBtnRef} className="btn btn-secondary" onClick={handleAddToCart} disabled={isProcessing}>
-                        <ShoppingBag size={22} className="text-slate-700"/> Add to Cart
+            {/* 🟢 FIXED BOTTOM ACTION DOCK (ALWAYS VISIBLE, BEAUTIFUL UI) */}
+            <div className="po-bottom-dock">
+                <div className="dock-inner-flex">
+                    <button ref={cartBtnRef} className="dock-btn btn-add-bag" onClick={handleAddToCart} disabled={isProcessing}>
+                        <ShoppingBag size={18} /> Add to Cart
                     </button>
                     <button 
-                        className={`btn ${(!isPriceValid && sellingPriceInput) ? 'btn-disabled' : 'btn-primary'}`} 
+                        className={`dock-btn btn-checkout-now ${(!isPriceValid && sellingPriceInput) ? 'btn-disabled' : ''}`} 
                         onClick={handleCheckout} 
                         disabled={!isPriceValid || isProcessing}
                     >
                         {isProcessing && !flyingAnimation ? (
-                            <Zap className="animate-spin" size={22}/> 
+                            <Zap className="animate-spin" size={18}/> 
                         ) : (
-                            <>Proceed <ArrowRight size={22}/></>
+                            <>Proceed <ArrowRight size={18}/></>
                         )}
                     </button>
                 </div>

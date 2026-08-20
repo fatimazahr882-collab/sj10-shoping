@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import apiClient from '@/lib/apiClient';
 import DashboardStats from '@/components/DashboardStats';
+import SpinWheel from '@/components/SpinWheel'; // 🟢 Yeh import add karein
 
 // --- TYPES ---
 type UserProfile = {
@@ -320,10 +321,36 @@ export default function ProfilePage() {
       <div id="user-view" className="page-content pb-safe">
         
         <DashboardStats />
+          <SpinWheel /> {/* 🟢 Yahan Banner place kar dein */}
         
         <div className="profile-options-list">
           <h4>Account Management</h4>
-          
+          {/* Isko Profile Options List mein add karein */}
+          <Link href="/profile/rewards" className="profile-option-item slide-in-left" style={{ animationDelay: '0.25s', border: '1px solid #fed7aa', background: '#fff7ed' }}>
+            <i className="fas fa-gift text-orange-500"></i>
+            <span style={{ color: '#ea580c', fontWeight: 800 }}>My Rewards & Coupons</span>
+            <div className="new-badge-small" style={{ background: '#ea580c' }}>WIN</div>
+            <i className="fas fa-chevron-right chevron" style={{ color: '#fdba74' }}></i>
+          </Link>
+
+          {/* 🟢 INVITE & EARN LINK IN PROFILE OPTIONS LIST */}
+          <Link 
+            href="/profile/referrals" 
+            className="profile-option-item slide-in-left" 
+            style={{ 
+              animationDelay: '0.3s', 
+              border: '1.5px solid #bfdbfe', 
+              background: '#eff6ff' 
+            }}
+          >
+            <i className="fas fa-users-line" style={{ color: '#2563eb' }}></i>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <span style={{ color: '#1e3a8a', fontWeight: 800 }}>Invite & Earn</span>
+              <span style={{ fontSize: '11px', color: '#3b82f6', fontWeight: 600 }}>Get Rs. 100 per friend (Rs. 50 x 2)</span>
+            </div>
+            <div className="new-badge-small" style={{ background: '#2563eb' }}>EARN</div>
+            <i className="fas fa-chevron-right chevron" style={{ color: '#93c5fd' }}></i>
+          </Link>
           <Link href="/profile/business-details" className="profile-option-item slide-in-left" style={{ animationDelay: '0.1s' }}>
             <i className="fas fa-store text-blue-500"></i>
             <span>Business Details</span>
