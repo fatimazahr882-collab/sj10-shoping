@@ -75,6 +75,7 @@ function SignupFormContent() {
   };
 
   // 1. Submit Registration -> Send OTP
+  // 1. Submit Registration -> Send OTP
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGlobalError('');
@@ -86,12 +87,15 @@ function SignupFormContent() {
 
     setLoading(true); 
     try {
+      // 🟢 Phone number ko saaf karke backend ko bhejo
+      const cleanPhoneForApi = phone.startsWith('+') ? phone : `+${phone}`;
+
       const res = await fetch(`${getAuthUrl()}/auth/user/register`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ...formData, 
-          phone: `+${phone}`
+          phone: cleanPhoneForApi
         })
       });
       const data = await res.json();
