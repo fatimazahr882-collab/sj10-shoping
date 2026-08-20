@@ -8,7 +8,7 @@ import PhoneInput from 'react-phone-input-2';
 // @ts-ignore
 import 'react-phone-input-2/lib/style.css';
 import { useGoogleLogin } from '@react-oauth/google';
-import { FaUser, FaEnvelope, FaLock, FaStore, FaEye, FaEyeSlash, FaCamera, FaGoogle, FaShippingFast, FaTags, FaShieldAlt, FaGift } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaLock, FaStore, FaEye, FaEyeSlash, FaCamera, FaGoogle, FaShippingFast, FaTags, FaShieldAlt, FaGift, FaWhatsapp, FaExclamationTriangle } from 'react-icons/fa';
 import SuccessPopup from '@/components/SuccessPopup';
 
 const DEFAULT_PROFILE_PIC_URL = "https://media.sj10.pk/product/SJ10-285129/SJ10-285129-1-20260201-072541.webp";
@@ -28,24 +28,19 @@ function SignupFormContent() {
     email: '', 
     password: '', 
     confirmPassword: '',
-    referralCode: '' // 🟢 Optional Referral Code Field
+    referralCode: '' 
   });
   const [phone, setPhone] = useState('');
   const [passwordVisibility, setPasswordVisibility] = useState({ pass: false, confirm: false });
   const [profilePicPreview, setProfilePicPreview] = useState(DEFAULT_PROFILE_PIC_URL);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 🟢 AUTO-DETECT REFERRAL CODE FROM URL (?ref=SJ10-XXXXXX)
-  useEffect(() => {
-    const urlRef = searchParams.get('ref') || searchParams.get('referralCode');
-    if (urlRef) {
-      setFormData(prev => ({ ...prev, referralCode: urlRef.toUpperCase() }));
-    }
-  }, [searchParams]);
-
-  // --- OTP States ---
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // 🟢 DUAL OTP STATES
+  const [hasWhatsApp, setHasWhatsApp] = useState(true);
+  const [emailOtp, setEmailOtp] = useState(['', '', '', '', '', '']);
+  const [whatsappOtp, setWhatsappOtp] = useState(['', '', '', '', '', '']);
+  const emailOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const whatsappOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // --- General & Error States ---
   const [globalError, setGlobalError] = useState('');
@@ -54,6 +49,14 @@ function SignupFormContent() {
   const [isSuccess, setIsSuccess] = useState(false);
 
   const getAuthUrl = () => (process.env.NEXT_PUBLIC_ORDER_API_URL || 'http://localhost:4004').replace(/\/$/, '').replace(/\/api$/, '');
+
+  // Auto-detect referral code from URL
+  useEffect(() => {
+    const urlRef = searchParams.get('ref') || searchParams.get('referralCode');
+    if (urlRef) {
+      setFormData(prev => ({ ...prev, referralCode: urlRef.toUpperCase() }));
+    }
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -74,9 +77,7 @@ function SignupFormContent() {
     if (file) setProfilePicPreview(URL.createObjectURL(file));
   };
 
-  // 1. Submit Registration -> Send OTP
-  // 1. Submit Registration -> Send OTP
-// 1. Submit Registration -> Send OTP
+  // 1. Submit Registration -> Dispatches Dual OTP
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGlobalError('');
@@ -88,27 +89,11 @@ function SignupFormContent() {
 
     setLoading(true); 
     try {
-      // 🟢 SMART PHONE CLEANER: (Double 92, Extra 0, aur Spaces ko theek karega)
-      let rawPhone = phone.replace(/\D/g, ''); // Sirf digits rakho
-
-      // 1. Agar double 92 lag gaya ho (e.g. 9292335...)
-      if (rawPhone.startsWith('9292')) {
-          rawPhone = rawPhone.substring(2);
-      }
-      // 2. Agar 92 ke baad 0 lag gaya ho (e.g. 920335...)
-      if (rawPhone.startsWith('9203')) {
-          rawPhone = '92' + rawPhone.substring(3);
-      }
-      // 3. Agar sirf 0335... likha ho
-      if (rawPhone.startsWith('03')) {
-          rawPhone = '92' + rawPhone.substring(1);
-      }
-      // 4. Agar sirf 335... (10 digits) likha ho
-      if (rawPhone.startsWith('3') && rawPhone.length === 10) {
-          rawPhone = '92' + rawPhone;
-      }
-
-      // Final format hamesha perfect '+923XXXXXXXXX' banega (Exactly 13 characters)
+      let rawPhone = phone.replace(/\D/g, '');
+      if (rawPhone.startsWith('9292')) rawPhone = rawPhone.substring(2);
+      if (rawPhone.startsWith('9203')) rawPhone = '92' + rawPhone.substring(3);
+      if (rawPhone.startsWith('03')) rawPhone = '92' + rawPhone.substring(1);
+      if (rawPhone.startsWith('3') && rawPhone.length === 10) rawPhone = '92' + rawPhone;
       const finalFormattedPhone = rawPhone.startsWith('92') ? `+${rawPhone}` : `+92${rawPhone}`;
 
       const res = await fetch(`${getAuthUrl()}/auth/user/register`, {
@@ -116,7 +101,7 @@ function SignupFormContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ...formData, 
-          phone: finalFormattedPhone // 🟢 Clean Phone sent to backend
+          phone: finalFormattedPhone
         })
       });
       const data = await res.json();
@@ -130,7 +115,10 @@ function SignupFormContent() {
         return;
       }
       
+      // 🟢 Save WhatsApp presence & Open OTP Screen
+      setHasWhatsApp(data.hasWhatsApp ?? true);
       setStep('otp');
+
     } catch (err: any) { 
       setGlobalError(err.message || "Server connection failed."); 
     } finally { 
@@ -138,49 +126,85 @@ function SignupFormContent() {
     }
   };
 
-  // 2. Handle OTP Input Logic
-  const handleOtpChange = (index: number, value: string) => {
+  // 2. OTP Change Handlers
+  const handleOtpChange = (type: 'email' | 'whatsapp', index: number, value: string) => {
     if (isNaN(Number(value))) return;
-    const newOtp = [...otp];
-    newOtp[index] = value.substring(value.length - 1);
-    setOtp(newOtp);
-    if (value && index < 5) otpRefs.current[index + 1]?.focus();
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
+    
+    if (type === 'email') {
+      const newOtp = [...emailOtp];
+      newOtp[index] = value.substring(value.length - 1);
+      setEmailOtp(newOtp);
+      if (value && index < 5) emailOtpRefs.current[index + 1]?.focus();
+      if (fieldErrors.emailOtp) setFieldErrors(prev => ({ ...prev, emailOtp: '' }));
+    } else {
+      const newOtp = [...whatsappOtp];
+      newOtp[index] = value.substring(value.length - 1);
+      setWhatsappOtp(newOtp);
+      if (value && index < 5) whatsappOtpRefs.current[index + 1]?.focus();
+      if (fieldErrors.whatsappOtp) setFieldErrors(prev => ({ ...prev, whatsappOtp: '' }));
     }
   };
 
-  // 3. Submit OTP -> Verify & Auto Login
+  const handleOtpKeyDown = (type: 'email' | 'whatsapp', index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (type === 'email' && !emailOtp[index] && index > 0) {
+        emailOtpRefs.current[index - 1]?.focus();
+      } else if (type === 'whatsapp' && !whatsappOtp[index] && index > 0) {
+        whatsappOtpRefs.current[index - 1]?.focus();
+      }
+    }
+  };
+
+  // 3. Submit OTPs -> Verify & Login
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const otpString = otp.join('');
-    if (otpString.length < 6) return setGlobalError("Please enter the complete 6-digit code.");
-    
-    setLoading(true); 
     setGlobalError('');
+    setFieldErrors({});
+
+    const emailOtpStr = emailOtp.join('');
+    const whatsappOtpStr = whatsappOtp.join('');
+
+    if (emailOtpStr.length < 6) {
+      return setFieldErrors(prev => ({ ...prev, emailOtp: "Please enter the 6-digit email code." }));
+    }
+
+    if (hasWhatsApp && whatsappOtpStr.length < 6) {
+      return setFieldErrors(prev => ({ ...prev, whatsappOtp: "Please enter the 6-digit WhatsApp code." }));
+    }
+
+    setLoading(true);
     try {
       const res = await fetch(`${getAuthUrl()}/auth/user/verify-email`, {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, otp: otpString })
+        body: JSON.stringify({ 
+          email: formData.email, 
+          emailOtp: emailOtpStr,
+          whatsappOtp: hasWhatsApp ? whatsappOtpStr : null
+        })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      
+      if (!res.ok) {
+        if (data.field) {
+          setFieldErrors({ [data.field]: data.message });
+        } else {
+          setGlobalError(data.message);
+        }
+        return;
+      }
       
       setIsSuccess(true);
       setTimeout(() => login(data.token), 2000);
 
     } catch (err: any) { 
-      setGlobalError(err.message); 
+      setGlobalError(err.message || "Verification failed"); 
     } finally { 
       setLoading(false); 
     }
   };
 
-  // 4. Google Login (Passes Referral Code as well)
+  // 4. Google Login
   const handleGoogleClick = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setLoading(true); 
@@ -191,7 +215,7 @@ function SignupFormContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             accessToken: tokenResponse.access_token,
-            referralCode: formData.referralCode // 🟢 Pass referral code to Google Auth
+            referralCode: formData.referralCode
           })
         });
         const data = await res.json();
@@ -208,11 +232,11 @@ function SignupFormContent() {
 
   const styles: { [key: string]: React.CSSProperties } = {
     container: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%)', padding: '20px 10px', fontFamily: "'Poppins', sans-serif" },
-    card: { backgroundColor: '#ffffff', padding: '35px 30px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', width: '100%', maxWidth: '460px', textAlign: 'center', boxSizing: 'border-box', animation: 'slideIn 0.4s ease-out' },
+    card: { backgroundColor: '#ffffff', padding: '35px 30px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', width: '100%', maxWidth: '480px', textAlign: 'center', boxSizing: 'border-box', animation: 'slideIn 0.4s ease-out' },
     benefitsHeader: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: '25px', padding: '15px', backgroundColor: '#f9fafb', borderRadius: '16px', border: '1px solid #e5e7eb' },
     benefitItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#4b5563', fontSize: '12px', fontWeight: '500' },
-    title: { fontSize: '1.75rem', fontWeight: '700', color: '#111827', marginBottom: '10px' },
-    subtitle: { fontSize: '0.95rem', color: '#6b7280', marginBottom: '25px' },
+    title: { fontSize: '1.75rem', fontWeight: '700', color: '#111827', marginBottom: '8px' },
+    subtitle: { fontSize: '0.9rem', color: '#6b7280', marginBottom: '25px' },
     profilePicContainer: { position: 'relative', width: '90px', height: '90px', margin: '0 auto 20px auto', cursor: 'pointer' },
     profilePic: { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
     profilePicOverlay: { position: 'absolute', bottom: '0px', right: '0px', backgroundColor: '#2563eb', color: 'white', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '3px solid white' },
@@ -222,28 +246,32 @@ function SignupFormContent() {
     passwordIcon: { position: 'absolute', top: '16px', right: '15px', color: '#9ca3af', cursor: 'pointer' },
     button: { width: '100%', padding: '15px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', marginTop: '10px', transition: 'transform 0.1s ease' },
     globalError: { color: '#dc2626', backgroundColor: '#fee2e2', padding: '12px', borderRadius: '10px', marginBottom: '20px', fontSize: '14px', fontWeight: '500' },
-    inlineError: { color: '#dc2626', fontSize: '12px', fontWeight: '600', margin: '4px 0 0 4px' },
+    inlineError: { color: '#dc2626', fontSize: '12px', fontWeight: '600', margin: '4px 0 0 4px', textAlign: 'left' },
     footerText: { marginTop: '20px', fontSize: '14px', color: '#6b7280' },
     link: { color: '#2563eb', fontWeight: '700', cursor: 'pointer', textDecoration: 'none' },
     divider: { display: 'flex', alignItems: 'center', margin: '20px 0', color: '#9ca3af' },
     line: { flex: 1, height: '1px', backgroundColor: '#e5e7eb' },
     socialBtn: { width: '100%', padding: '15px', border: '1px solid #d1d5db', backgroundColor: 'white', borderRadius: '12px', cursor: 'pointer', fontSize: '15px', fontWeight: '600', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s ease' },
-    otpContainer: { display: 'flex', justifyContent: 'center', gap: '10px', margin: '30px 0' },
-    otpInput: { width: '50px', height: '60px', fontSize: '24px', fontWeight: '700', textAlign: 'center', borderRadius: '12px', border: '2px solid #e5e7eb', outline: 'none', backgroundColor: '#f8fafc', color: '#f97316', transition: '0.2s' },
+    
+    // OTP Specific
+    otpSection: { textAlign: 'left', marginBottom: '20px', background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' },
+    otpSectionHeader: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' },
+    otpContainer: { display: 'flex', justifyContent: 'center', gap: '8px' },
+    otpInput: { width: '42px', height: '52px', fontSize: '20px', fontWeight: '800', textAlign: 'center', borderRadius: '10px', border: '2px solid #cbd5e1', outline: 'none', backgroundColor: '#ffffff', color: '#0f172a', transition: '0.2s' },
   };
-  
+
   return (
     <>
       <style>{`
         .button-active:active { transform: scale(0.98); } 
         .social-btn-hover:hover { border-color: #9ca3af; background-color: #f9fafb; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .otp-focus:focus { border-color: #f97316 !important; background-color: #fff !important; box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); }
+        .otp-focus:focus { border-color: #f85606 !important; box-shadow: 0 0 0 3px rgba(248, 86, 6, 0.15) !important; }
         .input-error { border-color: #dc2626 !important; background-color: #fef2f2 !important; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
       
       <div style={styles.container}>
-        {isSuccess && <SuccessPopup message="Email Verified! Welcome to SJ10 🎉" onClose={() => {}} />}
+        {isSuccess && <SuccessPopup message="Account Verified! Welcome to SJ10 🎉" onClose={() => {}} />}
         
         <div style={styles.card}>
           {globalError && <p style={styles.globalError}><i className="fas fa-exclamation-circle"></i> {globalError}</p>}
@@ -296,7 +324,7 @@ function SignupFormContent() {
                   {fieldErrors.phone && <p style={styles.inlineError}>{fieldErrors.phone}</p>}
                 </div>
 
-                {/* 🟢 OPTIONAL REFERRAL CODE INPUT */}
+                {/* Referral Code */}
                 <div style={styles.inputWrapper}>
                   <FaGift style={styles.inputIcon} />
                   <input 
@@ -345,44 +373,97 @@ function SignupFormContent() {
           )}
 
           {/* ========================================================= */}
-          {/* STEP 2: OTP VERIFICATION SCREEN */}
+          {/* STEP 2: 🟢 DUAL SECURITY OTP VERIFICATION SCREEN */}
           {/* ========================================================= */}
           {step === 'otp' && (
             <>
-              <div style={{width:'80px', height:'80px', background:'#fff7ed', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px'}}>
-                  <i className="fas fa-envelope-open-text" style={{fontSize:'35px', color:'#f85606'}}></i>
+              <div style={{width:'70px', height:'70px', background:'#fff7ed', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', border:'2px solid #ffedd5'}}>
+                  <i className="fas fa-shield-halved" style={{fontSize:'30px', color:'#f85606'}}></i>
               </div>
-              <h1 style={styles.title}>Verify Your Email</h1>
+              <h1 style={{...styles.title, fontSize:'1.5rem'}}>Security Verification</h1>
               <p style={styles.subtitle}>
-                We sent a 6-digit code to <br/><strong style={{color:'#1e293b'}}>{formData.email}</strong>
+                {hasWhatsApp 
+                  ? "Enter the 6-digit codes sent to your Email & WhatsApp." 
+                  : "We sent a 6-digit code to your Email."}
               </p>
 
+              {/* ⚠️ Notice if WhatsApp was not found */}
+              {!hasWhatsApp && (
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '10px 14px', color: '#92400e', fontSize: '12px', textAlign: 'left', marginBottom: '20px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <FaExclamationTriangle size={16} style={{ flexShrink: 0 }} />
+                  <span>WhatsApp was not detected on your mobile number. Please verify using your Email code only.</span>
+                </div>
+              )}
+
               <form onSubmit={handleVerifyOtp}>
-                <div style={styles.otpContainer}>
-                  {otp.map((digit, index) => (
-                    <input
-                      key={index}
-                      ref={el => { otpRefs.current[index] = el; }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={e => handleOtpChange(index, e.target.value)}
-                      onKeyDown={e => handleOtpKeyDown(index, e)}
-                      style={styles.otpInput}
-                      className="otp-focus"
-                      autoFocus={index === 0}
-                    />
-                  ))}
+                
+                {/* 1. EMAIL OTP SECTION */}
+                <div style={styles.otpSection}>
+                  <div style={styles.otpSectionHeader}>
+                    <FaEnvelope color="#2563eb" />
+                    <span>Email Code <small style={{ color: '#64748b' }}>({formData.email})</small></span>
+                  </div>
+                  
+                  <div style={styles.otpContainer}>
+                    {emailOtp.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={el => { emailOtpRefs.current[index] = el; }}
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={1}
+                        value={digit}
+                        onChange={e => handleOtpChange('email', index, e.target.value)}
+                        onKeyDown={e => handleOtpKeyDown('email', index, e)}
+                        style={styles.otpInput}
+                        className="otp-focus"
+                        autoFocus={index === 0}
+                      />
+                    ))}
+                  </div>
+                  {fieldErrors.emailOtp && <p style={styles.inlineError}>{fieldErrors.emailOtp}</p>}
                 </div>
 
-                <button type="submit" style={{...styles.button, background: '#f85606'}} className="button-active" disabled={loading}>
-                  {loading ? <i className="fas fa-spinner fa-spin"></i> : 'VERIFY & LOGIN'}
+                {/* 2. WHATSAPP OTP SECTION (ONLY IF WHATSAPP FOUND) */}
+                {hasWhatsApp && (
+                  <div style={styles.otpSection}>
+                    <div style={styles.otpSectionHeader}>
+                      <FaWhatsapp color="#16a34a" size={16} />
+                      <span>WhatsApp Code <small style={{ color: '#64748b' }}>({phone})</small></span>
+                    </div>
+                    
+                    <div style={styles.otpContainer}>
+                      {whatsappOtp.map((digit, index) => (
+                        <input
+                          key={index}
+                          ref={el => { whatsappOtpRefs.current[index] = el; }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={digit}
+                          onChange={e => handleOtpChange('whatsapp', index, e.target.value)}
+                          onKeyDown={e => handleOtpKeyDown('whatsapp', index, e)}
+                          style={styles.otpInput}
+                          className="otp-focus"
+                        />
+                      ))}
+                    </div>
+                    {fieldErrors.whatsappOtp && <p style={styles.inlineError}>{fieldErrors.whatsappOtp}</p>}
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  style={{...styles.button, background: '#f85606'}} 
+                  className="button-active" 
+                  disabled={loading}
+                >
+                  {loading ? <i className="fas fa-spinner fa-spin"></i> : 'VERIFY & COMPLETE REGISTRATION'}
                 </button>
               </form>
 
               <p style={styles.footerText}>
-                Didn't receive the code? <span style={styles.link} onClick={() => setStep('form')}>Change Email</span>
+                Need to change details? <span style={styles.link} onClick={() => setStep('form')}>Go Back</span>
               </p>
             </>
           )}
