@@ -1,100 +1,108 @@
-// public/sw.js
+// public/sw.js - SJ10 Enterprise Service Worker (Rich Image Web Push + Resilient Cache)
+const CACHE_NAME = 'sj10-cache-v3';
 
-// --- 1. CACHING CONFIGURATION (The New Part) ---
-const CACHE_NAME = 'sj10-cache-v2'; // Updated version name
+// Only cache essential static assets that always exist
 const urlsToCache = [
   '/',
-  '/explore',
-  '/category',
-  '/offline.html', // This is the fallback page we'll create
-  '/logo.gif',
-  '/favicon.ico',
+  '/favicon.ico'
 ];
 
-// --- 2. INSTALL EVENT: Cache the "App Shell" ---
+// --- 1. INSTALL: Safe Non-Crashing Cache ---
 self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Force activate immediately
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[SW] Caching app shell');
-        return cache.addAll(urlsToCache);
-      })
-  );
-});
-
-// --- 3. ACTIVATE EVENT: Clean up old caches ---
-self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            console.log('[SW] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
+    caches.open(CACHE_NAME).then((cache) => {
+      // Individual cache fetch so missing URLs never break service worker installation!
+      return Promise.allSettled(
+        urlsToCache.map(url => cache.add(url).catch(err => console.warn(`Cache skip for ${url}`)))
       );
     })
   );
 });
 
-// --- 4. FETCH EVENT: Intercept requests and serve from cache ---
+// --- 2. ACTIVATE: Claim Clients Immediately ---
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// --- 3. FETCH: Safe Cache Fallback ---
 self.addEventListener('fetch', (event) => {
-  // We don't cache API calls or non-GET requests
   if (event.request.url.includes('/api/') || event.request.method !== 'GET') {
     return;
   }
 
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // If it's in the cache, serve it immediately (super fast!)
-        if (response) {
-          return response;
-        }
-
-        // If not in cache, fetch from the network
-        return fetch(event.request)
-          .then((networkResponse) => {
-            // And cache the new response for next time
-            return caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, networkResponse.clone());
-                return networkResponse;
-              });
-          })
-          .catch(() => {
-            // If network fails, show the offline page
-            if (event.request.mode === 'navigate') {
-              return caches.match('/offline.html');
-            }
-          });
-      })
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).catch(() => {
+        // Return null or cached home if offline
+        return caches.match('/');
+      });
+    })
   );
 });
 
-
-// --- 5. PUSH NOTIFICATION LOGIC (Your Existing Code) ---
+// --- 4. 🟢 ULTRA-LUXURY RICH-IMAGE PUSH NOTIFICATION LOGIC ---
 self.addEventListener('push', function (event) {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
-      icon: data.icon || '/logo.png',
-      badge: '/badge.png',
-      vibrate: [100, 50, 100],
-      data: {
-        url: data.url || '/orders' 
-      }
-    };
-    event.waitUntil(self.registration.showNotification(data.title, options));
+  if (!event.data) return;
+
+  let data = {};
+  try {
+    data = event.data.json();
+  } catch (e) {
+    data = { title: 'SJ10 Update', body: event.data.text() };
   }
+
+  const title = data.title || 'SJ10 Marketplace';
+  const options = {
+    body: data.body || 'You have a new update on your order.',
+    icon: data.icon || '/logo192.png',
+    badge: data.badge || '/badge.png',
+    image: data.image || null, // 🟢 LARGE BANNER IMAGE (App Jaisi Tasweer!)
+    vibrate: [200, 100, 200],
+    tag: data.tag || `sj10-notif-${Date.now()}`,
+    renotify: true,
+    requireInteraction: true, // Screen par tab tak rukay jab tak user click na kare
+    data: {
+      url: data.url || data.action_url || '/orders'
+    },
+    actions: [
+      { action: 'open', title: 'View Details 📦' }
+    ]
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
+// --- 5. NOTIFICATION CLICK HANDLER ---
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
+  const targetUrl = event.notification.data?.url || '/orders';
+
   event.waitUntil(
-    clients.openWindow(event.notification.data.url)
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If already open, focus it
+      for (const client of clientList) {
+        if (client.url.includes(targetUrl) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Otherwise open new window
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 });

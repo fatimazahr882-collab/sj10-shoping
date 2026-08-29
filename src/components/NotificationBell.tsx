@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { FaBell, FaCheck, FaBoxOpen, FaInfoCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { FaBell, FaCheck, FaBoxOpen, FaInfoCircle, FaExclamationTriangle, FaTruck, FaTimesCircle, FaGift } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/apiClient';
@@ -23,35 +23,27 @@ export default function NotificationBell() {
     const dropdownRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
 
-   // fetchNotifications function ko is tarah update karein
-const fetchNotifications = async () => {
-    // 🛑 THE FIX: Agar token nahi hai toh API call hi mat karo
-    const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
-    if (!token) return; 
+    const fetchNotifications = async () => {
+        const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+        if (!token) return; 
 
-    try {
-        const data = await apiClient('/notifications', 'GET');
-        if (data && data.notifications) {
-            setNotifications(data.notifications);
-            setUnreadCount(data.unreadCount || 0);
-        }
-    } catch (error) {
-        // 🛑 Error ko console mein log mat karein taake Lighthouse score na giraye
-        // console.error("Bell Error:", error); 
-    }
-};
+        try {
+            const data = await apiClient('/notifications', 'GET');
+            if (data && data.notifications) {
+                setNotifications(data.notifications);
+                setUnreadCount(data.unreadCount || data.notifications.filter((n: Notification) => n.is_read === 0).length);
+            }
+        } catch (error) {}
+    };
 
-// useEffect mein bhi interval tabhi chalayein agar user logged in ho
-useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
-    if (!token) return;
+    useEffect(() => {
+        const token = typeof window !== 'undefined' ? localStorage.getItem("authToken") : null;
+        if (!token) return;
 
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-}, []);
-
-    
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 25000);
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -66,7 +58,9 @@ useEffect(() => {
     const markAllRead = async () => {
         const unreadIds = notifications.filter(n => n.is_read === 0).map(n => n.id);
         if (unreadIds.length > 0) {
-            await apiClient('/notifications/read', 'PUT', { notificationIds: unreadIds });
+            try {
+                await apiClient('/notifications/read', 'PUT', { notificationIds: unreadIds });
+            } catch (e) {}
             setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
             setUnreadCount(0);
         }
@@ -78,26 +72,27 @@ useEffect(() => {
     };
 
     const getIcon = (type: string) => {
-        if (type === 'order_dispatched') return <FaBoxOpen color="#3B82F6" size={16} />;
-        if (type === 'alert') return <FaExclamationTriangle color="#EF4444" size={16} />;
-        return <FaInfoCircle color="#9CA3AF" size={16} />;
+        const t = (type || '').toLowerCase();
+        if (t.includes('dispatch') || t.includes('shipping')) return <FaTruck color="#3B82F6" size={16} />;
+        if (t.includes('cancel')) return <FaTimesCircle color="#EF4444" size={16} />;
+        if (t.includes('reward') || t.includes('coupon')) return <FaGift color="#F59E0B" size={16} />;
+        if (t.includes('delivered') || t.includes('order')) return <FaBoxOpen color="#10B981" size={16} />;
+        return <FaInfoCircle color="#64748B" size={16} />;
     };
 
     return (
         <div style={styles.container} ref={dropdownRef}>
-            {/* Bell Icon */}
-          <button 
-  onClick={handleToggle} 
-  style={styles.bellButton}
-  aria-label="Open notifications" /* ✅ ADD THIS */
->
-  <FaBell size={20} color="#4B5563" aria-hidden="true" />
-  {unreadCount > 0 && (
-     <span style={styles.badge}>{unreadCount}</span>
-  )}
-</button>
+            <button 
+                onClick={handleToggle} 
+                style={styles.bellButton}
+                aria-label="Notifications"
+            >
+                <FaBell size={20} color="#334155" />
+                {unreadCount > 0 && (
+                    <span style={styles.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>
+                )}
+            </button>
 
-            {/* Dropdown Popup */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div 
@@ -107,29 +102,30 @@ useEffect(() => {
                         transition={{ duration: 0.2 }}
                         style={styles.dropdown}
                     >
-                        {/* Header */}
                         <div style={styles.header}>
                             <h3 style={styles.headerTitle}>Notifications</h3>
                             <button onClick={markAllRead} style={styles.markReadBtn}>
-                                <FaCheck size={10} style={{marginRight:4}} /> Mark all read
+                                <FaCheck size={10} style={{marginRight:4}} /> Mark read
                             </button>
                         </div>
 
-                        {/* List */}
                         <div style={styles.list}>
                             {notifications.length === 0 ? (
-                                <div style={styles.empty}>No notifications yet.</div>
+                                <div style={styles.empty}>
+                                    <FaBoxOpen size={30} color="#CBD5E1" style={{ display: 'block', margin: '0 auto 8px' }} />
+                                    No notifications yet.
+                                </div>
                             ) : (
                                 notifications.map((note) => (
                                     <div 
                                         key={note.id}
                                         onClick={() => {
-                                            if(note.action_url) router.push(note.action_url);
+                                            if (note.action_url) router.push(note.action_url);
                                             setIsOpen(false);
                                         }}
                                         style={{
                                             ...styles.item,
-                                            backgroundColor: note.is_read === 0 ? '#EFF6FF' : '#FFF'
+                                            backgroundColor: note.is_read === 0 ? '#F0F9FF' : '#FFF'
                                         }}
                                     >
                                         <div style={styles.iconContainer}>
@@ -139,7 +135,7 @@ useEffect(() => {
                                             <p style={styles.itemTitle}>{note.title}</p>
                                             <p style={styles.itemBody}>{note.body}</p>
                                             <span style={styles.time}>
-                                                {new Date(note.created_at).toLocaleDateString()}
+                                                {new Date(note.created_at).toLocaleDateString([], { day: 'numeric', month: 'short' })}
                                             </span>
                                         </div>
                                     </div>
@@ -147,13 +143,12 @@ useEffect(() => {
                             )}
                         </div>
 
-                        {/* Footer */}
                         <div style={styles.footer}>
                             <button 
-                                onClick={() => { router.push('/notifications'); setIsOpen(false); }}
+                                onClick={() => { router.push('/orders'); setIsOpen(false); }}
                                 style={styles.viewAllBtn}
                             >
-                                View All History
+                                View Order Updates 📦
                             </button>
                         </div>
                     </motion.div>
@@ -163,47 +158,47 @@ useEffect(() => {
     );
 }
 
-// --- CSS STYLES ---
 const styles: {[key:string]: React.CSSProperties} = {
     container: { position: 'relative' },
-    bellButton: { position: 'relative', background: 'none', border: 'none', cursor: 'pointer', padding: '8px' },
+    bellButton: { position: 'relative', background: 'none', border: 'none', cursor: 'pointer', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
     badge: {
-        position: 'absolute', top: 0, right: 0,
+        position: 'absolute', top: 2, right: 2,
         background: '#EF4444', color: 'white',
-        fontSize: '10px', fontWeight: 'bold',
-        height: '16px', width: '16px',
+        fontSize: '9px', fontWeight: 800,
+        height: '16px', minWidth: '16px',
+        padding: '0 4px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: '50%', border: '2px solid white'
+        borderRadius: '10px', border: '2px solid white'
     },
     dropdown: {
-        position: 'absolute', right: 0, top: '40px',
+        position: 'absolute', right: 0, top: '42px',
         width: '320px', background: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-        border: '1px solid #E5E7EB',
+        borderRadius: '16px',
+        boxShadow: '0 15px 35px -5px rgba(0,0,0,0.15)',
+        border: '1px solid #E2E8F0',
         zIndex: 1000, overflow: 'hidden'
     },
     header: {
-        padding: '12px 16px', borderBottom: '1px solid #F3F4F6',
+        padding: '14px 16px', borderBottom: '1px solid #F1F5F9',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: '#F9FAFB'
+        background: '#F8FAFC'
     },
-    headerTitle: { fontSize: '14px', fontWeight: 800, color: '#111827', margin: 0 },
+    headerTitle: { fontSize: '14px', fontWeight: 800, color: '#0F172A', margin: 0 },
     markReadBtn: {
         background: 'none', border: 'none', color: '#2563EB',
-        fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center'
+        fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center'
     },
-    list: { maxHeight: '350px', overflowY: 'auto' },
-    empty: { padding: '30px', textAlign: 'center', color: '#9CA3AF', fontSize: '13px' },
+    list: { maxHeight: '340px', overflowY: 'auto' },
+    empty: { padding: '36px 20px', textAlign: 'center', color: '#94A3B8', fontSize: '13px', fontWeight: 500 },
     item: {
-        padding: '12px 16px', borderBottom: '1px solid #F3F4F6',
+        padding: '12px 16px', borderBottom: '1px solid #F1F5F9',
         cursor: 'pointer', display: 'flex', gap: '12px', alignItems: 'flex-start',
         transition: 'background 0.2s'
     },
-    iconContainer: { marginTop: '2px' },
-    itemTitle: { fontSize: '13px', fontWeight: 700, color: '#1F2937', margin: '0 0 4px 0' },
-    itemBody: { fontSize: '12px', color: '#4B5563', margin: 0, lineHeight: '1.4' },
-    time: { fontSize: '10px', color: '#9CA3AF', display: 'block', marginTop: '6px' },
-    footer: { padding: '10px', textAlign: 'center', background: '#F9FAFB', borderTop: '1px solid #E5E7EB' },
-    viewAllBtn: { background: 'none', border: 'none', color: '#1E40AF', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }
+    iconContainer: { marginTop: '2px', background: '#F8FAFC', padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    itemTitle: { fontSize: '13px', fontWeight: 700, color: '#0F172A', margin: '0 0 3px 0' },
+    itemBody: { fontSize: '12px', color: '#475569', margin: 0, lineHeight: '1.4' },
+    time: { fontSize: '10px', color: '#94A3B8', display: 'block', marginTop: '6px', fontWeight: 600 },
+    footer: { padding: '10px', textAlign: 'center', background: '#F8FAFC', borderTop: '1px solid #E2E8F0' },
+    viewAllBtn: { background: 'none', border: 'none', color: '#2563EB', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }
 };
