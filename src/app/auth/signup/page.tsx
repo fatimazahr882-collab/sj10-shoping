@@ -8,7 +8,11 @@ import PhoneInput from 'react-phone-input-2';
 // @ts-ignore
 import 'react-phone-input-2/lib/style.css';
 import { useGoogleLogin } from '@react-oauth/google';
-import { FaUser, FaEnvelope, FaLock, FaStore, FaEye, FaEyeSlash, FaCamera, FaGoogle, FaShippingFast, FaTags, FaShieldAlt, FaGift, FaWhatsapp, FaExclamationTriangle } from 'react-icons/fa';
+import { 
+  FaUser, FaEnvelope, FaLock, FaStore, FaEye, FaEyeSlash, 
+  FaCamera, FaGoogle, FaShippingFast, FaTags, FaShieldAlt, 
+  FaWhatsapp, FaExclamationTriangle, FaGift 
+} from 'react-icons/fa';
 import SuccessPopup from '@/components/SuccessPopup';
 
 const DEFAULT_PROFILE_PIC_URL = "https://media.sj10.pk/product/SJ10-285129/SJ10-285129-1-20260201-072541.webp";
@@ -125,7 +129,28 @@ function SignupFormContent() {
       setLoading(false); 
     }
   };
+// 🟢 NAYA CODE (ISKO LINE 128 PAR DAAL DEIN):
+const handleOtpPaste = (type: 'email' | 'whatsapp', e: React.ClipboardEvent<HTMLInputElement>) => {
+  e.preventDefault();
+  const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+  if (!pastedData) return;
 
+  if (type === 'email') {
+    const newOtp = [...emailOtp];
+    for (let i = 0; i < pastedData.length; i++) {
+      newOtp[i] = pastedData[i];
+    }
+    setEmailOtp(newOtp);
+    emailOtpRefs.current[Math.min(pastedData.length, 5)]?.focus();
+  } else {
+    const newOtp = [...whatsappOtp];
+    for (let i = 0; i < pastedData.length; i++) {
+      newOtp[i] = pastedData[i];
+    }
+    setWhatsappOtp(newOtp);
+    whatsappOtpRefs.current[Math.min(pastedData.length, 5)]?.focus();
+  }
+};
   // 2. OTP Change Handlers
   const handleOtpChange = (type: 'email' | 'whatsapp', index: number, value: string) => {
     if (isNaN(Number(value))) return;
@@ -318,12 +343,22 @@ function SignupFormContent() {
                   {fieldErrors.email && <p style={styles.inlineError}>{fieldErrors.email}</p>}
                 </div>
                 
-                {/* Phone */}
-                <div style={styles.inputWrapper}>
-                  <PhoneInput country={'pk'} value={phone} onChange={handlePhoneChange} containerStyle={{ marginBottom: fieldErrors.phone ? '4px' : '0' }} inputStyle={{...styles.input, paddingLeft: '50px', width: '100%', borderColor: fieldErrors.phone ? '#dc2626' : '#d1d5db', backgroundColor: fieldErrors.phone ? '#fef2f2' : '#f9fafb'}} />
-                  {fieldErrors.phone && <p style={styles.inlineError}>{fieldErrors.phone}</p>}
-                </div>
-
+              {/* 🟢 WhatsApp Number Input with Green Icon */}
+<div style={styles.inputWrapper}>
+  <FaWhatsapp style={{ ...styles.inputIcon, color: '#25D366', fontSize: '20px' }} />
+  <input 
+    name="phone" 
+    type="tel"
+    placeholder="WhatsApp Number (e.g. 03368361990)" 
+    style={{ ...styles.input, paddingLeft: '48px', borderColor: fieldErrors.phone ? '#dc2626' : '#d1d5db' }} 
+    className={fieldErrors.phone ? 'input-error' : ''} 
+    value={phone}
+    onChange={e => handlePhoneChange(e.target.value)} 
+    maxLength={13}
+    required 
+  />
+  {fieldErrors.phone && <p style={styles.inlineError}>{fieldErrors.phone}</p>}
+</div>
                 {/* Referral Code */}
                 <div style={styles.inputWrapper}>
                   <FaGift style={styles.inputIcon} />
@@ -418,6 +453,7 @@ function SignupFormContent() {
                         style={styles.otpInput}
                         className="otp-focus"
                         autoFocus={index === 0}
+                        onPaste={(e) => handleOtpPaste('email', e)}
                       />
                     ))}
                   </div>
@@ -443,7 +479,9 @@ function SignupFormContent() {
                           value={digit}
                           onChange={e => handleOtpChange('whatsapp', index, e.target.value)}
                           onKeyDown={e => handleOtpKeyDown('whatsapp', index, e)}
+                          onPaste={(e) => handleOtpPaste('whatsapp', e)}
                           style={styles.otpInput}
+                          
                           className="otp-focus"
                         />
                       ))}

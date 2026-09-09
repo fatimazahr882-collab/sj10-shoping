@@ -7,10 +7,10 @@ import { useAuth } from './AuthProvider';
 export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { login } = useAuth();
   
-  // --- View States ---
-  const [modalStep, setModalStep] = useState<'form' | 'otp'>('form');
+// --- View States ---
+  const [modalStep, setModalStep] = useState<'form' | 'google_phone' | 'otp'>('form');
+  const [googleEmail, setGoogleEmail] = useState(''); // 🟢 Google user ki email save karne ke liye
   const [isLoginView, setIsLoginView] = useState(true);
-
   // --- Form States ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,7 +40,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClos
     }, 1500);
   };
 
-  const handleGoogleClick = useGoogleLogin({
+const handleGoogleClick = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setLoading(true); setError('');
       try {
@@ -49,11 +49,19 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClos
           body: JSON.stringify({ accessToken: tokenResponse.access_token })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.message);
         
-        await login(data.token, false); // 🟢 false = Stay on current page!
+        if (!res.ok) throw new Error(data.message);
+
+        // 🟢 AGAR NAYA USER HAI TOH PHONE NUMBER STEP PAR BHEJEIN
+        if (data.requiresPhone) {
+            setGoogleEmail(data.email);
+            setModalStep('google_phone'); 
+            return;
+        }
+        
+        await login(data.token, false); 
         triggerSuccessAndClose("Successfully Logged In with Google! 🎉");
-      } catch (err: any) { setError("Google Login Failed."); } 
+      } catch (err: any) { setError(err.message || "Google Login Failed."); } 
       finally { setLoading(false); }
     },
     onError: () => setError("Google Login error. Please try again.")
@@ -123,7 +131,43 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClos
       }
     }
   };
+// 🟢 1. GOOGLE SIGNUP MEIN PHONE SUBMIT KARNE KA FUNCTION
+  const handleGooglePhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      const res = await fetch(`${getAuthUrl()}/auth/user/google-phone-otp`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: googleEmail, phone: phone })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      
+      setEmail(googleEmail); // OTP verification ke liye email set karein
+      setModalStep('otp'); // OTP screen pe bhej dein
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // 🟢 2. 1-TAP OTP PASTE FUNCTION
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pastedData) return;
+
+    const newOtp = [...otp];
+    for (let i = 0; i < pastedData.length; i++) {
+      newOtp[i] = pastedData[i];
+    }
+    setOtp(newOtp);
+
+    // Last input par focus le jayein
+    const nextFocusIndex = Math.min(pastedData.length, 5);
+    otpRefs.current[nextFocusIndex]?.focus();
+  };
   // --- OTP Handlers ---
   const handleOtpChange = (index: number, value: string) => {
     if (isNaN(Number(value))) return;
@@ -243,7 +287,42 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClos
                 </p>
               </>
             )}
+{/* ========================================================= */}
+            {/* 🟢 STEP 1.5: GOOGLE USER KA WHATSAPP NUMBER STEP           */}
+            {/* ========================================================= */}
+            {modalStep === 'google_phone' && (
+              <>
+                <div style={{ width: '65px', height: '65px', background: '#ecfdf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}>
+                  <i className="fab fa-whatsapp" style={{ fontSize: '36px', color: '#25D366' }}></i>
+                </div>
+                <h2 className="title" style={{ fontSize: '22px' }}>Complete Profile</h2>
+                <p className="subtitle" style={{ marginBottom: '20px' }}>
+                  Please enter your active WhatsApp number for verification.
+                </p>
 
+                <form onSubmit={handleGooglePhoneSubmit} className="auth-form">
+                  <div className="input-group">
+                    <i className="fab fa-whatsapp input-icon" style={{ color: '#25D366' }}></i>
+                    <input 
+                      type="tel" 
+                      placeholder="WhatsApp Number (e.g. 03368361990)" 
+                      value={phone} 
+                      onChange={e => setPhone(e.target.value)} 
+                      maxLength={13} 
+                      required 
+                    />
+                  </div>
+
+                  <button type="submit" className="primary-btn" disabled={loading} style={{ background: '#25D366', boxShadow: '0 4px 15px rgba(37, 211, 102, 0.3)' }}>
+                    {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'SEND WHATSAPP OTP'}
+                  </button>
+                </form>
+
+                <p className="toggle-text">
+                  <span onClick={() => { setModalStep('form'); setError(''); }}>Back to Login</span>
+                </p>
+              </>
+            )}
             {/* ========================================================= */}
             {/* STEP 2: OTP VERIFICATION INSIDE MODAL                     */}
             {/* ========================================================= */}
@@ -271,6 +350,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClos
                         onKeyDown={e => handleOtpKeyDown(index, e)}
                         className="otp-input"
                         autoFocus={index === 0}
+                        onPaste={handleOtpPaste}
                       />
                     ))}
                   </div>

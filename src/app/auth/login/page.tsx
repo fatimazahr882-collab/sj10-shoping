@@ -55,6 +55,13 @@ export default function LoginPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
+
+        // 🟢 AGAR USER KA NUMBER NAHI HAI, TO USAY SIGNUP / WHATSAPP COMPLETE PROFILE PAR BHEJEIN
+        if (data.requiresPhone) {
+            router.push(`/auth/signup?email=${encodeURIComponent(data.email)}&name=${encodeURIComponent(data.name || '')}`);
+            return;
+        }
+
         await handleLoginSuccess(data.token);
       } catch (err: any) { setError("Google Login Failed."); setLoading(false); } 
     },
