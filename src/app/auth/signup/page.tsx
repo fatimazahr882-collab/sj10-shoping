@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import Link from 'next/link';
 import PhoneInput from 'react-phone-input-2';
@@ -10,41 +10,33 @@ import 'react-phone-input-2/lib/style.css';
 import { useGoogleLogin } from '@react-oauth/google';
 import { 
   FaUser, FaEnvelope, FaLock, FaStore, FaEye, FaEyeSlash, 
-  FaCamera, FaGoogle, FaShippingFast, FaTags, FaShieldAlt, 
-  FaWhatsapp, FaExclamationTriangle, FaGift 
+  FaCamera, FaGoogle, FaShoppingBag, FaShippingFast, FaShieldAlt,
+  FaPhoneAlt, FaCheckCircle
 } from 'react-icons/fa';
 import SuccessPopup from '@/components/SuccessPopup';
 
 const DEFAULT_PROFILE_PIC_URL = "https://media.sj10.pk/product/SJ10-285129/SJ10-285129-1-20260201-072541.webp";
 
-function SignupFormContent() {
+export default function SignupPage() {
   const { login } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   // --- View State ---
-  const [step, setStep] = useState<'form' | 'otp'>('form');
+  const [step, setStep] = useState<'form' | 'googlePhone' | 'otp'>('form');
 
   // --- Form States ---
-  const [formData, setFormData] = useState({ 
-    fullName: '', 
-    brandName: '', 
-    email: '', 
-    password: '', 
-    confirmPassword: '',
-    referralCode: '' 
-  });
+  const [formData, setFormData] = useState({ fullName: '', brandName: '', email: '', password: '', confirmPassword: '' });
   const [phone, setPhone] = useState('');
   const [passwordVisibility, setPasswordVisibility] = useState({ pass: false, confirm: false });
   const [profilePicPreview, setProfilePicPreview] = useState(DEFAULT_PROFILE_PIC_URL);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 🟢 DUAL OTP STATES
-  const [hasWhatsApp, setHasWhatsApp] = useState(true);
-  const [emailOtp, setEmailOtp] = useState(['', '', '', '', '', '']);
-  const [whatsappOtp, setWhatsappOtp] = useState(['', '', '', '', '', '']);
-  const emailOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const whatsappOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // --- Google States ---
+  const [googleData, setGoogleData] = useState<any>(null);
+
+  // --- OTP States ---
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // --- General & Error States ---
   const [globalError, setGlobalError] = useState('');
@@ -54,21 +46,16 @@ function SignupFormContent() {
 
   const getAuthUrl = () => (process.env.NEXT_PUBLIC_ORDER_API_URL || 'http://localhost:4004').replace(/\/$/, '').replace(/\/api$/, '');
 
-  // Auto-detect referral code from URL
-  useEffect(() => {
-    const urlRef = searchParams.get('ref') || searchParams.get('referralCode');
-    if (urlRef) {
-      setFormData(prev => ({ ...prev, referralCode: urlRef.toUpperCase() }));
-    }
-  }, [searchParams]);
+  const formatPhoneForBackend = (inputPhone: string) => {
+    let clean = inputPhone.replace(/\D/g, '');
+    if (clean.startsWith('03')) return `+92${clean.slice(1)}`;
+    if (clean.startsWith('923')) return `+${clean}`;
+    return `+92${clean}`;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData({ 
-      ...formData, 
-      [name]: name === 'referralCode' ? value.toUpperCase() : value 
-    });
-    if (fieldErrors[name]) setFieldErrors(prev => ({ ...prev, [name]: '' }));
+    setFormData({ ...formData,[e.target.name]: e.target.value });
+    if (fieldErrors[e.target.name]) setFieldErrors(prev => ({ ...prev, [e.target.name]: '' }));
   };
 
   const handlePhoneChange = (value: string) => {
@@ -81,7 +68,7 @@ function SignupFormContent() {
     if (file) setProfilePicPreview(URL.createObjectURL(file));
   };
 
-  // 1. Submit Registration -> Dispatches Dual OTP
+  // 1. Submit Normal Registration
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGlobalError('');
@@ -93,428 +80,444 @@ function SignupFormContent() {
 
     setLoading(true); 
     try {
-      let rawPhone = phone.replace(/\D/g, '');
-      if (rawPhone.startsWith('9292')) rawPhone = rawPhone.substring(2);
-      if (rawPhone.startsWith('9203')) rawPhone = '92' + rawPhone.substring(3);
-      if (rawPhone.startsWith('03')) rawPhone = '92' + rawPhone.substring(1);
-      if (rawPhone.startsWith('3') && rawPhone.length === 10) rawPhone = '92' + rawPhone;
-      const finalFormattedPhone = rawPhone.startsWith('92') ? `+${rawPhone}` : `+92${rawPhone}`;
-
       const res = await fetch(`${getAuthUrl()}/auth/user/register`, {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          ...formData, 
-          phone: finalFormattedPhone
-        })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, phone: `+${phone}` })
       });
       const data = await res.json();
       
       if (!res.ok) {
-        if (data.field) {
-          setFieldErrors({ [data.field]: data.message });
-        } else {
-          setGlobalError(data.message);
-        }
-        return;
+        if (data.field) setFieldErrors({ [data.field]: data.message });
+        else setGlobalError(data.message);
+        return; 
       }
-      
-      // 🟢 Save WhatsApp presence & Open OTP Screen
-      setHasWhatsApp(data.hasWhatsApp ?? true);
       setStep('otp');
-
     } catch (err: any) { 
       setGlobalError(err.message || "Server connection failed."); 
     } finally { 
       setLoading(false); 
     }
   };
-// 🟢 NAYA CODE (ISKO LINE 128 PAR DAAL DEIN):
-const handleOtpPaste = (type: 'email' | 'whatsapp', e: React.ClipboardEvent<HTMLInputElement>) => {
-  e.preventDefault();
-  const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-  if (!pastedData) return;
 
-  if (type === 'email') {
-    const newOtp = [...emailOtp];
-    for (let i = 0; i < pastedData.length; i++) {
-      newOtp[i] = pastedData[i];
-    }
-    setEmailOtp(newOtp);
-    emailOtpRefs.current[Math.min(pastedData.length, 5)]?.focus();
-  } else {
-    const newOtp = [...whatsappOtp];
-    for (let i = 0; i < pastedData.length; i++) {
-      newOtp[i] = pastedData[i];
-    }
-    setWhatsappOtp(newOtp);
-    whatsappOtpRefs.current[Math.min(pastedData.length, 5)]?.focus();
-  }
-};
-  // 2. OTP Change Handlers
-  const handleOtpChange = (type: 'email' | 'whatsapp', index: number, value: string) => {
-    if (isNaN(Number(value))) return;
-    
-    if (type === 'email') {
-      const newOtp = [...emailOtp];
-      newOtp[index] = value.substring(value.length - 1);
-      setEmailOtp(newOtp);
-      if (value && index < 5) emailOtpRefs.current[index + 1]?.focus();
-      if (fieldErrors.emailOtp) setFieldErrors(prev => ({ ...prev, emailOtp: '' }));
-    } else {
-      const newOtp = [...whatsappOtp];
-      newOtp[index] = value.substring(value.length - 1);
-      setWhatsappOtp(newOtp);
-      if (value && index < 5) whatsappOtpRefs.current[index + 1]?.focus();
-      if (fieldErrors.whatsappOtp) setFieldErrors(prev => ({ ...prev, whatsappOtp: '' }));
-    }
-  };
-
-  const handleOtpKeyDown = (type: 'email' | 'whatsapp', index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace') {
-      if (type === 'email' && !emailOtp[index] && index > 0) {
-        emailOtpRefs.current[index - 1]?.focus();
-      } else if (type === 'whatsapp' && !whatsappOtp[index] && index > 0) {
-        whatsappOtpRefs.current[index - 1]?.focus();
-      }
-    }
-  };
-
-  // 3. Submit OTPs -> Verify & Login
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setGlobalError('');
-    setFieldErrors({});
-
-    const emailOtpStr = emailOtp.join('');
-    const whatsappOtpStr = whatsappOtp.join('');
-
-    if (emailOtpStr.length < 6) {
-      return setFieldErrors(prev => ({ ...prev, emailOtp: "Please enter the 6-digit email code." }));
-    }
-
-    if (hasWhatsApp && whatsappOtpStr.length < 6) {
-      return setFieldErrors(prev => ({ ...prev, whatsappOtp: "Please enter the 6-digit WhatsApp code." }));
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch(`${getAuthUrl()}/auth/user/verify-email`, {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: formData.email, 
-          emailOtp: emailOtpStr,
-          whatsappOtp: hasWhatsApp ? whatsappOtpStr : null
-        })
-      });
-      const data = await res.json();
-      
-      if (!res.ok) {
-        if (data.field) {
-          setFieldErrors({ [data.field]: data.message });
-        } else {
-          setGlobalError(data.message);
-        }
-        return;
-      }
-      
-      setIsSuccess(true);
-      setTimeout(() => login(data.token), 2000);
-
-    } catch (err: any) { 
-      setGlobalError(err.message || "Verification failed"); 
-    } finally { 
-      setLoading(false); 
-    }
-  };
-
-  // 4. Google Login
+  // 2. Google Click
   const handleGoogleClick = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
-      setLoading(true); 
-      setGlobalError('');
+      setLoading(true); setGlobalError('');
       try {
         const res = await fetch(`${getAuthUrl()}/auth/user/google`, {
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            accessToken: tokenResponse.access_token,
-            referralCode: formData.referralCode
-          })
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: tokenResponse.access_token })
         });
         const data = await res.json();
+        
+        // 🟢 GOOGLE REQUIRES PHONE LOGIC
+        if (data.requiresPhone) {
+           setGoogleData(data.googleData);
+           setFormData(prev => ({ ...prev, email: data.googleData.email })); // For OTP Step
+           setStep('googlePhone');
+           setLoading(false);
+           return;
+        }
+
         if (!res.ok) throw new Error(data.message);
         await login(data.token);
-      } catch (err: any) { 
-        setGlobalError("Google Signup Failed."); 
-      } finally { 
-        setLoading(false); 
-      }
+      } catch (err: any) { setGlobalError("Google Signup Failed."); } 
+      finally { setLoading(false); }
     },
     onError: () => setGlobalError("Google Signup error"),
   });
 
-  const styles: { [key: string]: React.CSSProperties } = {
-    container: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(120deg, #fdfbfb 0%, #ebedee 100%)', padding: '20px 10px', fontFamily: "'Poppins', sans-serif" },
-    card: { backgroundColor: '#ffffff', padding: '35px 30px', borderRadius: '24px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', width: '100%', maxWidth: '480px', textAlign: 'center', boxSizing: 'border-box', animation: 'slideIn 0.4s ease-out' },
-    benefitsHeader: { display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: '25px', padding: '15px', backgroundColor: '#f9fafb', borderRadius: '16px', border: '1px solid #e5e7eb' },
-    benefitItem: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#4b5563', fontSize: '12px', fontWeight: '500' },
-    title: { fontSize: '1.75rem', fontWeight: '700', color: '#111827', marginBottom: '8px' },
-    subtitle: { fontSize: '0.9rem', color: '#6b7280', marginBottom: '25px' },
-    profilePicContainer: { position: 'relative', width: '90px', height: '90px', margin: '0 auto 20px auto', cursor: 'pointer' },
-    profilePic: { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '4px solid #fff', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
-    profilePicOverlay: { position: 'absolute', bottom: '0px', right: '0px', backgroundColor: '#2563eb', color: 'white', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', border: '3px solid white' },
-    inputWrapper: { position: 'relative', marginBottom: '15px', textAlign: 'left' },
-    inputIcon: { position: 'absolute', top: '16px', left: '15px', color: '#9ca3af' },
-    input: { width: '100%', padding: '14px 45px', borderRadius: '12px', border: '2px solid #d1d5db', fontSize: '1rem', outline: 'none', backgroundColor: '#f9fafb', boxSizing: 'border-box', transition: 'border-color 0.2s' },
-    passwordIcon: { position: 'absolute', top: '16px', right: '15px', color: '#9ca3af', cursor: 'pointer' },
-    button: { width: '100%', padding: '15px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', marginTop: '10px', transition: 'transform 0.1s ease' },
-    globalError: { color: '#dc2626', backgroundColor: '#fee2e2', padding: '12px', borderRadius: '10px', marginBottom: '20px', fontSize: '14px', fontWeight: '500' },
-    inlineError: { color: '#dc2626', fontSize: '12px', fontWeight: '600', margin: '4px 0 0 4px', textAlign: 'left' },
-    footerText: { marginTop: '20px', fontSize: '14px', color: '#6b7280' },
-    link: { color: '#2563eb', fontWeight: '700', cursor: 'pointer', textDecoration: 'none' },
-    divider: { display: 'flex', alignItems: 'center', margin: '20px 0', color: '#9ca3af' },
-    line: { flex: 1, height: '1px', backgroundColor: '#e5e7eb' },
-    socialBtn: { width: '100%', padding: '15px', border: '1px solid #d1d5db', backgroundColor: 'white', borderRadius: '12px', cursor: 'pointer', fontSize: '15px', fontWeight: '600', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s ease' },
+  // 3. Submit Google Phone
+  const handleGooglePhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true); setGlobalError('');
+    const formattedPhone = formatPhoneForBackend(phone);
+
+    try {
+      const res = await fetch(`${getAuthUrl()}/auth/user/google-complete-signup`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...googleData, phone: formattedPhone })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Phone verification failed');
+      
+      setStep('otp');
+    } catch (err: any) {
+      setGlobalError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. Handle OTP
+  const handleOtpChange = (index: number, value: string) => {
+    if (isNaN(Number(value))) return;
+    const newOtp = [...otp];
+    newOtp[index] = value.substring(value.length - 1);
+    setOtp(newOtp);
+    if (value && index < 5) otpRefs.current[index + 1]?.focus();
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) otpRefs.current[index - 1]?.focus();
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const otpString = otp.join('');
+    if (otpString.length < 6) return setGlobalError("Please enter the complete 6-digit code.");
     
-    // OTP Specific
-    otpSection: { textAlign: 'left', marginBottom: '20px', background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' },
-    otpSectionHeader: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' },
-    otpContainer: { display: 'flex', justifyContent: 'center', gap: '8px' },
-    otpInput: { width: '42px', height: '52px', fontSize: '20px', fontWeight: '800', textAlign: 'center', borderRadius: '10px', border: '2px solid #cbd5e1', outline: 'none', backgroundColor: '#ffffff', color: '#0f172a', transition: '0.2s' },
+    setLoading(true); setGlobalError('');
+    try {
+      const res = await fetch(`${getAuthUrl()}/auth/user/verify-email`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, otp: otpString })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      
+      setIsSuccess(true);
+      setTimeout(() => login(data.token), 2000); 
+
+    } catch (err: any) { setGlobalError(err.message); } 
+    finally { setLoading(false); }
   };
 
   return (
-    <>
-      <style>{`
-        .button-active:active { transform: scale(0.98); } 
-        .social-btn-hover:hover { border-color: #9ca3af; background-color: #f9fafb; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .otp-focus:focus { border-color: #f85606 !important; box-shadow: 0 0 0 3px rgba(248, 86, 6, 0.15) !important; }
-        .input-error { border-color: #dc2626 !important; background-color: #fef2f2 !important; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
+    <div className="signup-wrapper">
+      {isSuccess && <SuccessPopup message="Email Verified! Welcome to SJ10 🎉" onClose={() => {}} />}
       
-      <div style={styles.container}>
-        {isSuccess && <SuccessPopup message="Account Verified! Welcome to SJ10 🎉" onClose={() => {}} />}
+      {/* 🟦 LEFT DESKTOP PANEL (Like Seller Center) */}
+      <div className="signup-left">
+        <h1 className="panel-title">Join SJ10 Marketplace</h1>
+        <p className="panel-subtitle">Create your free account to unlock wholesale prices, fast delivery, and start your reselling journey.</p>
         
-        <div style={styles.card}>
-          {globalError && <p style={styles.globalError}><i className="fas fa-exclamation-circle"></i> {globalError}</p>}
+        <div className="feature-item">
+          <div className="feature-icon"><FaShoppingBag /></div>
+          <div className="feature-text">
+            <h3>Premium Shopping</h3>
+            <p>Access thousands of high-quality products at direct wholesale rates.</p>
+          </div>
+        </div>
+        <div className="feature-item">
+          <div className="feature-icon"><FaShippingFast /></div>
+          <div className="feature-text">
+            <h3>Fast Cash on Delivery</h3>
+            <p>Get your parcels delivered within 3-7 days anywhere in Pakistan safely.</p>
+          </div>
+        </div>
+        <div className="feature-item">
+          <div className="feature-icon"><FaShieldAlt /></div>
+          <div className="feature-text">
+            <h3>Zero Investment Reselling</h3>
+            <p>Share products, set your profit margin, and earn money directly from home.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ⬜ RIGHT FORM PANEL */}
+      <div className="signup-right">
+        <div className="signup-card">
 
           {/* ========================================================= */}
           {/* STEP 1: REGISTRATION FORM */}
           {/* ========================================================= */}
           {step === 'form' && (
             <>
-              <div style={styles.benefitsHeader}>
-                <div style={styles.benefitItem}><FaShippingFast size={20} color="#f97316" /><span>Fast Delivery</span></div>
-                <div style={styles.benefitItem}><FaTags size={20} color="#f97316" /><span>Best Prices</span></div>
-                <div style={styles.benefitItem}><FaShieldAlt size={20} color="#f97316" /><span>Secure Signup</span></div>
-              </div>
+              <div className="brand-label">SJ10 SHOPPING</div>
+              <h1 className="reg-title">Create Account</h1>
+              <p className="reg-subtitle">Join us to experience the best online shopping.</p>
+
+              {globalError && <div className="error-box"><i className="fas fa-exclamation-circle"></i> {globalError}</div>}
               
-              <h1 style={styles.title}>Create Your Account</h1>
+              {/* Social Login Button */}
+              <button type="button" className="social-btn" onClick={() => handleGoogleClick()} disabled={loading}>
+                <FaGoogle color="#DB4437" size={20} /> Continue with Google
+              </button>
               
-              <div style={styles.profilePicContainer} onClick={() => fileInputRef.current?.click()}>
-                <img src={profilePicPreview} alt="Profile" style={styles.profilePic} />
-                <div style={styles.profilePicOverlay}><FaCamera size={14} /></div>
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
-              </div>
+              <div className="or-divider">Or register with email</div>
               
               <form onSubmit={handleRegisterSubmit}>
                 
-                {/* Full Name */}
-                <div style={styles.inputWrapper}>
-                  <FaUser style={styles.inputIcon} />
-                  <input name="fullName" placeholder="Full Name" style={styles.input} className={fieldErrors.fullName ? 'input-error' : ''} onChange={handleChange} required />
-                  {fieldErrors.fullName && <p style={styles.inlineError}>{fieldErrors.fullName}</p>}
+                {/* Profile Pic Upload (Optional) */}
+                <div className="avatar-wrap">
+                  <div className="avatar-ring" onClick={() => fileInputRef.current?.click()}>
+                    <img src={profilePicPreview} alt="Profile" />
+                    <div className="camera-overlay"><FaCamera size={14}/></div>
+                  </div>
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
                 </div>
                 
-                {/* Brand Name */}
-                <div style={styles.inputWrapper}>
-                  <FaStore style={styles.inputIcon} />
-                  <input name="brandName" placeholder="Brand Name (Optional)" style={styles.input} className={fieldErrors.brandName ? 'input-error' : ''} onChange={handleChange} />
-                  {fieldErrors.brandName && <p style={styles.inlineError}>{fieldErrors.brandName}</p>}
+                {/* Inputs Grid */}
+                <div className="two-col">
+                    <div className="input-group">
+                      <label>Full Name <span className="req">*</span></label>
+                      <div className="input-icon-wrap">
+                        <FaUser className="input-icon" />
+                        <input name="fullName" placeholder="e.g. Ali Raza" className={`reg-input ${fieldErrors.fullName ? 'error-border' : ''}`} onChange={handleChange} required />
+                      </div>
+                      {fieldErrors.fullName && <span className="inline-error">{fieldErrors.fullName}</span>}
+                    </div>
+                    
+                    <div className="input-group">
+                      <label>Brand/Shop Name <span className="opt">(Optional)</span></label>
+                      <div className="input-icon-wrap">
+                        <FaStore className="input-icon" />
+                        <input name="brandName" placeholder="For Resellers" className={`reg-input ${fieldErrors.brandName ? 'error-border' : ''}`} onChange={handleChange} />
+                      </div>
+                    </div>
                 </div>
                 
-                {/* Email */}
-                <div style={styles.inputWrapper}>
-                  <FaEnvelope style={styles.inputIcon} />
-                  <input name="email" type="email" placeholder="Email Address" style={styles.input} className={fieldErrors.email ? 'input-error' : ''} onChange={handleChange} required />
-                  {fieldErrors.email && <p style={styles.inlineError}>{fieldErrors.email}</p>}
+                <div className="input-group">
+                  <label>Email Address <span className="req">*</span></label>
+                  <div className="input-icon-wrap">
+                    <FaEnvelope className="input-icon" />
+                    <input name="email" type="email" placeholder="example@gmail.com" className={`reg-input ${fieldErrors.email ? 'error-border' : ''}`} onChange={handleChange} required />
+                  </div>
+                  {fieldErrors.email && <span className="inline-error">{fieldErrors.email}</span>}
                 </div>
                 
-              {/* 🟢 WhatsApp Number Input with Green Icon */}
-<div style={styles.inputWrapper}>
-  <FaWhatsapp style={{ ...styles.inputIcon, color: '#25D366', fontSize: '20px' }} />
-  <input 
-    name="phone" 
-    type="tel"
-    placeholder="WhatsApp Number (e.g. 03368361990)" 
-    style={{ ...styles.input, paddingLeft: '48px', borderColor: fieldErrors.phone ? '#dc2626' : '#d1d5db' }} 
-    className={fieldErrors.phone ? 'input-error' : ''} 
-    value={phone}
-    onChange={e => handlePhoneChange(e.target.value)} 
-    maxLength={13}
-    required 
-  />
-  {fieldErrors.phone && <p style={styles.inlineError}>{fieldErrors.phone}</p>}
-</div>
-                {/* Referral Code */}
-                <div style={styles.inputWrapper}>
-                  <FaGift style={styles.inputIcon} />
-                  <input 
-                    name="referralCode" 
-                    placeholder="Referral Code (Optional)" 
-                    value={formData.referralCode}
-                    style={{...styles.input, textTransform: 'uppercase', fontFamily: 'monospace', fontWeight: 600}} 
-                    onChange={handleChange} 
-                  />
-                  {formData.referralCode && (
-                    <span style={{ fontSize: '11px', color: '#059669', fontWeight: 600, display: 'block', marginTop: '4px', marginLeft: '4px' }}>
-                      ✓ Referral code applied!
-                    </span>
-                  )}
+                <div className="input-group">
+                  <label>WhatsApp / Phone <span className="req">*</span></label>
+                  <div className="input-icon-wrap phone-wrap-custom">
+                    <PhoneInput 
+                      country={'pk'} 
+                      value={phone} 
+                      onChange={handlePhoneChange} 
+                      inputClass={`reg-input ${fieldErrors.phone ? 'error-border' : ''}`} 
+                    />
+                  </div>
+                  {fieldErrors.phone && <span className="inline-error">{fieldErrors.phone}</span>}
                 </div>
                 
-                {/* Password */}
-                <div style={styles.inputWrapper}>
-                  <FaLock style={styles.inputIcon} />
-                  <input name="password" type={passwordVisibility.pass ? 'text' : 'password'} placeholder="Password" style={styles.input} className={fieldErrors.password ? 'input-error' : ''} onChange={handleChange} required />
-                  <div style={styles.passwordIcon} onClick={() => setPasswordVisibility(p => ({...p, pass: !p.pass}))}>{passwordVisibility.pass ? <FaEyeSlash /> : <FaEye />}</div>
-                  {fieldErrors.password && <p style={styles.inlineError}>{fieldErrors.password}</p>}
+                <div className="two-col">
+                    <div className="input-group">
+                      <label>Password <span className="req">*</span></label>
+                      <div className="input-icon-wrap">
+                        <FaLock className="input-icon" />
+                        <input name="password" type={passwordVisibility.pass ? 'text' : 'password'} placeholder="Min. 6 chars" className={`reg-input pw-input ${fieldErrors.password ? 'error-border' : ''}`} onChange={handleChange} required />
+                        <span className="pw-toggle" onClick={() => setPasswordVisibility(p => ({...p, pass: !p.pass}))}>{passwordVisibility.pass ? <FaEyeSlash /> : <FaEye />}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="input-group">
+                      <label>Confirm Password <span className="req">*</span></label>
+                      <div className="input-icon-wrap">
+                        <FaLock className="input-icon" />
+                        <input name="confirmPassword" type={passwordVisibility.confirm ? 'text' : 'password'} placeholder="Re-enter" className={`reg-input pw-input ${fieldErrors.confirmPassword ? 'error-border' : ''}`} onChange={handleChange} required />
+                        <span className="pw-toggle" onClick={() => setPasswordVisibility(p => ({...p, confirm: !p.confirm}))}>{passwordVisibility.confirm ? <FaEyeSlash /> : <FaEye />}</span>
+                      </div>
+                      {fieldErrors.confirmPassword && <span className="inline-error">{fieldErrors.confirmPassword}</span>}
+                    </div>
                 </div>
                 
-                {/* Confirm Password */}
-                <div style={styles.inputWrapper}>
-                  <FaLock style={styles.inputIcon} />
-                  <input name="confirmPassword" type={passwordVisibility.confirm ? 'text' : 'password'} placeholder="Confirm Password" style={styles.input} className={fieldErrors.confirmPassword ? 'input-error' : ''} onChange={handleChange} required />
-                  <div style={styles.passwordIcon} onClick={() => setPasswordVisibility(p => ({...p, confirm: !p.confirm}))}>{passwordVisibility.confirm ? <FaEyeSlash /> : <FaEye />}</div>
-                  {fieldErrors.confirmPassword && <p style={styles.inlineError}>{fieldErrors.confirmPassword}</p>}
-                </div>
-                
-                <button type="submit" style={styles.button} className="button-active" disabled={loading}>
+                <button type="submit" className="btn-primary" disabled={loading}>
                   {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'CREATE ACCOUNT'}
                 </button>
               </form>
               
-              <div style={styles.divider}><div style={styles.line}></div><span style={{padding: '0 10px', fontSize:'12px'}}>Or continue with</span><div style={styles.line}></div></div>
-              
-              <button style={styles.socialBtn} className="social-btn-hover button-active" onClick={() => handleGoogleClick()} disabled={loading}>
-                <FaGoogle color="#DB4437" /> Sign up with Google
-              </button>
-              
-              <p style={styles.footerText}>Already have an account? <Link href="/auth/login" style={styles.link}>Login</Link></p>
+              <p className="bottom-link">Already have an account? <Link href="/auth/login">Login Here</Link></p>
             </>
           )}
 
           {/* ========================================================= */}
-          {/* STEP 2: 🟢 DUAL SECURITY OTP VERIFICATION SCREEN */}
+          {/* STEP 1.5: GOOGLE REQUIRE PHONE STEP */}
+          {/* ========================================================= */}
+          {step === 'googlePhone' && (
+             <div className="step-container slide-in">
+               <div className="icon-shield-wrap">
+                 <FaGoogle size={35} color="#DB4437" />
+               </div>
+               <h2 className="reg-title">One Last Step!</h2>
+               <p className="reg-subtitle">We need your WhatsApp number for order tracking and COD verification.</p>
+
+               {globalError && <div className="error-box"><i className="fas fa-exclamation-circle"></i> {globalError}</div>}
+
+               <form onSubmit={handleGooglePhoneSubmit}>
+                 <div className="input-group">
+                   <label>WhatsApp / Phone Number <span className="req">*</span></label>
+                   <div className="input-icon-wrap">
+                     <FaPhoneAlt className="input-icon text-green-600" />
+                     <input type="tel" className="reg-input" placeholder="03XXXXXXXXX" value={phone} onChange={e => setPhone(e.target.value)} maxLength={13} required autoFocus />
+                   </div>
+                 </div>
+                 <button type="submit" className="btn-primary" disabled={loading} style={{marginTop: '15px'}}>
+                   {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'SEND OTP'}
+                 </button>
+               </form>
+             </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* STEP 2: OTP VERIFICATION SCREEN */}
           {/* ========================================================= */}
           {step === 'otp' && (
-            <>
-              <div style={{width:'70px', height:'70px', background:'#fff7ed', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', border:'2px solid #ffedd5'}}>
-                  <i className="fas fa-shield-halved" style={{fontSize:'30px', color:'#f85606'}}></i>
+            <div className="step-container slide-in">
+              <div className="icon-shield-wrap">
+                  <FaShieldAlt size={35} color="#2563eb" />
               </div>
-              <h1 style={{...styles.title, fontSize:'1.5rem'}}>Security Verification</h1>
-              <p style={styles.subtitle}>
-                {hasWhatsApp 
-                  ? "Enter the 6-digit codes sent to your Email & WhatsApp." 
-                  : "We sent a 6-digit code to your Email."}
+              <h2 className="reg-title">Security Verification</h2>
+              <p className="reg-subtitle">
+                We sent a 6-digit code to <br/><strong>{formData.email}</strong>
               </p>
 
-              {/* ⚠️ Notice if WhatsApp was not found */}
-              {!hasWhatsApp && (
-                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '10px 14px', color: '#92400e', fontSize: '12px', textAlign: 'left', marginBottom: '20px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <FaExclamationTriangle size={16} style={{ flexShrink: 0 }} />
-                  <span>WhatsApp was not detected on your mobile number. Please verify using your Email code only.</span>
-                </div>
-              )}
+              {globalError && <div className="error-box"><i className="fas fa-exclamation-circle"></i> {globalError}</div>}
 
               <form onSubmit={handleVerifyOtp}>
-                
-                {/* 1. EMAIL OTP SECTION */}
-                <div style={styles.otpSection}>
-                  <div style={styles.otpSectionHeader}>
-                    <FaEnvelope color="#2563eb" />
-                    <span>Email Code <small style={{ color: '#64748b' }}>({formData.email})</small></span>
-                  </div>
-                  
-                  <div style={styles.otpContainer}>
-                    {emailOtp.map((digit, index) => (
-                      <input
-                        key={index}
-                        ref={el => { emailOtpRefs.current[index] = el; }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={e => handleOtpChange('email', index, e.target.value)}
-                        onKeyDown={e => handleOtpKeyDown('email', index, e)}
-                        style={styles.otpInput}
-                        className="otp-focus"
-                        autoFocus={index === 0}
-                        onPaste={(e) => handleOtpPaste('email', e)}
-                      />
-                    ))}
-                  </div>
-                  {fieldErrors.emailOtp && <p style={styles.inlineError}>{fieldErrors.emailOtp}</p>}
+                <div className="otp-container">
+                  {otp.map((digit, index) => (
+                    <input
+                      key={index}
+                      ref={el => { otpRefs.current[index] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={e => handleOtpChange(index, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(index, e)}
+                      className="otp-digit"
+                      autoFocus={index === 0}
+                    />
+                  ))}
                 </div>
 
-                {/* 2. WHATSAPP OTP SECTION (ONLY IF WHATSAPP FOUND) */}
-                {hasWhatsApp && (
-                  <div style={styles.otpSection}>
-                    <div style={styles.otpSectionHeader}>
-                      <FaWhatsapp color="#16a34a" size={16} />
-                      <span>WhatsApp Code <small style={{ color: '#64748b' }}>({phone})</small></span>
-                    </div>
-                    
-                    <div style={styles.otpContainer}>
-                      {whatsappOtp.map((digit, index) => (
-                        <input
-                          key={index}
-                          ref={el => { whatsappOtpRefs.current[index] = el; }}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={digit}
-                          onChange={e => handleOtpChange('whatsapp', index, e.target.value)}
-                          onKeyDown={e => handleOtpKeyDown('whatsapp', index, e)}
-                          onPaste={(e) => handleOtpPaste('whatsapp', e)}
-                          style={styles.otpInput}
-                          
-                          className="otp-focus"
-                        />
-                      ))}
-                    </div>
-                    {fieldErrors.whatsappOtp && <p style={styles.inlineError}>{fieldErrors.whatsappOtp}</p>}
-                  </div>
-                )}
-
-                <button 
-                  type="submit" 
-                  style={{...styles.button, background: '#f85606'}} 
-                  className="button-active" 
-                  disabled={loading}
-                >
-                  {loading ? <i className="fas fa-spinner fa-spin"></i> : 'VERIFY & COMPLETE REGISTRATION'}
+                <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '20px' }}>
+                  {loading ? <i className="fas fa-spinner fa-spin"></i> : 'VERIFY & LOGIN'}
                 </button>
               </form>
 
-              <p style={styles.footerText}>
-                Need to change details? <span style={styles.link} onClick={() => setStep('form')}>Go Back</span>
+              <p className="bottom-link" style={{ marginTop: '20px' }}>
+                Didn't receive the code? <span onClick={() => setStep('form')} style={{cursor:'pointer', color:'#2563eb', fontWeight:600}}>Change Email</span>
               </p>
-            </>
+            </div>
           )}
+
         </div>
       </div>
-    </>
-  );
-}
 
-export default function SignupPage() {
-  return (
-    <Suspense fallback={<div className="h-screen flex items-center justify-center"><i className="fas fa-circle-notch fa-spin text-orange-500 text-3xl"></i></div>}>
-      <SignupFormContent />
-    </Suspense>
+      {/* 🟢 CSS STYLING MATCHING SELLER CENTER */}
+      <style jsx global>{`
+        /* Core Reset & Font */
+        .signup-wrapper {
+          display: flex;
+          min-height: 100vh;
+          width: 100%;
+          background: #ffffff;
+          font-family: 'Poppins', sans-serif;
+          position: relative;
+        }
+
+        /* 🟦 LEFT DESKTOP PANEL */
+        .signup-left {
+          display: none;
+        }
+
+        @media (min-width: 992px) {
+          .signup-wrapper { height: 100vh; overflow: hidden; }
+          .signup-left {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            width: 45%;
+            max-width: 600px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            color: white;
+            padding: 60px;
+            position: relative;
+            z-index: 1;
+          }
+          .signup-left::before {
+            content: ''; position: absolute; width: 500px; height: 500px;
+            background: rgba(255, 255, 255, 0.05); border-radius: 50%;
+            top: -150px; left: -150px; z-index: -1;
+          }
+          .signup-right { height: 100vh; }
+        }
+
+        .panel-title { font-size: 2.5rem; font-weight: 800; margin-bottom: 15px; line-height: 1.2; letter-spacing: -0.5px; }
+        .panel-subtitle { font-size: 1rem; color: #bfdbfe; margin-bottom: 40px; line-height: 1.6; }
+        .feature-item { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 25px; }
+        .feature-icon { width: 48px; height: 48px; background: rgba(255, 255, 255, 0.15); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; backdrop-filter: blur(5px); }
+        .feature-text h3 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px 0; }
+        .feature-text p { font-size: 0.9rem; color: #bfdbfe; margin: 0; line-height: 1.4; }
+
+        /* ⬜ RIGHT FORM PANEL */
+        .signup-right {
+          flex: 1; display: flex; align-items: center; justify-content: center;
+          padding: 40px 20px; background: #ffffff; min-height: 100vh; overflow-y: auto;
+        }
+
+        .signup-card {
+          width: 100%; max-width: 520px; padding: 10px 20px;
+        }
+
+        .brand-label { font-size: 12px; font-weight: 800; text-transform: uppercase; color: #2563eb; text-align: center; margin-bottom: 8px; letter-spacing: 1.5px; }
+        .reg-title { font-size: 1.8rem; font-weight: 800; text-align: center; color: #0f172a; margin: 0 0 8px 0; letter-spacing: -0.5px; }
+        .reg-subtitle { font-size: 0.95rem; color: #64748b; text-align: center; margin: 0 0 30px 0; }
+
+        .error-box { background: #fef2f2; border: 1px solid #fecaca; color: #ef4444; padding: 12px; border-radius: 10px; font-size: 13px; font-weight: 500; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+
+        .social-btn { width: 100%; padding: 14px; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px; font-size: 0.95rem; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s ease; color: #334155; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .social-btn:hover { background: #f8fafc; border-color: #cbd5e1; transform: translateY(-1px); }
+
+        .or-divider { display: flex; align-items: center; margin: 22px 0; color: #64748b; font-size: 13px; font-weight: 500; }
+        .or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; margin: 0 12px; }
+
+        /* Profile Pic */
+        .avatar-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 25px; position: relative; }
+        .avatar-ring { width: 90px; height: 90px; border-radius: 50%; border: 3px solid #e2e8f0; position: relative; cursor: pointer; overflow: hidden; transition: transform 0.2s; background: #f8fafc; }
+        .avatar-ring:hover { transform: scale(1.05); border-color: #2563eb; }
+        .avatar-ring img { width: 100%; height: 100%; object-fit: cover; }
+        .camera-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.5); color: white; height: 25px; display: flex; justify-content: center; align-items: center; }
+
+        /* Inputs */
+        .two-col { display: flex; gap: 12px; }
+        @media (max-width: 600px) { .two-col { flex-direction: column; gap: 0; } }
+        
+        .input-group { margin-bottom: 18px; position: relative; text-align: left; width: 100%; }
+        .input-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px; }
+        .req { color: #ef4444; margin-left: 2px; }
+        .opt { color: #94a3b8; font-weight: 400; font-size: 0.8rem; }
+        
+        .input-icon-wrap { position: relative; }
+        .input-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 16px; z-index: 2; transition: color 0.2s; }
+        
+        .reg-input { width: 100%; padding: 14px 16px 14px 44px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: #f8fafc; font-size: 0.95rem; font-family: 'Poppins', sans-serif; transition: all 0.25s ease; outline: none; color: #0f172a; font-weight: 500; }
+        .reg-input:focus { border-color: #2563eb; background: #fff; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        .reg-input:focus + .input-icon { color: #2563eb; }
+        .error-border { border-color: #ef4444 !important; background: #fef2f2 !important; }
+        .inline-error { color: #dc2626; font-size: 11px; font-weight: 600; margin-top: 4px; display: block; }
+
+        .pw-toggle { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; cursor: pointer; font-size: 16px; z-index: 2; }
+        .pw-input { padding-right: 40px; }
+
+        /* Custom Phone Input override to match our UI */
+        .phone-wrap-custom .react-tel-input .form-control { width: 100%; padding: 14px 16px 14px 55px; border-radius: 12px; border: 1.5px solid #e2e8f0; background: #f8fafc; font-size: 0.95rem; font-family: 'Poppins', sans-serif; height: 52px; font-weight: 500; }
+        .phone-wrap-custom .react-tel-input .form-control:focus { border-color: #2563eb; background: #fff; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        .phone-wrap-custom .react-tel-input .flag-dropdown { background: transparent; border: none; padding-left: 10px; }
+        .phone-wrap-custom .react-tel-input .selected-flag:hover, .phone-wrap-custom .react-tel-input .selected-flag:focus { background: transparent; }
+
+        /* Button */
+        .btn-primary { width: 100%; padding: 15px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.25s ease; display: flex; align-items: center; justify-content: center; gap: 10px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); margin-top: 10px; }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35); }
+        .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .bottom-link { text-align: center; margin-top: 20px; font-size: 14px; color: #64748b; }
+        .bottom-link a { color: #2563eb; font-weight: 600; text-decoration: none; transition: 0.2s; }
+        .bottom-link a:hover { color: #1d4ed8; text-decoration: underline; }
+
+        /* 🟢 STEP CONTAINERS & OTP */
+        .step-container { text-align: center; width: 100%; display: flex; flex-direction: column; align-items: center; padding-top: 20px; }
+        .icon-shield-wrap { width: 70px; height: 70px; border-radius: 50%; background: #eff6ff; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto; border: 2px solid #dbeafe; }
+        
+        .otp-container { display: flex; gap: 10px; justify-content: center; width: 100%; margin: 25px 0; }
+        .otp-digit { width: 48px; height: 58px; border-radius: 12px; border: 2px solid #e2e8f0; background: #f8fafc; text-align: center; font-size: 24px; font-weight: 700; color: #2563eb; outline: none; transition: all 0.2s ease; }
+        .otp-digit:focus { border-color: #2563eb; background: #fff; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12); transform: translateY(-2px); }
+
+        .slide-in { animation: slideIn 0.3s ease-out forwards; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+      `}</style>
+    </div>
   );
 }

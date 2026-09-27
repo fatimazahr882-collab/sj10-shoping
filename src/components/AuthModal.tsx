@@ -7,10 +7,11 @@ import { useAuth } from './AuthProvider';
 export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { login } = useAuth();
   
-// --- View States ---
-  const [modalStep, setModalStep] = useState<'form' | 'google_phone' | 'otp'>('form');
-  const [googleEmail, setGoogleEmail] = useState(''); // 🟢 Google user ki email save karne ke liye
+  // --- View States ---
+  // 🟢 NAYA STEP ADD KIYA: 'googlePhone'
+  const [modalStep, setModalStep] = useState<'form' | 'googlePhone' | 'otp'>('form');
   const [isLoginView, setIsLoginView] = useState(true);
+
   // --- Form States ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +21,7 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClos
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleData, setGoogleData] = useState<any>(null); // 🟢 Google user ka temporary data
 
   // --- OTP States ---
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -40,35 +42,6 @@ export default function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClos
     }, 1500);
   };
 
-const handleGoogleClick = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      setLoading(true); setError('');
-      try {
-        const res = await fetch(`${getAuthUrl()}/auth/user/google`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accessToken: tokenResponse.access_token })
-        });
-        const data = await res.json();
-        
-        if (!res.ok) throw new Error(data.message);
-
-        // 🟢 AGAR NAYA USER HAI TOH PHONE NUMBER STEP PAR BHEJEIN
-        if (data.requiresPhone) {
-            setGoogleEmail(data.email);
-            setModalStep('google_phone'); 
-            return;
-        }
-        
-        await login(data.token, false); 
-        triggerSuccessAndClose("Successfully Logged In with Google! 🎉");
-      } catch (err: any) { setError(err.message || "Google Login Failed."); } 
-      finally { setLoading(false); }
-    },
-    onError: () => setError("Google Login error. Please try again.")
-  });
-  
-  if (!isOpen) return null;
-
   // --- Phone Formatting Helper ---
   const formatPhoneForBackend = (inputPhone: string) => {
     let clean = inputPhone.replace(/\D/g, '');
@@ -81,14 +54,65 @@ const handleGoogleClick = useGoogleLogin({
     return `+92${clean}`;
   };
 
-  // --- Handle Form Submission ---
+  const handleGoogleClick = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setLoading(true); setError('');
+      try {
+        const res = await fetch(`${getAuthUrl()}/auth/user/google`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: tokenResponse.access_token })
+        });
+        const data = await res.json();
+        
+        // 🟢 NAYA LOGIC: Agar phone number zaroori hai toh usko aglay step pe bhejo!
+        if (data.requiresPhone) {
+           setGoogleData(data.googleData);
+           setEmail(data.googleData.email); // OTP ke liye email set karni zaroori hai
+           setModalStep('googlePhone');
+           return;
+        }
+
+        if (!res.ok) throw new Error(data.message);
+        
+        await login(data.token, false); 
+        triggerSuccessAndClose("Successfully Logged In with Google! 🎉");
+      } catch (err: any) { setError(err.message || "Google Login Failed."); } 
+      finally { setLoading(false); }
+    },
+    onError: () => setError("Google Login error. Please try again.")
+  });
+
+  // 🟢 NAYA FUNCTION: Google Sign up complete karne ke liye phone bhejain
+  const handleGooglePhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    const formattedPhone = formatPhoneForBackend(phone);
+
+    try {
+      const res = await fetch(`${getAuthUrl()}/auth/user/google-complete-signup`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...googleData, phone: formattedPhone })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Phone verification failed');
+      
+      setModalStep('otp'); // OTP screen pe bhej do
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (!isOpen) return null;
+
+  // --- Handle Normal Form Submission ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); 
     setError('');
     
     if (isLoginView) {
-      // 🟢 LOGIN FLOW
       try {
         const res = await fetch(`${getAuthUrl()}/auth/user/login`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -97,7 +121,7 @@ const handleGoogleClick = useGoogleLogin({
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Login failed');
         
-        await login(data.token, false); // 🟢 false = Stay on current page!
+        await login(data.token, false);
         triggerSuccessAndClose("Successfully Logged In! 🎉");
       } catch (err: any) {
         setError(err.message);
@@ -105,7 +129,6 @@ const handleGoogleClick = useGoogleLogin({
         setLoading(false);
       }
     } else {
-      // 🟢 SIGNUP FLOW
       if (password !== confirmPassword) {
         setError("Passwords do not match!");
         setLoading(false);
@@ -122,7 +145,6 @@ const handleGoogleClick = useGoogleLogin({
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Registration failed');
         
-        // Move to OTP Step inside Modal!
         setModalStep('otp');
       } catch (err: any) {
         setError(err.message);
@@ -131,43 +153,7 @@ const handleGoogleClick = useGoogleLogin({
       }
     }
   };
-// 🟢 1. GOOGLE SIGNUP MEIN PHONE SUBMIT KARNE KA FUNCTION
-  const handleGooglePhoneSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true); setError('');
-    try {
-      const res = await fetch(`${getAuthUrl()}/auth/user/google-phone-otp`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: googleEmail, phone: phone })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      
-      setEmail(googleEmail); // OTP verification ke liye email set karein
-      setModalStep('otp'); // OTP screen pe bhej dein
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // 🟢 2. 1-TAP OTP PASTE FUNCTION
-  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (!pastedData) return;
-
-    const newOtp = [...otp];
-    for (let i = 0; i < pastedData.length; i++) {
-      newOtp[i] = pastedData[i];
-    }
-    setOtp(newOtp);
-
-    // Last input par focus le jayein
-    const nextFocusIndex = Math.min(pastedData.length, 5);
-    otpRefs.current[nextFocusIndex]?.focus();
-  };
   // --- OTP Handlers ---
   const handleOtpChange = (index: number, value: string) => {
     if (isNaN(Number(value))) return;
@@ -198,7 +184,7 @@ const handleGoogleClick = useGoogleLogin({
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Verification failed');
       
-      await login(data.token, false); // 🟢 false = Stay on current page!
+      await login(data.token, false); 
       triggerSuccessAndClose("Account Verified & Logged In! 🎉");
     } catch (err: any) {
       setError(err.message);
@@ -228,7 +214,7 @@ const handleGoogleClick = useGoogleLogin({
             {error && <div className="error-box"><i className="fas fa-exclamation-circle"></i> {error}</div>}
 
             {/* ========================================================= */}
-            {/* STEP 1: LOGIN / REGISTRATION FORM                         */}
+            {/* STEP 1: NORMAL LOGIN / REGISTRATION FORM                  */}
             {/* ========================================================= */}
             {modalStep === 'form' && (
               <>
@@ -287,42 +273,32 @@ const handleGoogleClick = useGoogleLogin({
                 </p>
               </>
             )}
-{/* ========================================================= */}
-            {/* 🟢 STEP 1.5: GOOGLE USER KA WHATSAPP NUMBER STEP           */}
+
             {/* ========================================================= */}
-            {modalStep === 'google_phone' && (
+            {/* 🟢 STEP 1.5: GOOGLE REQUIRE PHONE STEP                    */}
+            {/* ========================================================= */}
+            {modalStep === 'googlePhone' && (
               <>
-                <div style={{ width: '65px', height: '65px', background: '#ecfdf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}>
-                  <i className="fab fa-whatsapp" style={{ fontSize: '36px', color: '#25D366' }}></i>
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <i className="fab fa-google" style={{ fontSize: '40px', color: '#DB4437' }}></i>
                 </div>
-                <h2 className="title" style={{ fontSize: '22px' }}>Complete Profile</h2>
-                <p className="subtitle" style={{ marginBottom: '20px' }}>
-                  Please enter your active WhatsApp number for verification.
+                <h2 className="title" style={{ fontSize: '22px' }}>One Last Step!</h2>
+                <p className="subtitle" style={{ marginBottom: '15px' }}>
+                  Please verify your mobile number to secure your SJ10 account.
                 </p>
 
                 <form onSubmit={handleGooglePhoneSubmit} className="auth-form">
                   <div className="input-group">
-                    <i className="fab fa-whatsapp input-icon" style={{ color: '#25D366' }}></i>
-                    <input 
-                      type="tel" 
-                      placeholder="WhatsApp Number (e.g. 03368361990)" 
-                      value={phone} 
-                      onChange={e => setPhone(e.target.value)} 
-                      maxLength={13} 
-                      required 
-                    />
+                    <i className="fas fa-phone-alt input-icon"></i>
+                    <input type="tel" placeholder="WhatsApp / Phone (e.g. 03368361990)" value={phone} onChange={e => setPhone(e.target.value)} maxLength={13} required autoFocus />
                   </div>
-
-                  <button type="submit" className="primary-btn" disabled={loading} style={{ background: '#25D366', boxShadow: '0 4px 15px rgba(37, 211, 102, 0.3)' }}>
-                    {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'SEND WHATSAPP OTP'}
+                  <button type="submit" className="primary-btn" disabled={loading}>
+                    {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'SEND OTP'}
                   </button>
                 </form>
-
-                <p className="toggle-text">
-                  <span onClick={() => { setModalStep('form'); setError(''); }}>Back to Login</span>
-                </p>
               </>
             )}
+
             {/* ========================================================= */}
             {/* STEP 2: OTP VERIFICATION INSIDE MODAL                     */}
             {/* ========================================================= */}
@@ -331,7 +307,7 @@ const handleGoogleClick = useGoogleLogin({
                 <div style={{ width: '60px', height: '60px', background: '#fff7ed', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}>
                   <i className="fas fa-envelope-open-text" style={{ fontSize: '28px', color: '#f85606' }}></i>
                 </div>
-                <h2 className="title" style={{ fontSize: '22px' }}>Verify Your Email</h2>
+                <h2 className="title" style={{ fontSize: '22px' }}>Verify Account</h2>
                 <p className="subtitle" style={{ marginBottom: '15px' }}>
                   We sent a 6-digit code to <br /><strong style={{ color: '#0f172a' }}>{email}</strong>
                 </p>
@@ -350,7 +326,6 @@ const handleGoogleClick = useGoogleLogin({
                         onKeyDown={e => handleOtpKeyDown(index, e)}
                         className="otp-input"
                         autoFocus={index === 0}
-                        onPaste={handleOtpPaste}
                       />
                     ))}
                   </div>
@@ -359,10 +334,6 @@ const handleGoogleClick = useGoogleLogin({
                     {loading ? <i className="fas fa-spinner fa-spin"></i> : 'VERIFY & LOGIN'}
                   </button>
                 </form>
-
-                <p className="toggle-text">
-                  Didn't receive the code? <span onClick={() => { setModalStep('form'); setError(''); }}>Change Email</span>
-                </p>
               </>
             )}
 
@@ -422,7 +393,6 @@ const handleGoogleClick = useGoogleLogin({
 
         .error-box { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 12px; border-radius: 10px; font-size: 13px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; font-weight: 500; line-height: 1.4; }
 
-        /* 🟢 OTP INPUT STYLES */
         .otp-container { display: flex; justify-content: center; gap: 8px; margin: 20px 0; }
         .otp-input { width: 44px; height: 54px; font-size: 22px; font-weight: 800; text-align: center; border-radius: 12px; border: 2px solid #e2e8f0; outline: none; background: #f8fafc; color: #f85606; transition: 0.2s; }
         .otp-input:focus { border-color: #f85606; background: #fff; box-shadow: 0 0 0 4px rgba(248, 86, 6, 0.1); }

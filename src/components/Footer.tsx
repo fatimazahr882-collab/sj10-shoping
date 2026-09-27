@@ -41,7 +41,7 @@ const externalPromos = [
 export default function Footer() {
   const pathname = usePathname();
   const [showGoTop, setShowGoTop] = useState(false);
-
+  if (pathname?.startsWith('/auth')) return null;
   // Scroll event listener for "Go To Top" button
   useEffect(() => {
     const handleScroll = () => {

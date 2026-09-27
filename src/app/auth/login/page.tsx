@@ -7,22 +7,23 @@ import { useGoogleLogin } from '@react-oauth/google';
 import FacebookLogin from '@greatsumini/react-facebook-login';
 import { 
   FaGoogle, FaFacebook, FaEnvelope, FaLock, FaEye, FaEyeSlash, 
-  FaCheckCircle, FaShoppingBag, FaShippingFast, FaShieldAlt, FaMapMarkerAlt, FaWhatsapp
+  FaCheckCircle, FaShoppingBag, FaShippingFast, FaShieldAlt, FaMapMarkerAlt 
 } from 'react-icons/fa';
 
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
 
-  // --- STEPS: 'login' -> 'google_phone' -> 'google_otp' ---
-  const [step, setStep] = useState<'login' | 'google_phone' | 'google_otp'>('login');
-  const [googleEmail, setGoogleEmail] = useState('');
+  // 🟢 STATES
+  const [step, setStep] = useState<'login' | 'googlePhone' | 'otp'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [googleData, setGoogleData] = useState<any>(null);
+
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,9 +35,17 @@ export default function LoginPage() {
     setIsSuccess(true);
     setTimeout(async () => {
       await login(token);
-    }, 1500);
+    }, 1800);
   };
 
+  const formatPhoneForBackend = (inputPhone: string) => {
+    let clean = inputPhone.replace(/\D/g, '');
+    if (clean.startsWith('03')) return `+92${clean.slice(1)}`;
+    if (clean.startsWith('923')) return `+${clean}`;
+    return `+92${clean}`;
+  };
+
+  // --- STANDARD LOGIN ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); 
     setLoading(true); setError('');
@@ -51,7 +60,7 @@ export default function LoginPage() {
     } catch (err: any) { setError(err.message); setLoading(false); } 
   };
 
-  // 🟢 GOOGLE LOGIN: AGAR NUMBER NA HO TO USI CARD MEIN WHATSAPP NUMBER MANGO
+  // --- GOOGLE CLICK ---
   const handleGoogleClick = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setLoading(true); setError('');
@@ -61,56 +70,46 @@ export default function LoginPage() {
           body: JSON.stringify({ accessToken: tokenResponse.access_token })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.message);
-
-        // 🛑 Number nahi hai toh WhatsApp phone step par le jao
+        
+        // 🟢 NAYA LOGIC
         if (data.requiresPhone) {
-            setGoogleEmail(data.email);
-            setStep('google_phone');
-            setLoading(false);
-            return;
+           setGoogleData(data.googleData);
+           setEmail(data.googleData.email);
+           setStep('googlePhone');
+           setLoading(false);
+           return;
         }
 
+        if (!res.ok) throw new Error(data.message);
         await handleLoginSuccess(data.token);
-      } catch (err: any) { setError("Google Login Failed."); setLoading(false); } 
+      } catch (err: any) { setError(err.message || "Google Login Failed."); setLoading(false); } 
     },
-    onError: () => setError("Google Login Failed"),
+    onError: () => setError("Google Login Failed")
   });
 
-  // 🟢 GOOGLE USER SUBMITS WHATSAPP NUMBER
-  const handleSendGoogleWhatsAppOtp = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setLoading(true); setError('');
-      try {
-          const res = await fetch(`${getAuthUrl()}/auth/user/google-phone-otp`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: googleEmail, phone })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message);
-          
-          setStep('google_otp');
-      } catch (err: any) {
-          setError(err.message);
-      } finally {
-          setLoading(false);
-      }
-  };
-
-  // 🟢 1-TAP PASTE FEATURE
-  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  // --- GOOGLE PHONE SUBMIT ---
+  const handleGooglePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (!pastedData) return;
+    setLoading(true); setError('');
+    const formattedPhone = formatPhoneForBackend(phone);
 
-    const newOtp = [...otp];
-    for (let i = 0; i < pastedData.length; i++) {
-      newOtp[i] = pastedData[i];
+    try {
+      const res = await fetch(`${getAuthUrl()}/auth/user/google-complete-signup`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...googleData, phone: formattedPhone })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Phone verification failed');
+      
+      setStep('otp');
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    setOtp(newOtp);
-    otpRefs.current[Math.min(pastedData.length, 5)]?.focus();
   };
 
+  // --- OTP HANDLERS ---
   const handleOtpChange = (index: number, value: string) => {
     if (isNaN(Number(value))) return;
     const newOtp = [...otp];
@@ -120,32 +119,25 @@ export default function LoginPage() {
   };
 
   const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
+    if (e.key === 'Backspace' && !otp[index] && index > 0) otpRefs.current[index - 1]?.focus();
   };
 
-  // 🟢 VERIFY GOOGLE OTP
-  const handleVerifyGoogleOtp = async (e: React.FormEvent) => {
-      e.preventDefault();
-      const otpString = otp.join('');
-      if (otpString.length < 6) return setError("Please enter the full 6-digit code.");
-
-      setLoading(true); setError('');
-      try {
-          const res = await fetch(`${getAuthUrl()}/auth/user/verify-email`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: googleEmail, otp: otpString })
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message);
-
-          await handleLoginSuccess(data.token);
-      } catch (err: any) {
-          setError(err.message);
-      } finally {
-          setLoading(false);
-      }
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const otpString = otp.join('');
+    if (otpString.length < 6) return setError("Please enter the complete 6-digit code.");
+    
+    setLoading(true); setError('');
+    try {
+      const res = await fetch(`${getAuthUrl()}/auth/user/verify-email`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp: otpString })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Verification failed');
+      
+      await handleLoginSuccess(data.token);
+    } catch (err: any) { setError(err.message); setLoading(false); }
   };
 
   const onFacebookSuccess = async (response: any) => {
@@ -163,148 +155,199 @@ export default function LoginPage() {
     }
   };
 
+  const styles: { [key: string]: React.CSSProperties } = {
+    container: { minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'radial-gradient(at 0% 0%, hsla(213,94%,88%,1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(27,100%,92%,1) 0, transparent 50%), #ffffff', fontFamily: "'Poppins', sans-serif", padding: '20px', position: 'relative', overflow: 'hidden' },
+    heroSection: { textAlign: 'center', marginBottom: '35px', animation: 'fadeInDown 0.8s ease-out forwards', zIndex: 2 },
+    heroBadge: { display: 'inline-flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '8px 20px', borderRadius: '50px', boxShadow: '0 4px 15px rgba(37, 99, 235, 0.15)', color: '#2563eb', fontWeight: '600', fontSize: '0.85rem', marginBottom: '20px', border: '1px solid #e0f2fe' },
+    iconsContainer: { display: 'flex', justifyContent: 'center', gap: '30px', marginBottom: '15px' },
+    heroTitle: { fontSize: '2.2rem', fontWeight: '800', color: '#1e293b', letterSpacing: '-1px', margin: '0 0 5px 0', background: 'linear-gradient(to right, #1e3a8a, #ea580c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+    card: { backgroundColor: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(20px)', padding: '45px', borderRadius: '32px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1)', width: '100%', maxWidth: '460px', textAlign: 'center', border: '1px solid rgba(255, 255, 255, 0.5)', animation: 'slideUp 0.8s ease-out forwards', position: 'relative', zIndex: 10 },
+    title: { fontSize: '1.75rem', fontWeight: '700', color: '#111827', marginBottom: '8px' },
+    subtitle: { fontSize: '0.95rem', color: '#6b7280', marginBottom: '30px' },
+    inputGroup: { position: 'relative', marginBottom: '20px', textAlign: 'left' },
+    inputIcon: { position: 'absolute', top: '50%', left: '20px', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: '18px', zIndex: 2 },
+    eyeIcon: { position: 'absolute', top: '50%', right: '20px', transform: 'translateY(-50%)', color: '#9ca3af', cursor: 'pointer', zIndex: 2, padding: '5px' },
+    input: { width: '100%', padding: '16px 55px', borderRadius: '16px', border: '2px solid #e5e7eb', fontSize: '1rem', outline: 'none', backgroundColor: '#f9fafb', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', color: '#1f2937', fontWeight: '500' },
+    forgotContainer: { display: 'flex', justifyContent: 'flex-end', marginTop: '-8px', marginBottom: '25px' },
+    forgotLink: { color: '#f97316', fontSize: '0.9rem', fontWeight: '600', textDecoration: 'none', transition: 'color 0.2s' },
+    button: { width: '100%', padding: '18px', background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', color: 'white', border: 'none', borderRadius: '16px', fontSize: '1.1rem', fontWeight: '600', cursor: 'pointer', boxShadow: '0 10px 25px -5px rgba(37, 99, 235, 0.4)', transition: 'all 0.3s ease' },
+    divider: { display: 'flex', alignItems: 'center', margin: '30px 0', color: '#9ca3af', fontSize: '13px', fontWeight: '500' },
+    line: { flex: 1, height: '1px', backgroundColor: '#e5e7eb' },
+    socialGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' },
+    googleBtn: { width: '100%', padding: '15px', border: '1px solid #e5e7eb', backgroundColor: '#fff', borderRadius: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#374151', fontWeight: '600', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', transition: 'all 0.3s ease' },
+    fbBtn: { width: '100%', padding: '15px', border: 'none', backgroundColor: '#1877F2', borderRadius: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#fff', fontWeight: '600', boxShadow: '0 4px 6px -1px rgba(24, 119, 242, 0.25)', transition: 'all 0.3s ease' },
+    footerText: { marginTop: '30px', fontSize: '14px', color: '#6b7280' },
+    link: { color: '#2563eb', fontWeight: '700', textDecoration: 'none' },
+    error: { color: '#ef4444', backgroundColor: '#fef2f2', padding: '14px', borderRadius: '12px', marginBottom: '20px', fontSize: '14px', border: '1px solid #fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' },
+    popupOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+    popupCard: { backgroundColor: 'white', padding: '40px', borderRadius: '30px', boxShadow: '0 25px 50px rgba(0,0,0,0.15)', textAlign: 'center', border: '2px solid #22c55e', animation: 'zoomIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
+    
+    // OTP Specific
+    otpContainer: { display: 'flex', justifyContent: 'center', gap: '10px', margin: '25px 0' },
+    otpInput: { width: '50px', height: '60px', fontSize: '24px', fontWeight: '700', textAlign: 'center', borderRadius: '12px', border: '2px solid #e5e7eb', outline: 'none', backgroundColor: '#f8fafc', color: '#f97316', transition: '0.2s' },
+  };
+
   return (
     <>
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
-        .otp-input { width: 45px; height: 55px; font-size: 22px; font-weight: 700; text-align: center; border-radius: 12px; border: 2px solid #e5e7eb; outline: none; background: #f8fafc; color: #25D366; transition: 0.2s; }
-        .otp-input:focus { border-color: #25D366 !important; background: #fff !important; box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.1); }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-8px); } 100% { transform: translateY(0px); } }
+        @keyframes pulse-soft { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .btn-hover:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -5px rgba(37, 99, 235, 0.3); }
+        .btn-active:active { transform: scale(0.97); }
+        .social-hover:hover { transform: translateY(-3px); }
+        .input-focus:focus { border-color: #2563eb !important; background-color: #fff !important; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        .otp-focus:focus { border-color: #f85606 !important; background-color: #fff !important; box-shadow: 0 0 0 4px rgba(248, 86, 6, 0.1); }
+        .float-anim-1 { animation: float 4s ease-in-out infinite; color: #f97316; font-size: 2.2rem; }
+        .float-anim-2 { animation: float 4s ease-in-out infinite 1.5s; color: #2563eb; font-size: 2.2rem; }
+        .float-anim-3 { animation: float 4s ease-in-out infinite 0.5s; color: #10b981; font-size: 2.2rem; }
+        .link-anim:hover { color: #ea580c !important; text-decoration: underline; }
       `}</style>
 
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f8fafc', padding: '20px', fontFamily: "'Poppins', sans-serif" }}>
-        
+      <div style={styles.container}>
         {isSuccess && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 }}>
-            <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '24px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
-              <FaCheckCircle size={60} color="#22c55e" style={{ marginBottom: '15px' }} />
-              <h2 style={{ margin: 0, color: '#111827', fontWeight: 700 }}>Login Successful!</h2>
-              <p style={{ color: '#6b7280', marginTop: '5px' }}>Redirecting to SJ10...</p>
+          <div style={styles.popupOverlay}>
+            <div style={styles.popupCard}>
+              <FaCheckCircle size={65} color="#22c55e" style={{marginBottom: '15px', animation: 'pulse-soft 1s infinite'}} />
+              <h2 style={{margin: '0 0 10px', color:'#111827', fontWeight: 700}}>Login Successful!</h2>
+              <p style={{color:'#6b7280', margin: 0}}>Redirecting to marketplace...</p>
             </div>
           </div>
         )}
 
-        <div style={{ backgroundColor: 'white', padding: '40px 30px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', width: '100%', maxWidth: '440px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-          
-          {error && <p style={{ color: '#ef4444', backgroundColor: '#fef2f2', padding: '12px', borderRadius: '12px', fontSize: '13px', marginBottom: '20px', border: '1px solid #fee2e2' }}>⚠️ {error}</p>}
+        <div style={styles.heroSection}>
+          <div style={styles.iconsContainer}>
+            <FaShoppingBag className="float-anim-1" />
+            <FaShieldAlt className="float-anim-2" />
+            <FaShippingFast className="float-anim-3" />
+          </div>
+          <div style={styles.heroBadge}>
+            <FaMapMarkerAlt size={14} /> <span>Trusted Across Pakistan</span>
+          </div>
+          <h1 style={styles.heroTitle}>Premium Shopping</h1>
+          <p style={{color: '#64748b', fontSize: '1rem', marginTop: '5px'}}>
+            Your world of fashion & tech awaits.
+          </p>
+        </div>
 
-          {/* ========================================================= */}
-          {/* STEP 1: NORMAL LOGIN SCREEN                               */}
-          {/* ========================================================= */}
+        <div style={styles.card}>
+          {error && <p style={styles.error}>⚠️ {error}</p>}
+
+          {/* ========================================= */}
+          {/* STEP 1: NORMAL LOGIN                      */}
+          {/* ========================================= */}
           {step === 'login' && (
             <>
-              <h1 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#111827', margin: '0 0 5px' }}>Welcome Back</h1>
-              <p style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '25px' }}>Sign in to your SJ10 account</p>
-
+              <h1 style={styles.title}>Welcome Back</h1>
+              <p style={styles.subtitle}>Please enter your details to sign in.</p>
+              
               <form onSubmit={handleSubmit}>
-                <div style={{ position: 'relative', marginBottom: '16px' }}>
-                  <FaEnvelope style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                  <input type="email" placeholder="Email Address" required value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '14px 14px 14px 44px', borderRadius: '12px', border: '1.5px solid #e2e8f0', outline: 'none', boxSizing: 'border-box' }} />
+                <div style={styles.inputGroup}>
+                  <FaEnvelope style={styles.inputIcon} />
+                  <input type="email" style={styles.input} className="input-focus" placeholder="Email Address" required onChange={e => setEmail(e.target.value)} />
                 </div>
-
-                <div style={{ position: 'relative', marginBottom: '20px' }}>
-                  <FaLock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
-                  <input type={showPassword ? "text" : "password"} placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '14px 44px', borderRadius: '12px', border: '1.5px solid #e2e8f0', outline: 'none', boxSizing: 'border-box' }} />
-                  <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#9ca3af' }} onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                <div style={styles.inputGroup}>
+                  <FaLock style={styles.inputIcon} />
+                  <input type={showPassword ? "text" : "password"} style={styles.input} className="input-focus" placeholder="Password" required onChange={e => setPassword(e.target.value)} />
+                  <div style={styles.eyeIcon} onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <FaEyeSlash size={20} /> : <FaEye size={20} />}
                   </div>
                 </div>
-
-                <button type="submit" disabled={loading} style={{ width: '100%', padding: '15px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}>
-                  {loading ? 'Signing in...' : 'Sign In Securely'}
+                <div style={styles.forgotContainer}>
+                  <Link href="/auth/forgot-password" style={styles.forgotLink} className="link-anim">Forgot Password?</Link>
+                </div>
+                <button type="submit" style={styles.button} className="btn-hover btn-active" disabled={loading}>
+                  {loading ? 'Authenticating...' : 'Sign In Securely'}
                 </button>
               </form>
 
-              <div style={{ display: 'flex', alignItems: 'center', margin: '25px 0', color: '#9ca3af', fontSize: '12px' }}>
-                <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
-                <span style={{ padding: '0 10px' }}>OR</span>
-                <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
+              <div style={styles.divider}>
+                <div style={styles.line}></div><span style={{padding: '0 15px'}}>Or continue with</span><div style={styles.line}></div>
               </div>
 
-              <button onClick={() => handleGoogleClick()} disabled={loading} style={{ width: '100%', padding: '14px', border: '1px solid #e2e8f0', background: '#fff', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontWeight: '600', color: '#374151' }}>
-                <FaGoogle color="#DB4437" /> Continue with Google
-              </button>
+              <div style={styles.socialGrid}>
+                <button style={styles.googleBtn} className="social-hover btn-active" onClick={() => handleGoogleClick()} disabled={loading}>
+                  <FaGoogle size={20} color="#DB4437" /> <span>Google</span>
+                </button>
 
-              <p style={{ marginTop: '25px', fontSize: '13px', color: '#6b7280' }}>
-                New to SJ10? <Link href="/auth/signup" style={{ color: '#2563eb', fontWeight: '700' }}>Create an Account</Link>
+                <FacebookLogin
+                  appId={process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || ''}
+                  onSuccess={onFacebookSuccess}
+                  onFail={() => setError("Facebook Login Failed.")}
+                  render={({ onClick }) => (
+                    <button style={{...styles.fbBtn}} className="social-hover btn-active" onClick={onClick} disabled={loading}>
+                      <FaFacebook size={20} color="#fff" /> <span>Facebook</span>
+                    </button>
+                  )}
+                />
+              </div>
+
+              <p style={styles.footerText}>
+                New to SJ10? <Link href="/auth/signup" style={styles.link} className="link-anim">Create an Account</Link>
               </p>
             </>
           )}
 
-          {/* ========================================================= */}
-          {/* STEP 2: GOOGLE USER -> WHATSAPP NUMBER SCREEN             */}
-          {/* ========================================================= */}
-          {step === 'google_phone' && (
-            <>
-              <div style={{ width: '65px', height: '65px', background: '#ecfdf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}>
-                <FaWhatsapp size={35} color="#25D366" />
-              </div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#111827', margin: '0 0 8px' }}>WhatsApp Verification</h2>
-              <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '25px' }}>
-                Please enter your active WhatsApp number to complete registration.
-              </p>
+          {/* ========================================= */}
+          {/* STEP 1.5: GOOGLE REQUIRE PHONE STEP       */}
+          {/* ========================================= */}
+          {step === 'googlePhone' && (
+             <>
+               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                 <FaGoogle style={{ fontSize: '40px', color: '#DB4437' }} />
+               </div>
+               <h2 style={styles.title}>One Last Step!</h2>
+               <p style={styles.subtitle}>Please verify your mobile number to secure your SJ10 account.</p>
 
-              <form onSubmit={handleSendGoogleWhatsAppOtp}>
-                <div style={{ position: 'relative', marginBottom: '20px' }}>
-                  <FaWhatsapp style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#25D366', fontSize: '20px' }} />
-                  <input 
-                    type="tel" 
-                    placeholder="WhatsApp Number (e.g. 03368361990)" 
-                    value={phone} 
-                    onChange={e => setPhone(e.target.value)} 
-                    maxLength={13} 
-                    required 
-                    style={{ width: '100%', padding: '14px 14px 14px 48px', borderRadius: '12px', border: '1.5px solid #25D366', outline: 'none', boxSizing: 'border-box', fontSize: '15px' }} 
-                  />
-                </div>
-
-                <button type="submit" disabled={loading} style={{ width: '100%', padding: '15px', background: '#25D366', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', fontSize: '15px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(37, 211, 102, 0.3)' }}>
-                  {loading ? 'Sending Code...' : 'Send WhatsApp OTP'}
-                </button>
-              </form>
-            </>
+               <form onSubmit={handleGooglePhoneSubmit}>
+                 <div style={styles.inputGroup}>
+                   <i className="fas fa-phone-alt" style={styles.inputIcon}></i>
+                   <input type="tel" style={styles.input} className="input-focus" placeholder="WhatsApp / Phone (e.g. 03368361990)" value={phone} onChange={e => setPhone(e.target.value)} maxLength={13} required autoFocus />
+                 </div>
+                 <button type="submit" style={styles.button} className="btn-hover btn-active" disabled={loading}>
+                   {loading ? <i className="fas fa-circle-notch fa-spin"></i> : 'SEND OTP'}
+                 </button>
+               </form>
+             </>
           )}
 
-          {/* ========================================================= */}
-          {/* STEP 3: 1-TAP PASTE OTP VERIFICATION SCREEN               */}
-          {/* ========================================================= */}
-          {step === 'google_otp' && (
-            <>
-              <div style={{ width: '65px', height: '65px', background: '#ecfdf5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}>
-                <FaWhatsapp size={35} color="#25D366" />
-              </div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#111827', margin: '0 0 6px' }}>Verify WhatsApp</h2>
-              <p style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '25px' }}>
-                We sent a 6-digit code on WhatsApp to <br/><strong>{phone}</strong>
-              </p>
+          {/* ========================================= */}
+          {/* STEP 2: OTP VERIFICATION                  */}
+          {/* ========================================= */}
+          {step === 'otp' && (
+             <>
+               <div style={{ width: '60px', height: '60px', background: '#fff7ed', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}>
+                 <i className="fas fa-envelope-open-text" style={{ fontSize: '28px', color: '#f85606' }}></i>
+               </div>
+               <h2 style={styles.title}>Verify Account</h2>
+               <p style={styles.subtitle}>We sent a 6-digit code to <br /><strong style={{ color: '#0f172a' }}>{email}</strong></p>
 
-              <form onSubmit={handleVerifyGoogleOtp}>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '25px' }}>
-                  {otp.map((digit, index) => (
-                    <input
-                      key={index}
-                      ref={el => { otpRefs.current[index] = el; }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={e => handleOtpChange(index, e.target.value)}
-                      onKeyDown={e => handleOtpKeyDown(index, e)}
-                      onPaste={handleOtpPaste} // 🟢 1-TAP PASTE FEATURE
-                      className="otp-input"
-                      autoFocus={index === 0}
-                    />
-                  ))}
-                </div>
-
-                <button type="submit" disabled={loading} style={{ width: '100%', padding: '15px', background: '#25D366', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', fontSize: '15px', cursor: 'pointer' }}>
-                  {loading ? 'Verifying...' : 'Verify & Login'}
-                </button>
-              </form>
-
-              <p style={{ marginTop: '20px', fontSize: '13px', color: '#6b7280' }}>
-                Wrong number? <span onClick={() => setStep('google_phone')} style={{ color: '#25D366', fontWeight: '700', cursor: 'pointer' }}>Change Number</span>
-              </p>
-            </>
+               <form onSubmit={handleVerifyOtp}>
+                 <div style={styles.otpContainer}>
+                   {otp.map((digit, index) => (
+                     <input
+                       key={index}
+                       ref={el => { otpRefs.current[index] = el; }}
+                       type="text"
+                       inputMode="numeric"
+                       maxLength={1}
+                       value={digit}
+                       onChange={e => handleOtpChange(index, e.target.value)}
+                       onKeyDown={e => handleOtpKeyDown(index, e)}
+                       style={styles.otpInput}
+                       className="otp-focus"
+                       autoFocus={index === 0}
+                     />
+                   ))}
+                 </div>
+                 <button type="submit" style={styles.button} className="btn-hover btn-active" disabled={loading}>
+                   {loading ? <i className="fas fa-spinner fa-spin"></i> : 'VERIFY & LOGIN'}
+                 </button>
+               </form>
+             </>
           )}
 
         </div>
