@@ -42,7 +42,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const router = useRouter();
 
+  // src/components/AuthProvider.tsx ke andar fetchAndSetUser ko aise update karein:
+
   const fetchAndSetUser = useCallback(async () => {
+    // 🟢 1. HANDSHAKE: Agar Mobile App se token URL mein aaya ho, toh foran LocalStorage mein save karo!
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const appToken = urlParams.get('app_token') || urlParams.get('authToken') || urlParams.get('token');
+      
+      if (appToken && appToken.length > 10) {
+        localStorage.setItem('authToken', appToken);
+        localStorage.setItem('user_token', appToken);
+        // URL se ?app_token=... saaf kar do taake address bar clean rahe
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+
+    // 2. Ab token check karo (Ab token 100% mojood hoga!)
     const token = localStorage.getItem('authToken') || localStorage.getItem('user_token');
     if (!token) {
       setIsLoading(false);
@@ -64,7 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, []);
-
   const refreshDashboardStats = useCallback(async () => {
     const token = localStorage.getItem('authToken') || localStorage.getItem('user_token');
     if (!token) {

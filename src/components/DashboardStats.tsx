@@ -17,7 +17,8 @@ export default function DashboardStats() {
     const fetchStats = async () => {
       try {
         const data = await apiClient('/dashboard');
-        setStats(data);
+        // 🟢 FIX: Ensure we never set undefined data
+        setStats(data || { totalSales: 0, completedOrders: 0, totalProfit: 0, totalBonus: 0 });
       } catch (error) {
         console.error("Failed to load dashboard stats", error);
       } finally {
@@ -31,7 +32,7 @@ export default function DashboardStats() {
   // --- STYLES (Matching your Screenshot) ---
   const s = {
     card: {
-      background: 'linear-gradient(135deg, #01126d 0%, #cc9d01 100%)', // Brand Green
+      background: 'linear-gradient(135deg, #01126d 0%, #cc9d01 100%)', 
       borderRadius: '16px',
       padding: '20px',
       color: '#fff',
@@ -40,7 +41,6 @@ export default function DashboardStats() {
       position: 'relative' as 'relative',
       overflow: 'hidden'
     },
-    // The Big Number at Top (Total Sales / Revenue)
     mainStat: {
       textAlign: 'center' as 'center',
       marginBottom: '20px',
@@ -59,7 +59,6 @@ export default function DashboardStats() {
       textTransform: 'uppercase' as 'uppercase',
       letterSpacing: '1px'
     },
-    // Grid for 3 Bottom Stats
     grid: {
       display: 'flex',
       justifyContent: 'space-between',
@@ -81,7 +80,6 @@ export default function DashboardStats() {
       fontSize: '16px',
       fontWeight: '700'
     },
-    // Refresh Icon
     refreshBtn: {
       position: 'absolute' as 'absolute',
       top: '15px',
@@ -98,7 +96,6 @@ export default function DashboardStats() {
       zIndex: 10,
       backdropFilter: 'blur(5px)'
     },
-    // Decoration Circles
     circle1: {
       position: 'absolute' as 'absolute',
       top: '-20px',
@@ -124,9 +121,9 @@ export default function DashboardStats() {
   const handleRefresh = () => {
     setLoading(true);
     apiClient('/dashboard').then(data => {
-      setStats(data);
+      setStats(data || { totalSales: 0, completedOrders: 0, totalProfit: 0, totalBonus: 0 });
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   };
 
   return (
@@ -143,7 +140,8 @@ export default function DashboardStats() {
       {/* Main Big Stat (Total Sales Value) */}
       <div style={s.mainStat}>
         <div style={s.mainValue}>
-          {loading ? '...' : `Rs. ${stats.totalSales.toLocaleString()}`}
+          {/* 🟢 FIX: Added Fallback Checks to prevent Crash */}
+          {loading ? '...' : `Rs. ${(stats?.totalSales || 0).toLocaleString()}`}
         </div>
         <div style={s.mainLabel}>Total Sales Value</div>
       </div>
@@ -153,19 +151,19 @@ export default function DashboardStats() {
         {/* 1. Orders */}
         <div style={s.statItem}>
           <div style={s.subLabel}>Completed Orders</div>
-          <div style={s.subValue}>{loading ? '-' : stats.completedOrders}</div>
+          <div style={s.subValue}>{loading ? '-' : (stats?.completedOrders || 0)}</div>
         </div>
 
         {/* 2. Profit */}
         <div style={s.statItem}>
           <div style={s.subLabel}>Total Profit</div>
-          <div style={s.subValue}>{loading ? '-' : `Rs. ${stats.totalProfit.toLocaleString()}`}</div>
+          <div style={s.subValue}>{loading ? '-' : `Rs. ${(stats?.totalProfit || 0).toLocaleString()}`}</div>
         </div>
 
         {/* 3. Bonus */}
         <div style={s.statItem}>
           <div style={s.subLabel}>Total Bonus</div>
-          <div style={s.subValue}>{loading ? '-' : `Rs. ${stats.totalBonus.toLocaleString()}`}</div>
+          <div style={s.subValue}>{loading ? '-' : `Rs. ${(stats?.totalBonus || 0).toLocaleString()}`}</div>
         </div>
       </div>
     </div>

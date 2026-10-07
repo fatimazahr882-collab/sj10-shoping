@@ -70,9 +70,16 @@ const apiClient = async (
       body: bodyToSend,
     });
 
-    if (!response.ok) {
-      // 🛑 YAHAN Lighthouse ke liye fix: 401 par crash mat ho
-      if (response.status === 401) return { notifications: [], unreadCount: 0 };
+   if (!response.ok) {
+      // 🛑 THE MASTER FIX: Har 401 par notification nahi bhejna! 
+      if (response.status === 401) {
+          // Sirf tab dummy data bhejo agar call notifications ki thi
+          if (cleanEndpoint.includes('notifications')) {
+              return { notifications: [], unreadCount: 0 };
+          }
+          // Baqi sab jagah properly error throw karo taake catch block chal sakay aur crash na ho
+          throw new Error('Unauthorized');
+      }
       
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || `API Error: ${response.status}`);

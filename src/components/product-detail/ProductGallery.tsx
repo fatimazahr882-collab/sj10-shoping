@@ -15,10 +15,11 @@ const formatMediaUrl = (path: string | null | undefined) => {
   return `${R2_DOMAIN}/${path.replace(/^\/+/, '')}`;
 };
 
+// 🟢 THE FIX: Advanced YouTube ID Extractor (Supports Shorts & Normal links)
 const getYouTubeId = (url: string) => { 
   if (!url) return null;
-  const match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/); 
-  return (match && match[2].length === 11) ? match[2] : null; 
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? match[1] : null; 
 };
 
 export default function ProductGallery({ 
@@ -53,7 +54,7 @@ export default function ProductGallery({
     setMounted(true);
   }, []);
 
-  // 🟢 AUTOMATIC UNMUTED VIDEO PLAYBACK HANDLER
+  // 🟢 AUTOMATIC UNMUTED VIDEO PLAYBACK HANDLER (For direct MP4s)
   useEffect(() => {
     if (activeMedia?.type === 'video' && videoRef.current) {
       const vid = videoRef.current;
@@ -156,12 +157,14 @@ export default function ProductGallery({
         {/* Video vs Image */}
         {activeMedia?.type === 'video' ? (
            ytId ? (
+              // 🟢 THE FIX: mute=1 allows browser autoplay, added full allowances
               <iframe 
-                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=0&controls=1&loop=1&playlist=${ytId}&modestbranding=1&rel=0`} 
+                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=1&loop=1&playlist=${ytId}&modestbranding=1&rel=0`} 
                 className="pdp-main-video loaded" 
-                allow="autoplay; encrypted-media" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowFullScreen
                 title="Product Video" 
-                style={{ width: '100%', height: '100%', border: 'none', opacity: 1 }} 
+                style={{ width: '100%', height: '100%', border: 'none', opacity: 1, backgroundColor: '#000' }} 
               />
            ) : ( 
               <div className="video-player-wrap" onClick={(e) => e.stopPropagation()}>
@@ -190,7 +193,6 @@ export default function ProductGallery({
               </div>
            )
         ) : ( 
-          /* 🟢 VISIBILITY FIXED: Added "loaded" class & inline opacity: 1 */
           <Image 
             key={activeMediaUrl}
             src={activeMediaUrl} 
@@ -204,7 +206,7 @@ export default function ProductGallery({
             unoptimized={true}
             style={{ 
               objectFit: 'contain', 
-              opacity: 1, /* 🟢 FORCES 100% VISIBILITY */
+              opacity: 1, 
               transform: zoomPos.show ? 'scale(2.2)' : 'scale(1)',
               transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`
             }} 
@@ -255,7 +257,7 @@ export default function ProductGallery({
       </div>
 
       {/* Download Media Button */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '10px 0' }}>
         <button className="download-media-trigger-btn" onClick={() => setIsDownloadModalOpen(true)} aria-label="Download product images and description">
           <i className="fas fa-download" aria-hidden="true"></i> Download Media
         </button>
@@ -325,7 +327,6 @@ export default function ProductGallery({
         .pdp-image-gallery { width: 100%; position: relative; }
         .main-image-container { position: relative; width: 100%; height: 420px; background-color: #ffffff; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid #f1f5f9; cursor: zoom-in; }
         
-        /* 🟢 FORCED OPACITY 1 OVERRIDE */
         .pdp-main-image { 
           width: 100%; 
           height: 100%; 
@@ -382,96 +383,12 @@ export default function ProductGallery({
         .image-heart-btn:active { transform: scale(0.85); }
         .image-heart-btn i.text-red { color: #e91e63 !important; }
       `}</style>
-
-      {/* Global Lightbox Styles */}
-      <style jsx global>{`
-        .fs-lightbox-overlay {
-          position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
-          background: rgba(0,0,0,0.95) !important;
-          z-index: 2147483647 !important;
-          display: flex; flex-direction: column; justify-content: center; align-items: center;
-          animation: fadeIn 0.2s ease-out;
-        }
-        
-        .fs-lightbox-close {
-          position: absolute; top: 20px; right: 20px;
-          background: rgba(255,255,255,0.2); color: white; border: none;
-          width: 44px; height: 44px; border-radius: 50%; font-size: 20px;
-          display: flex; align-items: center; justify-content: center;
-          cursor: pointer; z-index: 10; transition: 0.2s;
-        }
-        .fs-lightbox-close:hover { background: #ef4444; transform: scale(1.1); }
-        
-        .fs-lightbox-counter {
-          position: absolute; top: 25px; left: 20px;
-          background: rgba(255,255,255,0.2); color: white; padding: 6px 14px;
-          border-radius: 20px; font-weight: 700; font-size: 14px; letter-spacing: 1px;
-        }
-
-        .fs-lightbox-center {
-          position: relative; display: flex; align-items: center; justify-content: center;
-          width: 100%; max-width: 900px; height: 75vh; padding: 0 20px; box-sizing: border-box;
-        }
-
-        .fs-main-img-wrap {
-          position: relative; width: 100%; height: 100%;
-          display: flex; align-items: center; justify-content: center;
-        }
-
-        .fs-main-img {
-          max-width: 100%; max-height: 100%; object-fit: contain;
-          border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        }
-
-        .fs-nav-btn {
-          position: absolute; top: 50%; transform: translateY(-50%);
-          background: rgba(255,255,255,0.2); color: white; border: none;
-          width: 50px; height: 50px; border-radius: 50%; font-size: 20px;
-          display: flex; align-items: center; justify-content: center;
-          cursor: pointer; transition: 0.2s; z-index: 10;
-        }
-        .fs-nav-btn:hover { background: white; color: black; }
-        .fs-nav-btn.left { left: -20px; }
-        .fs-nav-btn.right { right: -20px; }
-        @media (max-width: 768px) {
-          .fs-nav-btn.left { left: 5px; }
-          .fs-nav-btn.right { right: 5px; }
-        }
-
-        .fs-lightbox-thumbs {
-          position: absolute; bottom: 20px; left: 0; right: 0;
-          display: flex; gap: 10px; justify-content: center; overflow-x: auto; padding: 10px;
-        }
-        .fs-thumb-item {
-          width: 55px; height: 55px; border-radius: 10px; overflow: hidden;
-          border: 2px solid transparent; cursor: pointer; opacity: 0.6; transition: 0.2s; background: white; padding: 0;
-        }
-        .fs-thumb-item.active { border-color: #00b862; opacity: 1; transform: scale(1.1); }
-        .fs-thumb-item img { width: 100%; height: 100%; object-fit: cover; }
-
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .download-modal-sheet {
-            position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
-            background: white !important; border-radius: 24px 24px 0 0 !important; padding: 25px !important;
-            z-index: 2147483647 !important; max-width: 500px !important; margin: 0 auto !important;
-            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        }
-        .dm-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; }
-        .dm-option { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; background: #fafafa; }
-        .dm-option.selected { border-color: #00b862; background: #f0fdf4; }
-        .dm-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #cbd5e1; position: relative; transition: all 0.2s; }
-        .dm-option.selected .dm-check { border-color: #00b862; background: #00b862; }
-        .dm-option.selected .dm-check::after { content: '✓'; position: absolute; color: white; font-size: 13px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-        .dm-action-btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 15px; font-weight: 800; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden; background: #0f172a; color: white; }
-        .dm-action-btn.success { background: #00b862; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-      `}</style>
     </div>
   );
 }
 
 function DownloadOptionsModal({ images, videoUrl, product, showToast, onClose }: any) {
+    // 🟢 Don't show video download option for YouTube videos (Browser can't download them directly)
     const hasVideo = !!videoUrl && !videoUrl.includes('youtu'); 
     const [dlImages, setDlImages] = useState(true);
     const [dlVideo, setDlVideo] = useState(hasVideo);
