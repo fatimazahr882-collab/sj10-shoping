@@ -97,7 +97,7 @@ export default function ProductCard({ product }: { product: Product | null }) {
                 {isImgLoading && <SjLoader />}
                 
                 {/* ✅ PERFORMANCE & FIX: Image is hidden until onLoad fires */}
-// Inside src/components/ProductCard.tsx:
+
 <Image 
     src={firstImage} 
     alt={product.title || "Product"} 

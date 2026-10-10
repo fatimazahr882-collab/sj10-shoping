@@ -33,7 +33,15 @@ export const metadata: Metadata = {
     "Earn money online Pakistan",
     "Wholesale clothing Pakistan",
     "Cheap electronics Pakistan",
-    "Zero investment business Pakistan"
+    "Zero investment business Pakistan",
+    "online shoping app Pakistan",
+    "SJ10.pk",
+    "Saman Junction",
+    "Pakistan online marketplace",
+    "Reselling business Pakistan",
+    "Online shopping app Pakistan",
+    "Best online store Pakistan"
+    
   ],
   alternates: { canonical: "/" },
   openGraph: {
@@ -72,7 +80,7 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const initialData = await getStaticHomeData();
 
-  // 🚀 STRUCTURED DATA (JSON-LD)
+  // 🚀 STRUCTURED DATA (JSON-LD) - FULLY LINKED TO SOCIAL ENTITIES
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -89,11 +97,21 @@ export default async function HomePage() {
           "addressRegion": "Punjab",
           "addressCountry": "PK"
         },
+        "founder": {
+          "@type": "Person",
+          "name": "Aoun Abbas",
+          "jobTitle": "Founder & CEO",
+          "url": "https://www.linkedin.com/in/aoun-abbas-904ab3416"
+        },
         "sameAs": [ 
           "https://www.instagram.com/sj10official",
           "https://www.tiktok.com/@sj10official",
           "https://youtube.com/@sj10official",
-          "https://www.facebook.com/share/1Bq48JrhYK/"
+          "https://www.facebook.com/share/1Bq48JrhYK/",
+          "https://x.com/sj10official",
+          "https://www.linkedin.com/in/aoun-abbas-904ab3416",
+          "https://medium.com/@hfjrjfifjofgir",
+          "https://www.reddit.com/user/sj10official"
         ]
       },
       {
@@ -110,7 +128,7 @@ export default async function HomePage() {
       },
       {
         "@type": "Service",
-        "serviceType": "Reselling Platform",
+        "serviceType": "shopping & Reselling Platform",
         "provider": { "@id": `${SITE_URL}/#organization` },
         "areaServed": { "@type": "Country", "name": "Pakistan" },
         "description": "Start your online business in Pakistan with zero investment. Set your own profit margins and earn from home."
