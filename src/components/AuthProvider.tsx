@@ -42,10 +42,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const router = useRouter();
 
-  // src/components/AuthProvider.tsx ke andar fetchAndSetUser ko aise update karein:
+  // 🟢 SILENT REFRESH TOKEN MECHANISM (Keeps user logged in for 30 days)
+  const refreshAuthToken = async (): Promise<string | null> => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) return null;
+
+      const res = await apiClient('auth/user/refresh-token', 'POST', { refreshToken });
+      if (res && (res.token || res.accessToken)) {
+        const newToken = res.token || res.accessToken;
+        localStorage.setItem('authToken', newToken);
+        localStorage.setItem('user_token', newToken);
+        if (res.refreshToken) {
+          localStorage.setItem('refreshToken', res.refreshToken);
+        }
+        return newToken;
+      }
+    } catch (e) {
+      console.warn("Refresh token expired or invalid. Logging out.");
+      signOut();
+    }
+    return null;
+  };
 
   const fetchAndSetUser = useCallback(async () => {
-    // 🟢 1. HANDSHAKE: Agar Mobile App se token URL mein aaya ho, toh foran LocalStorage mein save karo!
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const appToken = urlParams.get('app_token') || urlParams.get('authToken') || urlParams.get('token');
@@ -53,33 +73,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (appToken && appToken.length > 10) {
         localStorage.setItem('authToken', appToken);
         localStorage.setItem('user_token', appToken);
-        // URL se ?app_token=... saaf kar do taake address bar clean rahe
         window.history.replaceState({}, '', window.location.pathname);
       }
     }
 
-    // 2. Ab token check karo (Ab token 100% mojood hoga!)
-    const token = localStorage.getItem('authToken') || localStorage.getItem('user_token');
+    let token = localStorage.getItem('authToken') || localStorage.getItem('user_token');
     if (!token) {
-      setIsLoading(false);
-      setUser(null);
-      setDashboardStats(null);
-      setIsStatsLoading(false);
-      return;
+      // Try refreshing if access token is missing but refresh token exists
+      token = await refreshAuthToken();
+      if (!token) {
+        setIsLoading(false);
+        setUser(null);
+        setDashboardStats(null);
+        setIsStatsLoading(false);
+        return;
+      }
     }
 
     try {
       const profileData = await apiClient('user/profile', 'GET');
       setUser(profileData);
-    } catch (error) {
+    } catch (error: any) {
+      // If 401 Unauthorized, try refreshing token once
+      if (error?.message?.includes('401') || error?.status === 401) {
+        const newToken = await refreshAuthToken();
+        if (newToken) {
+          try {
+            const profileData = await apiClient('user/profile', 'GET');
+            setUser(profileData);
+            setIsLoading(false);
+            return;
+          } catch (innerErr) {}
+        }
+      }
       console.error("Failed to fetch profile.", error);
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user_token');
-      setUser(null);
+      signOut();
     } finally {
       setIsLoading(false);
     }
   }, []);
+
   const refreshDashboardStats = useCallback(async () => {
     const token = localStorage.getItem('authToken') || localStorage.getItem('user_token');
     if (!token) {
@@ -89,7 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const stats = await apiClient('orders/stats/dashboard', 'GET');
+      // 🟢 FIXED: Correct route pointing to GET /api/dashboard
+      const stats = await apiClient('dashboard', 'GET');
       setDashboardStats(stats || { total_sales: 0, completed_orders: 0, total_profit: 0 });
     } catch (error) {
       setDashboardStats({ total_sales: 0, completed_orders: 0, total_profit: 0 });
@@ -103,7 +137,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshDashboardStats();
   }, [fetchAndSetUser, refreshDashboardStats]);
 
-  // 🟢 ALLOW STAYING ON CURRENT PAGE (shouldRedirect = false)
   const login = async (token: string, shouldRedirect: boolean = true) => {
     localStorage.setItem('authToken', token);
     localStorage.setItem('user_token', token);
@@ -117,9 +150,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user_token');
+    localStorage.removeItem('refreshToken');
     setUser(null);
     setDashboardStats(null);
-    router.push('/auth');
+    router.push('/auth/login');
   };
 
   const value = {

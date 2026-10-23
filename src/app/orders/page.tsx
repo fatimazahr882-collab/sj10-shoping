@@ -1,27 +1,22 @@
 "use client";
 
-// 🟢 FIX: Added useRef here to fix the red line error!
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import useSWR from 'swr';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    FaSearch, FaBoxOpen, FaTruck, 
-    FaStar, FaCamera, FaTimes, FaEye,
-    FaStore, FaLock, FaShoppingBag, 
-    FaSignInAlt, FaPalette, FaRuler,
-    FaBan, FaChevronDown, FaChevronUp, 
-    FaClock, FaMoneyBillWave, FaTimesCircle, FaShieldAlt
+    FaSearch, FaBoxOpen, FaLock, FaSignInAlt, FaTimes, 
+    FaShieldAlt, FaBan, FaStar, FaRegStar, FaWhatsapp, 
+    FaChevronRight, FaArrowLeft, FaStore, FaCalendarAlt, 
+    FaMapMarkerAlt, FaTruck, FaExternalLinkAlt, FaCheck
 } from 'react-icons/fa';
 import apiClient from '@/lib/apiClient';
 import { useAuth } from '@/components/AuthProvider';
 import AuthModal from '@/components/AuthModal';
 
 // ==========================================
-// 1. UTILS & FETCHER
+// 1. TYPES & HELPERS
 // ==========================================
-const createSlug = (title: string) => title.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
 const fetcher = (url: string) => apiClient(url, 'GET');
 
 const CANCEL_REASONS = [
@@ -33,12 +28,9 @@ const CANCEL_REASONS = [
     "Other"
 ];
 
-// ==========================================
-// 2. TYPES
-// ==========================================
 type OrderItem = {
     itemId: number;
-    productId: number;
+    productId: string;
     title: string;
     slug?: string;                 
     sku?: string;                  
@@ -49,7 +41,8 @@ type OrderItem = {
     costPrice: number;             
     options?: { color?: string; size?: string; [key: string]: any }; 
     status?: string;               
-    cancellationReason?: string | null; 
+    cancellationReason?: string | null;
+    returnStatus?: string; 
 };
 
 type PackageDetails = {
@@ -77,6 +70,9 @@ type Order = {
     confirmationStatus?: string;
     isPendingWhatsApp?: boolean;
     canTrack: boolean;
+    canReturn?: boolean;
+    daysLeftToReturn?: number;
+    deliveredAt?: string | null;
     cancellationReason?: string | null;
     customer?: { name: string; phone: string; address: string; city: string; };
     packages: PackageDetails[];
@@ -84,7 +80,7 @@ type Order = {
 };
 
 type ReviewData = {
-    product_id: number;
+    product_id: string;
     order_id?: string;
     rating: number;
     comment: string;
@@ -93,19 +89,23 @@ type ReviewData = {
 };
 
 // ==========================================
-// 3. SKELETON LOADER
+// 2. SKELETON COMPONENT
 // ==========================================
 const OrderSkeleton = () => (
     <div style={styles.card}>
-        <div style={{...styles.cardHeader, background:'#E5E7EB', height:50}}></div>
-        <div style={{padding:16}}>
-            <div style={{height:20, width:'60%', background:'#F3F4F6', borderRadius:4, marginBottom:10}}></div>
-            <div style={{height:15, width:'40%', background:'#F3F4F6', borderRadius:4, marginBottom:20}}></div>
-            <div style={{display:'flex', gap:10}}>
-                <div style={{width:60, height:60, background:'#F3F4F6', borderRadius:8}}></div>
-                <div style={{flex:1}}>
-                    <div style={{height:15, width:'80%', background:'#F3F4F6', borderRadius:4, marginBottom:8}}></div>
-                    <div style={{height:15, width:'50%', background:'#F3F4F6', borderRadius:4}}></div>
+        <div style={{ ...styles.cardHeader, background: '#0B192C', height: 74 }}></div>
+        <div style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
+                <div style={{ height: 18, width: '35%', background: '#E2E8F0', borderRadius: 8 }}></div>
+                <div style={{ height: 28, width: '28%', background: '#E2E8F0', borderRadius: 14 }}></div>
+            </div>
+            <div style={{ height: 120, background: '#F8FAFC', borderRadius: 14, marginBottom: 18 }}></div>
+            <div style={{ display: 'flex', gap: 16 }}>
+                <div style={{ width: 92, height: 92, background: '#E2E8F0', borderRadius: 14, flexShrink: 0 }}></div>
+                <div style={{ flex: 1 }}>
+                    <div style={{ height: 18, width: '85%', background: '#E2E8F0', borderRadius: 6, marginBottom: 8 }}></div>
+                    <div style={{ height: 14, width: '50%', background: '#E2E8F0', borderRadius: 6, marginBottom: 12 }}></div>
+                    <div style={{ height: 14, width: '30%', background: '#E2E8F0', borderRadius: 6 }}></div>
                 </div>
             </div>
         </div>
@@ -113,7 +113,7 @@ const OrderSkeleton = () => (
 );
 
 // ==========================================
-// 4. MAIN PAGE COMPONENT
+// 3. MAIN ORDERS PAGE
 // ==========================================
 export default function OrdersPage() {
     const router = useRouter();
@@ -123,51 +123,23 @@ export default function OrdersPage() {
     const [activeTab, setActiveTab] = useState('Processing');
     const [search, setSearch] = useState('');
 
-    // --- Review Modal State ---
-    const [reviewModalOpen, setReviewModalOpen] = useState(false);
-    const [autoReviewPrompt, setAutoReviewPrompt] = useState<{product: OrderItem, orderId: string} | null>(null);
-    const [selectedProduct, setSelectedProduct] = useState<{
-        id: number; title: string; img: string | null; orderId: string;
-    } | null>(null);
-    const [existingReviewData, setExistingReviewData] = useState<ReviewData | null>(null);
-
-    // --- 🟢 CANCEL MODAL STATE ---
     const [cancelModalState, setCancelModalState] = useState<{
         isOpen: boolean; mode: 'order' | 'item' | null; orderId: string | null; itemId: number | null;
     }>({ isOpen: false, mode: null, orderId: null, itemId: null });
     const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0]);
     const [isCancelling, setIsCancelling] = useState(false);
 
-    // --- SWR DATA FETCHING ---
+    // 🟢 UNREVIEWED DELIVERED PRODUCT BOTTOM SHEET STATE
+    const [unreviewedPrompt, setUnreviewedPrompt] = useState<{ order: Order; item: OrderItem } | null>(null);
+    const [hasDismissedPrompt, setHasDismissedPrompt] = useState(false);
+    const [popupHoverStar, setPopupHoverStar] = useState<number>(0);
+
     const { data: orders = [], isLoading, mutate } = useSWR<Order[]>(user ? '/orders' : null, fetcher, {
-        revalidateOnFocus: true, refreshInterval: 10000, keepPreviousData: true
+        revalidateOnFocus: true, refreshInterval: 12000, keepPreviousData: true
     });
-    const { data: myReviews = [], mutate: mutateReviews } = useSWR<ReviewData[]>(user ? '/products/reviews/mine' : null, fetcher);
+    const { data: myReviews = [] } = useSWR<ReviewData[]>(user ? '/products/reviews/mine' : null, fetcher);
 
-    // Auto-Review Prompt Logic
-    useEffect(() => {
-        if (!user || orders.length === 0 || myReviews.length === 0) return;
-        const promptShown = sessionStorage.getItem('auto_review_prompt_shown');
-        if (promptShown) return;
-
-        for (const order of orders) {
-            const s = (order.status || '').toLowerCase().replace(/\s/g, '');
-            if (s.includes('delivered')) {
-                for (const pkg of order.packages) {
-                    for (const item of pkg.items) {
-                        const isReviewed = myReviews.some(r => String(r.product_id) === String(item.productId) && String(r.order_id) === String(order.orderId));
-                        if (!isReviewed && item.status !== 'cancelled') {
-                            setAutoReviewPrompt({ product: item, orderId: order.orderId });
-                            sessionStorage.setItem('auto_review_prompt_shown', 'true');
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-    }, [orders, myReviews, user]);
-
-    // 🟢 SUBMIT CANCELLATION (Order OR Item)
+    // Cancel Handler
     const handleCancelSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!cancelReason) return alert("Please select a cancellation reason.");
@@ -179,10 +151,9 @@ export default function OrdersPage() {
             } else if (cancelModalState.mode === 'item') {
                 await apiClient(`/orders/${cancelModalState.orderId}/items/${cancelModalState.itemId}/cancel`, 'PUT', { reason: cancelReason });
             }
-            
             setCancelModalState({ isOpen: false, mode: null, orderId: null, itemId: null });
-            mutate(); // Re-fetch exact data from server
-            alert("Cancellation successful! Bill and inventory updated.");
+            mutate(); 
+            alert("Order updated successfully!");
         } catch (err: any) {
             alert(err.message || "Cancellation failed. Please try again.");
         } finally {
@@ -190,110 +161,197 @@ export default function OrdersPage() {
         }
     };
 
-    const handleReviewClick = (product: OrderItem, orderId: string) => {
-        const review = myReviews.find(r => String(r.product_id) === String(product.productId) && String(r.order_id) === String(orderId));
-        setSelectedProduct(null); setExistingReviewData(null); setAutoReviewPrompt(null);
-        setTimeout(() => {
-            setSelectedProduct({ id: product.productId, title: product.title, img: product.image, orderId: orderId });
-            setExistingReviewData(review || null);
-            setReviewModalOpen(true);
-        }, 10);
-    };
-
-    // Filter Logic
+    // 🟢 100% FIXED CATEGORIZATION
     const categorizedOrders = useMemo(() => {
-        const cats: {[key:string]: Order[]} = { Unconfirmed: [], Processing: [], Shipping: [], Delivered: [], Cancelled: [], Returned: [] };
+        const cats: { [key: string]: Order[] } = { 
+            Unconfirmed: [], Processing: [], Shipping: [], Delivered: [], Cancelled: [], Returned: [] 
+        };
         
         orders.forEach(o => {
-            const s = (o.status || '').toLowerCase().trim();
-            if (o.isPendingWhatsApp && s !== 'cancelled' && s !== 'auto_cancelled') cats.Unconfirmed.push(o);
-            else if (s === 'processing' || s === 'pending' || s === 'partially cancelled') cats.Processing.push(o);
-            else if (['orderdispatched', 'order dispatched', 'intransit', 'in_transit', 'outfordelivery', 'out_for_delivery', 'shipped', 'booked'].includes(s)) cats.Shipping.push(o);
-            else if (s.includes('delivered')) cats.Delivered.push(o);
-            else if (['returned', 'rto', 'refused'].includes(s)) cats.Returned.push(o);
-            else if (s === 'cancelled' || s === 'auto_cancelled') cats.Cancelled.push(o);
-            else cats.Processing.push(o); 
+            const rawStatus = (o.packages[0]?.status || o.status || 'processing').toLowerCase().trim();
+            const hasTracking = o.packages.some(p => p.courier?.trackingNumber && p.courier.trackingNumber.trim() !== '');
+
+            if (rawStatus === 'delivered') {
+                cats.Delivered.push(o);
+            } else if (rawStatus.includes('return') || rawStatus.includes('rto') || rawStatus.includes('refused')) {
+                cats.Returned.push(o);
+            } else if (rawStatus === 'cancelled' || rawStatus === 'auto_cancelled') {
+                cats.Cancelled.push(o);
+            } else if (hasTracking || ['orderdispatched', 'order dispatched', 'intransit', 'in_transit', 'outfordelivery', 'out_for_delivery', 'shipped'].some(st => rawStatus.includes(st))) {
+                cats.Shipping.push(o);
+            } else if (o.isPendingWhatsApp || o.confirmationStatus === 'pending_whatsapp') {
+                cats.Unconfirmed.push(o);
+            } else {
+                cats.Processing.push(o); 
+            }
         });
 
-        const searchLower = search.toLowerCase();
-        if (searchLower) {
-            Object.keys(cats).forEach(k => {
+        const searchLower = search.toLowerCase().trim();
+        Object.keys(cats).forEach(k => {
+            if (searchLower) {
                 cats[k] = cats[k].filter(o => 
                     o.orderId.toLowerCase().includes(searchLower) || 
                     o.customer?.name.toLowerCase().includes(searchLower) ||
                     o.packages.some(p => p.items.some(i => i.title.toLowerCase().includes(searchLower)))
                 );
-            });
-        }
+            }
+            cats[k].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        });
+
         return cats;
     }, [orders, search]);
+
+    // 🟢 AUTOMATIC UNREVIEWED DELIVERED PRODUCT DETECTION (Bottom Popup Trigger)
+    useEffect(() => {
+        if (!isLoading && orders.length > 0 && !hasDismissedPrompt && !unreviewedPrompt) {
+            const deliveredOrders = orders.filter(o => 
+                (o.packages[0]?.status || o.status || '').toLowerCase().trim() === 'delivered'
+            );
+            
+            for (const ord of deliveredOrders) {
+                for (const pkg of ord.packages) {
+                    for (const it of pkg.items) {
+                        if (it.status !== 'cancelled') {
+                            const isReviewed = myReviews.some(
+                                (r: any) => String(r.product_id) === String(it.productId)
+                            );
+                            if (!isReviewed) {
+                                // Unreviewed delivered product found! Trigger modal after 1.2s delay
+                                const timer = setTimeout(() => {
+                                    setUnreviewedPrompt({ order: ord, item: it });
+                                }, 1200);
+                                return () => clearTimeout(timer);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }, [orders, myReviews, isLoading, hasDismissedPrompt, unreviewedPrompt]);
 
     const TABS = ['Unconfirmed', 'Processing', 'Shipping', 'Delivered', 'Cancelled', 'Returned'];
 
     return (
         <div style={styles.page}>
             <style jsx global>{`
-                body { margin:0; padding:0; font-family:-apple-system, sans-serif; background:#F8FAFC; }
+                @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap');
+                body { margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; background: #F8FAFC; color: #0F172A; }
                 .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
                 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+                @keyframes pulseGlow {
+                    0%, 100% { opacity: 0.6; transform: scale(1); }
+                    50% { opacity: 1; transform: scale(1.15); }
+                }
+                .pulse-circle { animation: pulseGlow 2.5s infinite ease-in-out; }
+
+                /* 🟢 HIGH-END MOVING DOTTED LOOP ANIMATION */
+                @keyframes movingDottedRoute {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 0 28px; }
+                }
+                .animated-dotted-pipe {
+                    width: 3px;
+                    flex: 1;
+                    min-height: 48px;
+                    margin: 4px 0;
+                    background: repeating-linear-gradient(
+                        to bottom,
+                        #2563EB 0px,
+                        #2563EB 6px,
+                        transparent 6px,
+                        transparent 12px
+                    );
+                    background-size: 3px 24px;
+                    animation: movingDottedRoute 1.2s linear infinite;
+                }
             `}</style>
             
+            {/* Header */}
             <header style={styles.header}>
                 <div style={styles.headerContent}>
-                    <h1 style={styles.title}>My Orders</h1>
-                    {user && <span style={styles.count}>{orders.length} Total</span>}
+                    <motion.button 
+                        whileTap={{ scale: 0.88 }}
+                        onClick={() => router.back()} 
+                        style={styles.backBtn}
+                    >
+                        <FaArrowLeft size={16} color="#0B192C" />
+                    </motion.button>
+                    <h1 style={styles.title}>{activeTab} Orders</h1>
+                    <div style={{ width: 40 }}></div>
                 </div>
             </header>
 
             {!user ? (
                 <div style={styles.container}>
                     <motion.div initial={{ opacity: 0, y: 25 }} animate={{ opacity: 1, y: 0 }} style={styles.guestCard}>
-                        <div style={styles.guestIconCircle}><FaLock size={32} color="#0A1E40" /></div>
+                        <div style={styles.guestIconCircle}><FaLock size={30} color="#0B192C" /></div>
                         <h2 style={styles.guestTitle}>Please Sign In</h2>
-                        <p style={styles.guestSubtitle}>Log in to track your live parcels, check courier status, and manage past purchases.</p>
-                        <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} style={styles.guestLoginBtn} onClick={() => setIsAuthModalOpen(true)}>
-                            <FaSignInAlt style={{ marginRight: 8 }} /> Login / Register
+                        <p style={styles.guestSubtitle}>Sign in to view your live parcels, courier tracking, and access the 7-day return guarantee.</p>
+                        <motion.button whileTap={{ scale: 0.96 }} style={styles.guestLoginBtn} onClick={() => setIsAuthModalOpen(true)}>
+                            <FaSignInAlt style={{ marginRight: 8 }} size={16} /> Login / Register
                         </motion.button>
                     </motion.div>
                 </div>
             ) : (
                 <div style={styles.container}>
-                    <div style={styles.tabs} className="no-scrollbar">
+                    
+                    {/* Search */}
+                    <div style={styles.search}>
+                        <FaSearch size={16} color="#94A3B8" style={{ marginRight: 12, flexShrink: 0 }} />
+                        <input 
+                            value={search} 
+                            onChange={(e) => setSearch(e.target.value)} 
+                            placeholder={`Search Order ID, product, or customer...`} 
+                            style={styles.searchInput} 
+                        />
+                        {search && (
+                            <button onClick={() => setSearch('')} style={styles.clearSearchBtn}>
+                                <FaTimes size={12} color="#64748B" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Tabs */}
+                    <div style={styles.tabsWrapper} className="no-scrollbar">
                         {TABS.map(tab => {
-                            const count = categorizedOrders[tab].length;
+                            const count = categorizedOrders[tab]?.length || 0;
+                            const isActive = activeTab === tab;
                             return (
-                                <button key={tab} onClick={() => setActiveTab(tab)} style={activeTab === tab ? styles.tabActive : styles.tab}>
-                                    <span style={{ position: 'relative', zIndex: 2 }}>{tab}</span>
+                                <motion.button 
+                                    key={tab} 
+                                    whileTap={{ scale: 0.94 }}
+                                    onClick={() => setActiveTab(tab)} 
+                                    style={isActive ? styles.tabActive : styles.tab}
+                                >
+                                    <span>{tab}</span>
                                     {count > 0 && (
-                                        <motion.span 
-                                            initial={{ scale: 0.8 }} animate={{ scale: 1 }}
-                                            transition={{ type: 'spring', repeat: Infinity, repeatType: 'reverse', duration: 1.5 }}
-                                            style={activeTab === tab ? styles.tabBadgeActive : styles.tabBadge}
-                                        >
+                                        <span style={isActive ? styles.tabBadgeActive : styles.tabBadge}>
                                             {count}
-                                        </motion.span>
+                                        </span>
                                     )}
-                                </button>
+                                </motion.button>
                             );
                         })}
                     </div>
-                    
-                    <div style={styles.search}>
-                        <FaSearch style={{color:'#9CA3AF', marginRight:8}} />
-                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search Order ID or Product Name...`} style={styles.searchInput} />
-                    </div>
 
+                    {/* Orders List */}
                     <div style={styles.list}>
                         {isLoading && orders.length === 0 ? (
                             <><OrderSkeleton/><OrderSkeleton/></>
                         ) : (
                             <AnimatePresence mode="popLayout">
                                 {categorizedOrders[activeTab].length === 0 ? (
-                                    <motion.div initial={{opacity:0, scale:0.95}} animate={{opacity:1, scale:1}} style={styles.empty}>
-                                        <div style={styles.emptyIconCircle}><FaBoxOpen size={35} color="#9CA3AF" /></div>
-                                        <h3 style={{ color: '#1F2937', margin: '10px 0 4px', fontSize: 17, fontWeight: 700 }}>No Orders Here</h3>
-                                        <p style={{ color: '#6B7280', margin: '0 0 16px', fontSize: 13 }}>You don't have any orders in "{activeTab}".</p>
-                                        <button onClick={() => router.push('/')} style={styles.shopNowBtn}>Start Shopping</button>
+                                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={styles.empty}>
+                                        <div style={styles.emptyIconCircle}><FaBoxOpen size={42} color="#94A3B8" /></div>
+                                        <h3 style={{ color: '#0F172A', margin: '12px 0 6px', fontSize: 18, fontWeight: 900 }}>No Orders Found</h3>
+                                        <p style={{ color: '#64748B', margin: '0 0 22px', fontSize: 13, lineHeight: 1.5 }}>
+                                            You currently do not have any orders under the "{activeTab}" status.
+                                        </p>
+                                        <motion.button whileTap={{ scale: 0.95 }} onClick={() => router.push('/')} style={styles.shopNowBtn}>
+                                            Explore Trending Catalogs
+                                        </motion.button>
                                     </motion.div>
                                 ) : (
                                     categorizedOrders[activeTab].map((order, index) => (
@@ -302,7 +360,7 @@ export default function OrdersPage() {
                                             order={order} 
                                             router={router} 
                                             index={index} 
-                                            onReviewClick={handleReviewClick} 
+                                            user={user}
                                             myReviews={myReviews}
                                             onCancelOrder={(oid: string) => setCancelModalState({ isOpen: true, mode: 'order', orderId: oid, itemId: null })}
                                             onCancelItem={(oid: string, iId: number) => setCancelModalState({ isOpen: true, mode: 'item', orderId: oid, itemId: iId })}
@@ -315,69 +373,164 @@ export default function OrdersPage() {
                 </div>
             )}
 
-            {/* 🟢 CANCEL MODAL (ORDER & ITEM) */}
+            {/* 🟢 UNREVIEWED DELIVERED PRODUCT RATING BOTTOM SHEET MODAL */}
             <AnimatePresence>
-                {cancelModalState.isOpen && (
-                    <div style={styles.modalOverlay} onClick={() => setCancelModalState({ ...cancelModalState, isOpen: false })}>
+                {unreviewedPrompt && (
+                    <div 
+                        style={styles.bottomSheetOverlay} 
+                        onClick={() => { setHasDismissedPrompt(true); setUnreviewedPrompt(null); }}
+                    >
                         <motion.div 
-                            initial={{ scale: 0.9, opacity: 0, y: 20 }} 
-                            animate={{ scale: 1, opacity: 1, y: 0 }} 
-                            exit={{ scale: 0.9, opacity: 0, y: 20 }} 
-                            style={styles.modalContent} 
+                            initial={{ y: '100%', opacity: 0 }} 
+                            animate={{ y: 0, opacity: 1 }} 
+                            exit={{ y: '100%', opacity: 0 }} 
+                            transition={{ type: 'spring', damping: 28, stiffness: 320 }} 
+                            style={styles.bottomSheetCard}
                             onClick={e => e.stopPropagation()}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottom: '1px solid #F1F5F9', paddingBottom: 10 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <FaShieldAlt size={20} color="#DC2626" />
-                                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-                                        {cancelModalState.mode === 'order' ? 'Cancel Entire Order' : 'Cancel Single Item'}
+                            {/* Sheet Drag Handle */}
+                            <div style={styles.sheetHandleBar}></div>
+
+                            {/* Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                                <div>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#ECFDF5', color: '#059669', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 900, marginBottom: 6 }}>
+                                        <FaCheck size={10} /> Delivered Parcel
+                                    </div>
+                                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0F172A', letterSpacing: '-0.3px' }}>
+                                        Rate Your Purchase ⭐
                                     </h3>
+                                    <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748B' }}>
+                                        Aapka feedback doosre buyers ke liye bohot mufeed hai!
+                                    </p>
                                 </div>
-                                <button onClick={() => setCancelModalState({ ...cancelModalState, isOpen: false })} style={{ border: 'none', background: '#F1F5F9', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                                    <FaTimes size={12} color="#64748B" />
+                                <button 
+                                    onClick={() => { setHasDismissedPrompt(true); setUnreviewedPrompt(null); }} 
+                                    style={styles.sheetCloseBtn}
+                                >
+                                    <FaTimes size={13} color="#64748B" />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleCancelSubmit}>
-                                <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.5, marginBottom: 15 }}>
-                                    {cancelModalState.mode === 'order' 
-                                        ? `Please select a reason for cancelling Order #${cancelModalState.orderId?.substring(0,8).toUpperCase()}. Your coupon will be restored.`
-                                        : `Select a reason for cancelling this item. Its price will be deducted from your total bill.`}
-                                </p>
-
-                                <div style={{ marginBottom: 20 }}>
-                                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>Cancellation Reason *</label>
-                                    <select 
-                                        value={cancelReason} 
-                                        onChange={e => setCancelReason(e.target.value)} 
-                                        style={{ width: '100%', padding: '12px', border: '1.5px solid #CBD5E1', borderRadius: '10px', fontSize: 13, background: '#F8FAFC', outline: 'none' }} 
-                                        required
-                                    >
-                                        {CANCEL_REASONS.map((r, i) => <option key={i} value={r}>{r}</option>)}
-                                    </select>
+                            {/* Product Info Box */}
+                            <div style={styles.sheetProductBox}>
+                                <div style={styles.sheetImageWrapper}>
+                                    <img 
+                                        src={unreviewedPrompt.item.image || 'https://via.placeholder.com/90'} 
+                                        alt={unreviewedPrompt.item.title} 
+                                        style={styles.productImg} 
+                                    />
                                 </div>
-
-                                <div style={{ display: 'flex', gap: 10 }}>
-                                    <button type="button" onClick={() => setCancelModalState({ ...cancelModalState, isOpen: false })} style={{ flex: 1, padding: 12, background: 'white', border: '1px solid #CBD5E1', borderRadius: 10, color: '#475569', fontWeight: 700, cursor: 'pointer' }} disabled={isCancelling}>
-                                        Go Back
-                                    </button>
-                                    <button type="submit" style={{ flex: 1.5, padding: 12, background: '#DC2626', color: 'white', border: 'none', borderRadius: 10, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)' }} disabled={isCancelling}>
-                                        {isCancelling ? 'Cancelling...' : 'Confirm Cancellation'}
-                                    </button>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 11, color: '#64748B', fontWeight: 800 }}>
+                                        Order #{unreviewedPrompt.order.orderId.substring(0, 8).toUpperCase()} • Item #{unreviewedPrompt.item.sku || String(unreviewedPrompt.item.productId).substring(0,8)}
+                                    </div>
+                                    <div style={styles.sheetProductTitle}>
+                                        {unreviewedPrompt.item.title}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
+                                        <span style={styles.specChip}>Color: {unreviewedPrompt.item.options?.color || 'Standard'}</span>
+                                        <span style={{ fontSize: 13, fontWeight: 900, color: '#0F172A' }}>
+                                            Rs. {Math.round(unreviewedPrompt.item.costPrice || (unreviewedPrompt.order.totalPrice / (unreviewedPrompt.order.items.length || 1))).toLocaleString()}
+                                        </span>
+                                    </div>
                                 </div>
-                            </form>
+                            </div>
+
+                            {/* 🟢 BIG INTERACTIVE 5 STARS (32px) */}
+                            <div style={{ textAlign: 'center', margin: '20px 0 16px' }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 10 }}>
+                                    Tap stars to rate product:
+                                </div>
+                                <div style={{ display: 'inline-flex', gap: 10, justifyContent: 'center' }}>
+                                    {[1, 2, 3, 4, 5].map(starNum => {
+                                        const isFilled = starNum <= (popupHoverStar || 5);
+                                        return (
+                                            <motion.button 
+                                                key={starNum}
+                                                whileHover={{ scale: 1.25 }}
+                                                whileTap={{ scale: 0.9 }}
+                                                onMouseEnter={() => setPopupHoverStar(starNum)}
+                                                onMouseLeave={() => setPopupHoverStar(0)}
+                                                onClick={() => {
+                                                    const oid = unreviewedPrompt.order.orderId;
+                                                    const pid = unreviewedPrompt.item.productId;
+                                                    router.push(`/orders/review/${oid}/${pid}?initialRating=${starNum}`);
+                                                }}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                                            >
+                                                {isFilled ? (
+                                                    <FaStar color="#F59E0B" size={32} />
+                                                ) : (
+                                                    <FaRegStar color="#CBD5E1" size={32} />
+                                                )}
+                                            </motion.button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Direct Button */}
+                            <motion.button 
+                                whileTap={{ scale: 0.97 }}
+                                onClick={() => {
+                                    const oid = unreviewedPrompt.order.orderId;
+                                    const pid = unreviewedPrompt.item.productId;
+                                    router.push(`/orders/review/${oid}/${pid}`);
+                                }}
+                                style={styles.sheetSubmitBtn}
+                            >
+                                Write Detailed Review & Upload Photos
+                            </motion.button>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
 
+            {/* Cancel Modal */}
             <AnimatePresence>
-                {reviewModalOpen && selectedProduct && (
-                    <ReviewModal 
-                        product={selectedProduct} existingReview={existingReviewData}
-                        userFullName={user?.full_name || 'Valued Customer'}
-                        onClose={() => setReviewModalOpen(false)} onSuccess={() => mutateReviews()} 
-                    />
+                {cancelModalState.isOpen && (
+                    <div style={styles.modalOverlay} onClick={() => setCancelModalState({ ...cancelModalState, isOpen: false })}>
+                        <motion.div 
+                            initial={{ scale: 0.92, opacity: 0, y: 20 }} 
+                            animate={{ scale: 1, opacity: 1, y: 0 }} 
+                            exit={{ scale: 0.92, opacity: 0, y: 20 }} 
+                            style={styles.modalContent} 
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, borderBottom: '1px solid #F1F5F9', paddingBottom: 14 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ width: 34, height: 34, borderRadius: 10, background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <FaShieldAlt size={18} color="#DC2626" />
+                                    </div>
+                                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 900, color: '#0F172A' }}>
+                                        {cancelModalState.mode === 'order' ? 'Cancel Entire Order' : 'Cancel Single Item'}
+                                    </h3>
+                                </div>
+                                <button onClick={() => setCancelModalState({ ...cancelModalState, isOpen: false })} style={styles.modalCloseBtn}>
+                                    <FaTimes size={13} color="#64748B" />
+                                </button>
+                            </div>
+                            <form onSubmit={handleCancelSubmit}>
+                                <div style={{ marginBottom: 22 }}>
+                                    <label style={{ display: 'block', fontSize: 13, fontWeight: 800, color: '#334155', marginBottom: 8 }}>
+                                        Reason for Cancellation *
+                                    </label>
+                                    <select value={cancelReason} onChange={e => setCancelReason(e.target.value)} style={styles.selectInput} required>
+                                        {CANCEL_REASONS.map((r, i) => <option key={i} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', gap: 12 }}>
+                                    <button type="button" onClick={() => setCancelModalState({ ...cancelModalState, isOpen: false })} style={styles.cancelGoBackBtn} disabled={isCancelling}>
+                                        Go Back
+                                    </button>
+                                    <button type="submit" style={styles.cancelConfirmBtn} disabled={isCancelling}>
+                                        {isCancelling ? 'Processing...' : 'Confirm Cancel'}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
                 )}
             </AnimatePresence>
 
@@ -387,188 +540,324 @@ export default function OrdersPage() {
 }
 
 // ==============================================================
-// 5. MULTI-VENDOR ORDER CARD
+// 4. THE MASTER ORDER CARD (CLICKABLE PRODUCT + ANIMATED DOTTED LINE)
 // ==============================================================
-function OrderCard({ order, router, onCancelOrder, onCancelItem, index, onReviewClick, myReviews }: any) {
-    const [isExpanded, setIsExpanded] = useState(true);
+function OrderCard({ order, router, onCancelOrder, onCancelItem, index, myReviews, user }: any) {
     
-    const goToProduct = (item: OrderItem) => {
-        if (item.slug) router.push(`/products/${item.slug}`);
-        else router.push(`/products/${createSlug(item.title)}`);
+    // Status Theme Styling
+    const getStatusTheme = (status: string) => {
+        const s = status.toLowerCase();
+        if (s.includes('delivered')) return { bg: '#ECFDF5', text: '#059669', border: '#A7F3D0', dot: '#10B981' };
+        if (s.includes('return') || s.includes('cancel')) return { bg: '#FEF2F2', text: '#DC2626', border: '#FECACA', dot: '#EF4444' };
+        if (s.includes('transit') || s.includes('shipped') || s.includes('dispatched')) return { bg: '#EFF6FF', text: '#2563EB', border: '#BFDBFE', dot: '#3B82F6' };
+        return { bg: '#FFFBEB', text: '#D97706', border: '#FDE68A', dot: '#F59E0B' };
     };
 
-    const getStatusUI = (status: string, isPendingWA?: boolean) => {
-        if (isPendingWA) return { text: 'Awaiting WhatsApp Confirmation', bg: '#FEF3C7', col: '#B45309', border: '#FDE68A' };
-        const s = (status || '').toLowerCase().trim();
-        if (s === 'partially cancelled') return { text: 'Partially Active', bg: '#EFF6FF', col: '#1D4ED8', border: '#BFDBFE' };
-        if (s.includes('delivered')) return { text: 'Delivered', bg: '#DCFCE7', col: '#16A34A', isDelivered: true };
-        if (s.includes('return') || s.includes('rto')) return { text: 'Returned', bg: '#FEE2E2', col: '#DC2626' };
-        if (s === 'cancelled' || s === 'auto_cancelled') return { text: 'Cancelled', bg: '#F3F4F6', col: '#6B7280' };
-        if (['orderdispatched', 'intransit', 'outfordelivery', 'shipped'].includes(s.replace(/_/g, ''))) return { text: 'Shipping', bg: '#E0E7FF', col: '#4338CA', border: '#C7D2FE' };
-        return { text: 'Processing', bg: '#CFFAFE', col: '#0891B2' };
+    const formatDate = (dateString: string) => {
+        const d = new Date(dateString);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     };
 
-    const ui = getStatusUI(order.status, order.isPendingWhatsApp);
-    
-    // 🟢 SAFE CANCELLATION LOGIC
+    // WhatsApp Direct Link
+    const rawCustomerPhone = order.customer?.phone || '';
+    const cleanDigits = rawCustomerPhone.toString().replace(/\D/g, '');
+    const waNumber = cleanDigits.startsWith('03') ? '92' + cleanDigits.substring(1) : (cleanDigits.startsWith('92') ? cleanDigits : '92' + cleanDigits);
+    const shortId = order.orderId.substring(0, 8).toUpperCase();
+    const waMessageText = encodeURIComponent(
+        `Assalam-o-Alaikum ${order.customer?.name || 'Customer'}! 👋\n` +
+        `Main *Saman Junction (SJ10)* ki taraf se rabta kar raha hoon aapke Order *#${shortId}* ke hawalay se.`
+    );
+    const directWhatsAppUrl = `https://wa.me/${waNumber}?text=${waMessageText}`;
+
+    // Customer Avatar
+    const customerPic = user?.profile_pic || user?.profilePic || null;
+    const customerInitial = (order.customer?.name || 'C').charAt(0).toUpperCase();
+
     const isCancellable = ['processing', 'pending', 'pending_confirmation'].includes((order.status || '').toLowerCase().replace(/ /g, '_')) && !order.canTrack;
-    
-    // Calculate how many items are still active
-    const activeItemsCount = order.packages?.reduce((acc: number, pkg: any) => 
-        acc + pkg.items.filter((i: any) => i.status !== 'cancelled').length, 0
-    ) || 0;
-
-    const hasMultiplePackages = order.packages && order.packages.length > 1;
+    const activeItemsCount = order.packages?.reduce((acc: number, pkg: any) => acc + pkg.items.filter((i: any) => i.status !== 'cancelled').length, 0) || 0;
 
     return (
         <motion.div 
-            layout initial={{ opacity: 0, y: 20, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.4, delay: index * 0.05 }} style={{...styles.card, borderLeft: order.isPendingWhatsApp ? '5px solid #F59E0B' : 'none'}}
+            initial={{ opacity: 0, y: 22 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ duration: 0.35, delay: index * 0.05 }} 
+            style={styles.card}
         >
+            {/* 🔵 LUXURY ROYAL NAVY HEADER */}
             <div style={styles.cardHeader}>
                 <div>
-                    <div style={{fontSize:13, fontWeight:700, color:'#FFF', letterSpacing:0.5}}>ORDER #{order.orderId.substring(0,8).toUpperCase()}</div>
-                    <div style={{fontSize:11, color:'#93C5FD', marginTop:2}}>{new Date(order.date).toLocaleDateString()}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={styles.orderIdText}>Order ID : {shortId}</span>
+                        <span style={styles.pkgBadge}>({order.packages.length}/{order.packages.length})</span>
+                    </div>
+                    <div style={styles.orderDateText}>
+                        <FaCalendarAlt size={12} style={{ marginRight: 6, opacity: 0.8 }} />
+                        Order Date : {formatDate(order.date)}
+                    </div>
                 </div>
-                {hasMultiplePackages && (
-                    <button onClick={() => setIsExpanded(!isExpanded)} style={styles.accordionBtn}>
-                        <span>{order.packages.length} Packages</span>
-                        {isExpanded ? <FaChevronUp size={10}/> : <FaChevronDown size={10}/>}
-                    </button>
+
+                {order.canTrack && (
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.94 }}
+                        onClick={() => router.push(`/orders/track/${order.orderId}`)} 
+                        style={styles.trackHeaderBtn}
+                    >
+                        <FaTruck size={14} /> Track Parcel
+                    </motion.button>
                 )}
             </div>
 
-            {order.isPendingWhatsApp && (
-                <div style={styles.unconfirmedBanner}>
-                    <FaClock size={14} color="#D97706" style={{ flexShrink: 0 }} />
-                    <span>Please reply <strong>'1'</strong> on WhatsApp to confirm parcel dispatch.</span>
-                </div>
-            )}
+            {/* ⚪ CARD BODY */}
+            {order.packages.map((pkg: PackageDetails, pIdx: number) => {
+                const currentStatus = pkg.status || order.status;
+                const statusTheme = getStatusTheme(currentStatus);
 
-            <div style={styles.statusRow}>
-                <span style={{...styles.badge, background: ui.bg, color: ui.col, border: ui.border ? `1px solid ${ui.border}` : 'none'}}>
-                    {ui.text}
-                </span>
-                <div style={{ textAlign: 'right' }}>
-                    <span style={{fontSize:14, fontWeight:900, color:'#0A1E40'}}>Rs. {Math.round(order.totalPrice).toLocaleString()}</span>
-                    {order.originalTotal && order.originalTotal > order.totalPrice && (
-                        <span style={{ display: 'block', fontSize: 10, color: '#9CA3AF', textDecoration: 'line-through' }}>Rs. {Math.round(order.originalTotal).toLocaleString()}</span>
-                    )}
-                </div>
-            </div>
+                return (
+                    <div key={pkg.shipmentId || pIdx} style={styles.pkgSection}>
+                        
+                        {/* Status & Amount Meta Bar */}
+                        <div style={styles.flexBetween}>
+                            <span style={{ fontSize: 13, color: '#64748B', fontWeight: 700 }}>Status</span>
+                            <div style={{ 
+                                display: 'inline-flex', alignItems: 'center', gap: 8,
+                                background: statusTheme.bg, color: statusTheme.text, border: `1.5px solid ${statusTheme.border}`,
+                                padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 900, textTransform: 'capitalize' 
+                            }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: statusTheme.dot }} className="pulse-circle"></span>
+                                {currentStatus}
+                            </div>
+                        </div>
 
-            <AnimatePresence>
-                {isExpanded && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} style={{ overflow: 'hidden' }}>
-                        {order.packages && order.packages.length > 0 ? (
-                            order.packages.map((pkg: PackageDetails, pIdx: number) => {
-                                const isPkgCancelled = (pkg.status || '').toLowerCase() === 'cancelled';
-                                return (
-                                    <div key={pkg.shipmentId || pIdx} style={styles.packageWrapper}>
-                                        <div style={styles.packageHeader}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <div style={styles.supplierAvatarBox}>
-                                                    {pkg.supplierPic ? <Image src={pkg.supplierPic} alt="" fill style={{ objectFit: 'cover' }} unoptimized /> : <FaStore size={10} color="#0A1E40" />}
-                                                </div>
-                                                <div>
-                                                    <span style={styles.storeNameText}>{pkg.supplierName}</span>
-                                                    {hasMultiplePackages && <span style={styles.pkgNumBadge}>Package {pkg.packageNumber}</span>}
-                                                </div>
-                                            </div>
-                                            {pkg.canTrack && (
-                                                <button onClick={() => router.push(`/orders/track/${pkg.shipmentId || order.orderId}`)} style={styles.packageTrackBtn}>
-                                                    <FaTruck style={{marginRight:4}}/> Track
-                                                </button>
-                                            )}
-                                        </div>
+                        <div style={{ ...styles.flexBetween, marginTop: 12, paddingBottom: 16, borderBottom: '1px solid #F1F5F9' }}>
+                            <span style={{ fontSize: 13, color: '#64748B', fontWeight: 700 }}>Total Amount</span>
+                            <span style={{ fontSize: 18, fontWeight: 900, color: '#0F172A', letterSpacing: '-0.5px' }}>
+                                Rs. {Math.round(order.totalPrice).toLocaleString()}
+                            </span>
+                        </div>
 
-                                        {isPkgCancelled && (
-                                            <div style={styles.cancelledPkgNotice}>
-                                                <FaTimes size={11} color="#DC2626" />
-                                                <span>Cancelled by Seller {pkg.cancellationReason ? `(${pkg.cancellationReason})` : ''}</span>
+                        {/* 🛣️ 🟢 ANIMATED DOTTED LOOP TIMELINE (ZERO OVERFLOW!) */}
+                        <div style={styles.timelineModernBox}>
+                            
+                            {/* STEP 1: SUPPLIER NODE */}
+                            <div style={styles.timelineStepRow}>
+                                <div style={styles.timelineNodeCol}>
+                                    <div style={styles.nodeIconCircle}>
+                                        {pkg.supplierPic ? (
+                                            <img src={pkg.supplierPic} alt={pkg.supplierName} style={styles.avatarImg} />
+                                        ) : (
+                                            <div style={styles.avatarFallbackNavy}>
+                                                <FaStore size={14} color="#FFF" />
                                             </div>
                                         )}
-
-                                        <div style={styles.packageItemsList}>
-                                            {pkg.items.map((item: OrderItem, i: number) => {
-                                                const isReviewed = myReviews?.some((r: any) => String(r.product_id) === String(item.productId) && String(r.order_id) === String(order.orderId));
-                                                const isItemCancelled = item.status === 'cancelled';
-                                                
-                                                let color = item.options?.color || 'Standard';
-                                                let size = item.options?.size || 'Standard';
-
-                                                return (
-                                                    <div key={i} style={{...styles.product, opacity: isItemCancelled ? 0.6 : 1, filter: isItemCancelled ? 'grayscale(100%)' : 'none', background: isItemCancelled ? '#F8FAFC' : 'transparent', padding: isItemCancelled ? '12px' : '12px 0', borderRadius: isItemCancelled ? '12px' : '0', border: isItemCancelled ? '1px dashed #CBD5E1' : 'none', borderBottom: isItemCancelled ? 'none' : '1px solid #F3F4F6', marginBottom: isItemCancelled ? '8px' : '0'}}>
-                                                        <motion.div style={styles.imgBox} whileHover={!isItemCancelled ? { scale: 1.05 } : {}} onClick={() => !isItemCancelled && goToProduct(item)}>
-                                                            {item.image ? <Image src={item.image} alt="" fill style={{objectFit:'contain'}} unoptimized /> : <span style={{fontSize:10, color:'#9CA3AF'}}>No Img</span>}
-                                                        </motion.div>
-
-                                                        <div style={{flex:1, minWidth:0}}>
-                                                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
-                                                                <div style={{...styles.productTitle, textDecoration: isItemCancelled ? 'line-through' : 'none'}} onClick={() => !isItemCancelled && goToProduct(item)}>{item.title}</div>
-                                                                <span style={{fontSize:12, fontWeight:800, color: isItemCancelled ? '#94A3B8' : '#0A1E40', marginLeft:6}}>x{item.quantity}</span>
-                                                            </div>
-
-                                                            <div style={{fontSize: 13, fontWeight: 800, color: isItemCancelled ? '#94A3B8' : '#0F172A', marginTop: 2, textDecoration: isItemCancelled ? 'line-through' : 'none'}}>
-                                                                Rs. {item.costPrice.toLocaleString()}
-                                                            </div>
-                                                            
-                                                            <div style={{marginTop:4, display:'flex', flexWrap:'wrap', gap:4, alignItems:'center'}}>
-                                                                {color !== 'Standard' && <span style={styles.iconPill}><FaPalette size={9} /> {color}</span>}
-                                                                {size !== 'Standard' && <span style={styles.iconPill}><FaRuler size={9} /> {size}</span>}
-                                                                {item.profit > 0 && (
-                                                                    <span style={{...styles.iconPill, background: isItemCancelled ? '#F1F5F9' : '#ECFDF5', color: isItemCancelled ? '#94A3B8' : '#059669', border: isItemCancelled ? '1px solid #E2E8F0' : '1px solid #A7F3D0', textDecoration: isItemCancelled ? 'line-through' : 'none'}}>
-                                                                        <FaMoneyBillWave size={9} style={{marginRight:2}}/> Profit: Rs. {item.profit}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            
-                                                            {isItemCancelled && (
-                                                                <div style={{ marginTop: '8px', fontSize: '11px', color: '#DC2626', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                                                    <FaTimes size={12} /> Cancelled: {item.cancellationReason || 'Item Cancelled'}
-                                                                </div>
-                                                            )}
-
-                                                            {!isItemCancelled && ui.isDelivered && (
-                                                                <div style={{marginTop:6, display:'flex', justifyContent:'flex-end'}}>
-                                                                    <button onClick={() => onReviewClick(item, order.orderId)} style={isReviewed ? styles.viewReviewBtn : styles.reviewBtn}>
-                                                                        {isReviewed ? <><FaEye size={9}/> Your Review</> : <><FaStar size={9} color="#F59E0B"/> Write Review</>}
-                                                                    </button>
-                                                                </div>
-                                                            )}
-
-                                                            {/* 🟢 CUSTOMER SINGLE ITEM CANCEL BUTTON */}
-                                                            {isCancellable && !isItemCancelled && activeItemsCount > 1 && (
-                                                                <div style={{marginTop:6, display:'flex', justifyContent:'flex-end'}}>
-                                                                    <motion.button 
-                                                                        whileHover={{ scale: 1.05, background: '#FCA5A5' }}
-                                                                        whileTap={{ scale: 0.95 }}
-                                                                        onClick={() => onCancelItem(order.orderId, item.itemId)}
-                                                                        style={{...styles.cancelItemBtn}}
-                                                                    >
-                                                                        <FaTimesCircle size={10} style={{marginRight:4}}/> Cancel Item
-                                                                    </motion.button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
                                     </div>
-                                );
-                            })
-                        ) : null}
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                                    {/* 🟢 BEAUTIFUL ANIMATED DOTTED MOVING PIPE */}
+                                    <div className="animated-dotted-pipe"></div>
+                                </div>
 
-            {/* 🟢 CUSTOMER ENTIRE ORDER CANCEL BUTTON */}
+                                <div style={styles.timelineContentCol}>
+                                    <div style={styles.metaLabelText}>SUPPLIER DISPATCH HUB</div>
+                                    <div style={styles.supplierTitleText}>
+                                        {pkg.supplierName}
+                                        <span style={styles.verifiedStoreBadge}>Verified</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* STEP 2: CUSTOMER DESTINATION NODE */}
+                            <div style={styles.timelineStepRow}>
+                                <div style={styles.timelineNodeCol}>
+                                    <div style={styles.nodeIconCircleCustomer}>
+                                        {customerPic ? (
+                                            <img src={customerPic} alt={order.customer?.name} style={styles.avatarImg} />
+                                        ) : (
+                                            <div style={styles.avatarFallbackGreen}>
+                                                {customerInitial}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div style={{ ...styles.timelineContentCol, position: 'relative' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={styles.metaLabelText}>CUSTOMER DESTINATION</div>
+                                        
+                                        {/* WHATSAPP BADGE BUTTON */}
+                                        <motion.a 
+                                            whileHover={{ scale: 1.08 }}
+                                            whileTap={{ scale: 0.92 }}
+                                            href={directWhatsAppUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            title="Open Chat on WhatsApp"
+                                            style={styles.whatsappLauncherBadge}
+                                        >
+                                            <FaWhatsapp size={18} color="#FFFFFF" />
+                                            <span style={{ fontSize: 12, fontWeight: 900, color: '#FFFFFF', marginLeft: 6 }}>Chat</span>
+                                        </motion.a>
+                                    </div>
+
+                                    <div style={styles.customerNameBold}>{order.customer?.name}</div>
+
+                                    {/* Beautiful Glowing Location Pill */}
+                                    <div style={styles.addressBox}>
+                                        <div style={styles.locationPinCircle}>
+                                            <FaMapMarkerAlt size={12} color="#EF4444" />
+                                        </div>
+                                        <span style={{ fontSize: 12, color: '#475569', lineHeight: 1.5 }}>
+                                            {order.customer?.address}, {order.customer?.city}<br/>
+                                            <strong style={{ color: '#0F172A', fontWeight: 800 }}>{order.customer?.phone}</strong>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Delivery Partner */}
+                        <div style={styles.courierRow}>
+                            <span style={{ fontSize: 13, color: '#64748B', fontWeight: 700 }}>Delivery Logistics</span>
+                            <span style={{ fontSize: 13, fontWeight: 900, color: '#0B192C', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <FaTruck size={16} color="#2563EB" />
+                                {pkg.courier?.name || 'Pending Rider Allocation'}
+                            </span>
+                        </div>
+
+                        {/* 🛍️ PRODUCT ITEMS ROW (CLICKABLE TO DETAIL PAGE) */}
+                        {pkg.items.map((item: OrderItem, iIdx: number) => {
+                            const review = myReviews.find((r: any) => String(r.product_id) === String(item.productId));
+                            const hasReviewed = !!review;
+                            const rating = review ? review.rating : 0;
+                            const isDelivered = currentStatus.toLowerCase().includes('delivered');
+                            const canShowReturn = order.canReturn && (!item.returnStatus || item.returnStatus === 'none');
+                            const isItemCancelled = item.status === 'cancelled';
+
+                            // 🟢 PRODUCT CLICK ROUTER
+                            const openProductDetail = () => {
+                                router.push(`/products/${item.slug || item.productId}`);
+                            };
+
+                            return (
+                                <div key={iIdx} style={{ ...styles.itemContainer, opacity: isItemCancelled ? 0.5 : 1 }}>
+                                    
+                                    {/* 🟢 CLICKABLE PRODUCT THUMBNAIL */}
+                                    <motion.div 
+                                        whileHover={{ scale: 1.04 }}
+                                        whileTap={{ scale: 0.96 }}
+                                        onClick={openProductDetail}
+                                        style={styles.imageWrapper}
+                                        title="Click to view product details"
+                                    >
+                                        <img 
+                                            src={item.image || 'https://via.placeholder.com/100'} 
+                                            alt={item.title} 
+                                            style={styles.productImg} 
+                                        />
+                                    </motion.div>
+
+                                    {/* Product Details */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div>
+                                                {/* RETURN BUTTON BADGE */}
+                                                {canShowReturn && !isItemCancelled && (
+                                                    <motion.div 
+                                                        whileHover={{ x: 3 }}
+                                                        whileTap={{ scale: 0.95 }}
+                                                        onClick={() => router.push(`/orders/return/${order.orderId}/${item.itemId}`)}
+                                                        style={styles.returnButtonBadge}
+                                                    >
+                                                        <span>Return/Refund</span>
+                                                        <FaChevronRight size={10} style={{ marginLeft: 4 }} />
+                                                    </motion.div>
+                                                )}
+
+                                                {item.returnStatus && item.returnStatus !== 'none' && (
+                                                    <div style={styles.returnStateBadge}>
+                                                        Return {item.returnStatus}
+                                                    </div>
+                                                )}
+
+                                                <div style={styles.skuTag}>Item ID : {item.sku || String(item.productId).substring(0, 8)}</div>
+                                            </div>
+
+                                            {/* Quantity Pill */}
+                                            <div style={styles.qtyTag}>x{item.quantity}</div>
+                                        </div>
+
+                                        {/* 🟢 CLICKABLE PRODUCT TITLE */}
+                                        <div 
+                                            onClick={openProductDetail}
+                                            style={styles.itemTitleClickable}
+                                            title="Click to view product details"
+                                        >
+                                            {item.title}
+                                            <FaExternalLinkAlt size={10} color="#94A3B8" style={{ marginLeft: 6, opacity: 0.7 }} />
+                                        </div>
+                                        
+                                        <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+                                            <span style={styles.specChip}>Color: {item.options?.color || 'Standard'}</span>
+                                            <span style={styles.profitChip}>Profit: Rs. {Math.round(item.profit || 0)}</span>
+                                        </div>
+
+                                        {/* ⭐ 5-STAR RATING DESK (BIGGER 20px STARS & EXACT COLOR) */}
+                                        {isDelivered && !isItemCancelled && (
+                                            <motion.div 
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.96 }}
+                                                onClick={() => router.push(`/orders/review/${order.orderId}/${item.productId}`)}
+                                                style={styles.reviewInteractiveRow}
+                                            >
+                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                    {[1, 2, 3, 4, 5].map(star => (
+                                                        <span key={star}>
+                                                            {star <= rating ? (
+                                                                <FaStar color="#F59E0B" size={20} />
+                                                            ) : (
+                                                                <FaRegStar color="#CBD5E1" size={20} />
+                                                            )}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <span style={{ fontSize: 13, fontWeight: 900, color: hasReviewed ? '#059669' : '#2563EB', marginLeft: 8 }}>
+                                                    {hasReviewed ? `${rating}★ Reviewed` : 'Write Review'}
+                                                </span>
+                                            </motion.div>
+                                        )}
+
+                                        {/* Single Item Cancellation */}
+                                        {isCancellable && !isItemCancelled && activeItemsCount > 1 && (
+                                            <motion.button 
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={() => onCancelItem(order.orderId, item.itemId)} 
+                                                style={styles.cancelSingleItemBtn}
+                                            >
+                                                Cancel Item
+                                            </motion.button>
+                                        )}
+
+                                        {isItemCancelled && (
+                                            <div style={styles.cancelledNote}>
+                                                Cancelled: {item.cancellationReason || 'Requested by Customer'}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            })}
+
+            {/* Cancel Entire Order Button */}
             {isCancellable && (
-                <div style={styles.footer}>
-                    <button onClick={() => onCancelOrder(order.orderId)} style={styles.cancelBtn}>
-                        <FaBan size={11} style={{marginRight:6}}/> Cancel Entire Order
-                    </button>
+                <div style={styles.cardFooterBar}>
+                    <motion.button 
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => onCancelOrder(order.orderId)} 
+                        style={styles.cancelMasterOrderBtn}
+                    >
+                        <FaBan size={14} /> Cancel Entire Order
+                    </motion.button>
                 </div>
             )}
         </motion.div>
@@ -576,149 +865,133 @@ function OrderCard({ order, router, onCancelOrder, onCancelItem, index, onReview
 }
 
 // ==========================================
-// 6. REVIEW MODAL
+// 5. STYLES
 // ==========================================
-function ReviewModal({ product, existingReview, userFullName, onClose, onSuccess }: any) {
-    const isReadOnly = !!existingReview; 
-    const [rating, setRating] = useState(5);
-    const [comment, setComment] = useState('');
-    const [images, setImages] = useState<File[]>([]);
-    const [submitting, setSubmitting] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        if (existingReview) {
-            setRating(existingReview.rating);
-            setComment(existingReview.comment);
-        }
-    }, [existingReview]);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const newFiles = Array.from(e.target.files);
-            if (images.length + newFiles.length > 3) return alert("Max 3 images.");
-            setImages([...images, ...newFiles]);
-        }
-    };
-
-    const handleSubmit = async () => {
-        if (!comment.trim()) return alert("Please write a comment for your review.");
-        setSubmitting(true);
-        try {
-            const token = localStorage.getItem('authToken') || localStorage.getItem('user_token');
-            if (!token) throw new Error("Session expired. Please log in again.");
-
-            let finalImageUrls: string[] = [];
-
-            if (images.length > 0) {
-                const imageFormData = new FormData();
-                images.forEach(img => imageFormData.append('images', img));
-                imageFormData.append('productId', product.id.toString());
-                imageFormData.append('orderId', product.orderId);
-
-                const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/upload/review-images`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: imageFormData
-                });
-                if (!uploadRes.ok) throw new Error("Image upload failed.");
-                const uploadData = await uploadRes.json();
-                finalImageUrls = uploadData.urls;
-            }
-
-            await apiClient(`/products/${product.id}/reviews`, 'POST', {
-                rating, comment, userName: userFullName, image_url: JSON.stringify(finalImageUrls), orderId: product.orderId 
-            });
-
-            alert("Review submitted successfully!");
-            onSuccess(); 
-            onClose();
-        } catch (e: any) {
-            alert(`Error: ${e.message}`);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    return (
-        <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} style={styles.modalOverlay}>
-            <motion.div initial={{scale:0.9, y:20}} animate={{scale:1, y:0}} exit={{scale:0.9, y:20}} style={styles.modalContent}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-                    <h3 style={{margin:0, fontSize:15, fontWeight:700, color:'#1F2937'}}>{isReadOnly ? 'Your Review' : 'Rate Product'}</h3>
-                    <button onClick={onClose} style={{border:'none', background:'#F1F5F9', borderRadius:'50%', width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}><FaTimes size={12} color="#64748B"/></button>
-                </div>
-                
-                <textarea placeholder="Write your feedback..." style={{...styles.textArea, background: isReadOnly ? '#F8FAFC' : '#FFF'}} value={comment} disabled={isReadOnly} onChange={(e) => setComment(e.target.value)} />
-                {!isReadOnly && <button onClick={handleSubmit} disabled={submitting} style={styles.submitBtn}>{submitting ? 'Submitting...' : 'Submit Feedback'}</button>}
-            </motion.div>
-        </motion.div>
-    );
-}
-
-// ==========================================
-// 7. STYLES
-// ==========================================
-const styles: {[key:string]: React.CSSProperties} = {
-    page: { minHeight: '100vh', paddingBottom: 90, backgroundColor: '#F8FAFC' },
-    header: { position: 'sticky', top: 0, zIndex: 50, background: 'rgba(255,255,255,0.9)', backdropFilter:'blur(10px)', borderBottom: '1px solid #F1F5F9', padding: '14px 20px' },
-    headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 600, margin: '0 auto' },
-    title: { margin: 0, fontSize: 22, fontWeight: 900, color: '#0F172A', letterSpacing:-0.5 },
-    count: { background: '#EFF6FF', color: '#1D4ED8', padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 800 },
-    container: { maxWidth: 600, margin: '0 auto', padding: '0 14px' },
+const styles: { [key: string]: React.CSSProperties } = {
+    page: { minHeight: '100vh', paddingBottom: 110, backgroundColor: '#F8FAFC' },
+    header: { 
+        background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', padding: '14px 20px', 
+        position: 'sticky', top: 0, zIndex: 60, boxShadow: '0 4px 15px rgba(0,0,0,0.02)' 
+    },
+    headerContent: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 660, margin: '0 auto' },
+    backBtn: { background: '#F1F5F9', border: 'none', borderRadius: 12, width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+    title: { margin: 0, fontSize: 18, fontWeight: 900, color: '#0F172A', letterSpacing: '-0.3px' },
+    container: { maxWidth: 660, margin: '0 auto', padding: '16px' },
     
-    guestCard: { background: 'white', borderRadius: 20, padding: '40px 24px', textAlign: 'center', marginTop: 40, border: '1px solid #E2E8F0', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' },
-    guestIconCircle: { width: 70, height: 70, borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border:'2px solid #BFDBFE' },
-    guestTitle: { fontSize: 20, fontWeight: 800, color: '#0F172A', margin: '0 0 10px' },
-    guestSubtitle: { fontSize: 14, color: '#64748B', lineHeight: 1.5, margin: '0 auto 24px', maxWidth: 360 },
-    guestLoginBtn: { background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', color: 'white', border: 'none', padding: '16px 30px', borderRadius: 14, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', boxShadow: '0 4px 15px rgba(37,99,235,0.3)' },
+    // TABS
+    tabsWrapper: { display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 8, marginBottom: 16 },
+    tabActive: { 
+        background: '#0B192C', color: '#FFFFFF', border: 'none', padding: '10px 18px', 
+        borderRadius: 24, fontSize: 13, fontWeight: 800, cursor: 'pointer', flexShrink: 0, 
+        display: 'flex', gap: 8, alignItems: 'center', boxShadow: '0 6px 16px rgba(11,25,44,0.22)' 
+    },
+    tab: { 
+        background: '#FFFFFF', color: '#64748B', border: '1.5px solid #E2E8F0', padding: '10px 18px', 
+        borderRadius: 24, fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0, 
+        display: 'flex', gap: 8, alignItems: 'center' 
+    },
+    tabBadgeActive: { background: '#3B82F6', color: '#FFF', fontSize: 11, padding: '2px 8px', borderRadius: 12, fontWeight: 900 },
+    tabBadge: { background: '#F1F5F9', color: '#64748B', fontSize: 11, padding: '2px 8px', borderRadius: 12, fontWeight: 800 },
     
-    tabs: { display: 'flex', gap: 10, overflowX: 'auto', padding: '16px 0', position:'sticky', top:52, zIndex:40, background:'#F8FAFC' },
-    tabActive: { padding: '8px 18px', borderRadius: 30, background: '#0F172A', color: '#FFF', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0, boxShadow:'0 4px 12px rgba(15,23,42,0.2)', display:'flex', alignItems:'center', gap:8 },
-    tab: { padding: '8px 18px', borderRadius: 30, background: '#FFF', color: '#64748B', border: '1px solid #E2E8F0', fontSize: 13, fontWeight: 600, cursor: 'pointer', flexShrink: 0, display:'flex', alignItems:'center', gap:8 },
-    tabBadgeActive: { background: '#3B82F6', color: 'white', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 800, position:'relative', zIndex:2 },
-    tabBadge: { background: '#F1F5F9', color: '#64748B', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 800, position:'relative', zIndex:2 },
-    search: { background: '#FFF', padding: '12px 16px', borderRadius: 16, display: 'flex', alignItems: 'center', border: '1px solid #E2E8F0', marginBottom: 20, boxShadow:'0 2px 4px rgba(0,0,0,0.01)' },
-    searchInput: { border: 'none', outline: 'none', width: '100%', fontSize: 14, color:'#1F2937', fontWeight:500 },
-    list: { display: 'flex', flexDirection: 'column', gap: 16 },
-    empty: { background: 'white', borderRadius: 20, padding: '50px 20px', textAlign: 'center', border: '1px solid #E2E8F0', marginTop: 20 },
-    emptyIconCircle: { width: 70, height: 70, borderRadius: '50%', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px', border:'2px dashed #E2E8F0' },
-    shopNowBtn: { background: '#0F172A', color: 'white', border: 'none', padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', marginTop: 10 },
+    // SEARCH
+    search: { background: '#FFFFFF', padding: '12px 16px', borderRadius: 14, display: 'flex', alignItems: 'center', border: '1.5px solid #E2E8F0', marginBottom: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.02)' },
+    searchInput: { border: 'none', outline: 'none', width: '100%', fontSize: 14, fontWeight: 600, color: '#0F172A', background: 'transparent' },
+    clearSearchBtn: { border: 'none', background: '#F1F5F9', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
     
-    card: { background: '#FFF', borderRadius: 20, overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 4px 20px -2px rgba(0,0,0,0.04)' },
-    cardHeader: { background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-    accordionBtn: { background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', padding: '6px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, backdropFilter:'blur(4px)' },
-    unconfirmedBanner: { display: 'flex', alignItems: 'center', gap: 10, background: '#FFFBEB', padding: '12px 16px', borderBottom: '1px solid #FDE68A', fontSize: 12.5, color: '#92400E' },
-    statusRow: { padding: '14px 18px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-    badge: { padding: '4px 12px', borderRadius: 8, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing:0.5 },
-    customerStrip: { padding: '10px 18px', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9', fontSize: 12, color: '#475569', display: 'flex', alignItems: 'center' },
+    list: { display: 'flex', flexDirection: 'column', gap: 20 },
+    empty: { background: '#FFFFFF', borderRadius: 20, padding: '60px 24px', textAlign: 'center', border: '1px solid #E2E8F0', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' },
+    emptyIconCircle: { width: 76, height: 76, borderRadius: '50%', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px', border: '1px solid #E2E8F0' },
+    shopNowBtn: { background: '#0B192C', color: '#FFF', border: 'none', padding: '14px 28px', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer' },
     
-    packageWrapper: { borderBottom: '1px solid #F1F5F9', padding: '14px 18px' },
-    packageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    supplierAvatarBox: { width: 28, height: 28, borderRadius: '50%', background: '#EFF6FF', border: '2px solid #BFDBFE', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-    storeNameText: { fontSize: 13, fontWeight: 800, color: '#0F172A' },
-    pkgNumBadge: { fontSize: 10, fontWeight: 800, color: '#4F46E5', background: '#EEF2FF', padding: '2px 8px', borderRadius: 6, marginLeft: 8 },
-    packageTrackBtn: { background: '#2563EB', color: 'white', border: 'none', padding: '8px 14px', borderRadius: 10, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', boxShadow:'0 2px 8px rgba(37,99,235,0.3)' },
-    cancelledPkgNotice: { background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 11.5, color: '#991B1B', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, fontWeight:600 },
+    // MASTER CARD
+    card: { background: '#FFFFFF', borderRadius: 20, overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.04), 0 8px 10px -6px rgba(0,0,0,0.02)' },
+    cardHeader: { 
+        background: 'linear-gradient(135deg, #0B192C 0%, #1E293B 100%)', 
+        padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' 
+    },
+    orderIdText: { fontSize: 15, fontWeight: 900, color: '#FFFFFF', letterSpacing: '0.4px' },
+    pkgBadge: { fontSize: 12, fontWeight: 800, color: '#93C5FD' },
+    orderDateText: { fontSize: 12, color: '#CBD5E1', marginTop: 4, display: 'flex', alignItems: 'center', fontWeight: 600 },
+    trackHeaderBtn: { background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', color: '#FFFFFF', fontWeight: 800, fontSize: 12, padding: '6px 14px', borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
     
-    packageItemsList: { display: 'flex', flexDirection: 'column', gap: 10 },
-    product: { display: 'flex', gap: 12, alignItems: 'center', transition: 'all 0.3s ease' },
-    imgBox: { width: 55, height: 55, borderRadius: 10, background: '#F8FAFC', position: 'relative', overflow: 'hidden', border:'1px solid #E2E8F0', flexShrink: 0, cursor: 'pointer' },
-    productTitle: { fontSize: 13, color: '#1E293B', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220, cursor: 'pointer' },
-    iconPill: { background: '#F1F5F9', color: '#475569', fontSize: 10, padding: '3px 8px', borderRadius: 6, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 },
-    footer: { padding: '14px 18px', background: '#FFF', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'center' },
+    pkgSection: { padding: '20px' },
+    flexBetween: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     
-    cancelBtn: { background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '10px 24px', borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: 'pointer', display:'flex', alignItems:'center', transition:'background 0.2s', width: '100%', justifyContent: 'center' },
-    cancelItemBtn: { background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '5px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', display:'flex', alignItems:'center', transition:'background 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' },
+    // 🟢 DOTTED TIMELINE
+    timelineModernBox: { background: '#F8FAFC', borderRadius: 16, padding: '16px 18px', border: '1px solid #EDF2F7', marginTop: 16, marginBottom: 16 },
+    timelineStepRow: { display: 'flex', alignItems: 'stretch' },
+    timelineNodeCol: { display: 'flex', flexDirection: 'column', alignItems: 'center', width: 36, flexShrink: 0 },
+    nodeIconCircle: { width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', border: '2px solid #0B192C', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF', flexShrink: 0, zIndex: 3, boxShadow: '0 2px 6px rgba(0,0,0,0.08)' },
+    nodeIconCircleCustomer: { width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', border: '2px solid #10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFF', flexShrink: 0, zIndex: 3, boxShadow: '0 2px 6px rgba(16,185,129,0.2)' },
+    avatarImg: { width: '100%', height: '100%', objectFit: 'cover' },
+    avatarFallbackNavy: { width: '100%', height: '100%', background: '#0B192C', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    avatarFallbackGreen: { width: '100%', height: '100%', background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', color: '#FFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14 },
     
-    reviewBtn: { background: '#FFF', border: '1px solid #E2E8F0', color: '#374151', fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', boxShadow:'0 1px 3px rgba(0,0,0,0.05)' },
-    viewReviewBtn: { background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', fontSize: 11, fontWeight: 700, padding: '6px 12px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center' },
+    timelineContentCol: { paddingLeft: 14, paddingBottom: 16, flex: 1 },
+    metaLabelText: { fontSize: 10, fontWeight: 900, color: '#94A3B8', letterSpacing: '0.8px', textTransform: 'uppercase' },
+    supplierTitleText: { fontSize: 14, fontWeight: 900, color: '#0F172A', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 },
+    verifiedStoreBadge: { background: '#EFF6FF', color: '#2563EB', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 10, border: '1px solid #DBEAFE' },
     
-    modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', zIndex: 100001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, backdropFilter:'blur(6px)' },
-    modalContent: { background: '#FFF', width: '100%', maxWidth: 400, borderRadius: 24, padding: 24, boxShadow:'0 25px 50px -12px rgba(0,0,0,0.25)' },
-    textArea: { width: '100%', height: 90, border: '1px solid #CBD5E1', borderRadius: 12, padding: 12, fontSize: 14, resize: 'none', outline: 'none', fontWeight:500 },
-    submitBtn: { width: '100%', background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', color: '#FFF', padding: '14px', borderRadius: 12, border: 'none', fontSize: 15, fontWeight: 800, cursor: 'pointer', marginTop: 20, boxShadow:'0 4px 15px rgba(37,99,235,0.3)' },
+    customerNameBold: { fontSize: 14, fontWeight: 900, color: '#0F172A', marginTop: 2 },
+    addressBox: { display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6, background: '#FFFFFF', padding: '8px 12px', borderRadius: 10, border: '1px solid #E2E8F0' },
+    locationPinCircle: { width: 24, height: 24, borderRadius: '50%', background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+    
+    whatsappLauncherBadge: { 
+        background: '#25D366', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', 
+        padding: '5px 12px', borderRadius: 20, boxShadow: '0 4px 10px rgba(37,211,102,0.35)', cursor: 'pointer' 
+    },
+    
+    courierRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#FFFFFF', borderRadius: 12, border: '1px solid #E2E8F0', marginBottom: 16 },
+    
+    // ITEMS ROW
+    itemContainer: { display: 'flex', gap: 16, marginTop: 16, paddingTop: 16, borderTop: '1px dashed #E2E8F0' },
+    imageWrapper: { width: 92, height: 92, borderRadius: 14, overflow: 'hidden', border: '1.5px solid #E2E8F0', flexShrink: 0, background: '#F1F5F9', cursor: 'pointer', position: 'relative' },
+    productImg: { width: '100%', height: '100%', objectFit: 'cover' },
+    itemTitleClickable: { fontSize: 14, fontWeight: 800, color: '#0F172A', lineHeight: 1.4, marginTop: 4, cursor: 'pointer', display: 'flex', alignItems: 'center' },
+    returnButtonBadge: { 
+        display: 'inline-flex', alignItems: 'center', background: '#EFF6FF', border: '1.5px solid #BFDBFE', 
+        color: '#1D4ED8', padding: '4px 12px', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer', marginBottom: 6 
+    },
+    returnStateBadge: { fontSize: 11, fontWeight: 800, color: '#DC2626', background: '#FEF2F2', padding: '3px 8px', borderRadius: 6, display: 'inline-block', marginBottom: 6 },
+    skuTag: { fontSize: 11, color: '#94A3B8', fontWeight: 700 },
+    qtyTag: { fontSize: 17, fontWeight: 900, color: '#0F172A', background: '#F1F5F9', padding: '3px 10px', borderRadius: 8 },
+    specChip: { background: '#F1F5F9', color: '#475569', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6 },
+    profitChip: { background: '#ECFDF5', color: '#059669', fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 6, border: '1px solid #A7F3D0' },
+    
+    reviewInteractiveRow: { display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 10, background: '#F8FAFC', padding: '6px 14px', borderRadius: 10, border: '1.5px solid #E2E8F0', cursor: 'pointer' },
+    cancelSingleItemBtn: { marginTop: 10, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer' },
+    cancelledNote: { fontSize: 11, color: '#DC2626', fontWeight: 800, marginTop: 6 },
+    
+    cardFooterBar: { padding: '14px 20px', borderTop: '1px solid #F1F5F9', background: '#FAFAFA' },
+    cancelMasterOrderBtn: { width: '100%', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    
+    // 🟢 RATING BOTTOM SHEET MODAL STYLES
+    bottomSheetOverlay: { 
+        position: 'fixed', inset: 0, background: 'rgba(11,25,44,0.65)', backdropFilter: 'blur(5px)', 
+        zIndex: 100000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' 
+    },
+    bottomSheetCard: { 
+        background: '#FFFFFF', width: '100%', maxWidth: 540, borderTopLeftRadius: 24, borderTopRightRadius: 24, 
+        padding: '16px 22px 28px', boxShadow: '0 -10px 30px rgba(0,0,0,0.15)', position: 'relative' 
+    },
+    sheetHandleBar: { width: 44, height: 4, borderRadius: 3, background: '#CBD5E1', margin: '0 auto 16px' },
+    sheetCloseBtn: { border: 'none', background: '#F1F5F9', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+    sheetProductBox: { display: 'flex', gap: 14, background: '#F8FAFC', padding: 12, borderRadius: 14, border: '1px solid #E2E8F0', marginTop: 10 },
+    sheetImageWrapper: { width: 72, height: 72, borderRadius: 10, overflow: 'hidden', border: '1px solid #CBD5E1', flexShrink: 0 },
+    sheetProductTitle: { fontSize: 13, fontWeight: 800, color: '#0F172A', marginTop: 2, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+    sheetSubmitBtn: { width: '100%', background: '#0B192C', color: '#FFFFFF', border: 'none', padding: '13px', borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: 'pointer', boxShadow: '0 4px 12px rgba(11,25,44,0.2)' },
 
-    autoReviewPrompt: { position: 'fixed', bottom: 80, left: 20, right: 20, maxWidth: 400, margin: '0 auto', background: '#FFF', borderRadius: 20, padding: 20, zIndex: 90, boxShadow: '0 20px 40px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0' },
-    closePromptBtn: { position: 'absolute', top: 12, right: 12, background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', cursor: 'pointer' },
-    promptReviewBtn: { width: '100%', background: '#F59E0B', color: 'white', border: 'none', padding: 12, borderRadius: 10, fontSize: 14, fontWeight: 800, marginTop: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 10px rgba(245,158,11,0.3)' }
+    // GUEST & CANCEL MODALS
+    guestCard: { background: '#FFFFFF', borderRadius: 20, padding: '50px 24px', textAlign: 'center', border: '1px solid #E2E8F0', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' },
+    guestIconCircle: { width: 68, height: 68, borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' },
+    guestTitle: { fontSize: 20, fontWeight: 900, color: '#0F172A', margin: '0 0 10px' },
+    guestSubtitle: { fontSize: 13, color: '#64748B', marginBottom: 26, lineHeight: 1.5 },
+    guestLoginBtn: { background: '#0B192C', color: '#FFFFFF', border: 'none', padding: '14px 30px', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' },
+    
+    modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(11,25,44,0.65)', backdropFilter: 'blur(4px)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 },
+    modalContent: { background: '#FFFFFF', width: '100%', maxWidth: 440, borderRadius: 20, padding: 24, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' },
+    modalCloseBtn: { border: 'none', background: '#F1F5F9', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+    selectInput: { width: '100%', padding: '12px', border: '1.5px solid #CBD5E1', borderRadius: 10, fontSize: 13, background: '#F8FAFC', outline: 'none', fontWeight: 600 },
+    cancelGoBackBtn: { flex: 1, padding: '12px', background: '#FFFFFF', border: '1.5px solid #CBD5E1', borderRadius: 10, fontWeight: 800, color: '#475569', cursor: 'pointer' },
+    cancelConfirmBtn: { flex: 1.5, padding: '12px', background: '#DC2626', color: '#FFFFFF', border: 'none', borderRadius: 10, fontWeight: 900, cursor: 'pointer' }
 };

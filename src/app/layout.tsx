@@ -1,4 +1,3 @@
-// src/app/layout.tsx
 // @ts-ignore
 import "./globals.css";
 import { Poppins } from "next/font/google";
@@ -11,7 +10,6 @@ import Footer from "@/components/Footer";
 import ConditionalTopBar from "@/components/ConditionalTopBar";
 import NotificationManager from "@/components/NotificationManager";
 import GlobalProgressBar from "@/components/GlobalProgressBar";
-import FontAwesomeLoader from "@/components/FontAwesomeLoader"; // 🟢 Added
 
 // Contexts
 import { AuthProvider } from "@/components/AuthProvider";
@@ -19,20 +17,21 @@ import { CartProvider } from "@/context/CartContext";
 
 const poppins = Poppins({
   subsets: ["latin"],
-  weight: ["400", "600", "700", "800"], 
+  weight: ["400", "500", "600", "700", "800"], 
   display: "swap",
   variable: "--font-poppins",
 });
 
 const SITE_URL = "https://www.sj10.pk";
 
+// 🚀 FULLY SEO OPTIMIZED METADATA
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: "SJ10 - Saman Junction | Pakistan's #1 Online Shopping",
     template: "%s | SJ10.pk"
   },
-  description: "Shop the best fashion, electronics, and home goods in Pakistan with fast delivery and Cash on Delivery (COD).",
+  description: "Shop the best fashion, electronics, and home goods in Pakistan with fast delivery and Cash on Delivery (COD). Start your zero-investment reselling business today.",
   icons: {
     icon: '/favicon.ico', 
     apple: '/apple-touch-icon.png',
@@ -47,6 +46,11 @@ export const metadata = {
     siteName: 'SJ10',
     locale: 'en_PK',
     type: 'website',
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SJ10 - Saman Junction",
+    description: "Pakistan's #1 Online Shopping & Reselling Platform.",
   }
 };
 
@@ -63,12 +67,21 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${poppins.variable} scroll-smooth`} suppressHydrationWarning>
       <head>
+        {/* Preconnect to external domains for faster loading */}
         <link rel="preconnect" href="https://media.sj10.pk" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
+        
+        {/* 🚀 INSTANT ICON LOADING (No 1-second delay, loads directly with HTML) */}
+        <link 
+          rel="stylesheet" 
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
+        />
       </head>
       <body className="relative min-h-screen bg-gray-50 text-gray-900 antialiased selection:bg-orange-500 selection:text-white" suppressHydrationWarning>
-        <FontAwesomeLoader />
         
+        {/* Fast Navigation Progress Bar */}
         <Suspense fallback={null}>
           <GlobalProgressBar />
         </Suspense>
@@ -76,15 +89,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <GoogleOAuthProvider clientId={googleClientId}>
           <AuthProvider>
             <CartProvider>
+              
               <ConditionalTopBar />
               <NotificationManager />
               <Header />
 
+              {/* Main Content Area */}
               <main className="page-container relative z-0 min-h-[70vh] flex flex-col">
                 {children}
               </main>
 
               <Footer />
+              
             </CartProvider>
           </AuthProvider>
         </GoogleOAuthProvider>

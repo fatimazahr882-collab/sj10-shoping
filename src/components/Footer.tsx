@@ -11,8 +11,6 @@ const navItems = [
   { href: '/explore', label: 'Explore', icon: 'fas fa-compass' },
   { href: '/orders', label: 'Orders', icon: 'fas fa-box' },
   { href: '/profile', label: 'Profile', icon: 'fas fa-user' },
-
-
 ];
 
 const topCategories = [
@@ -41,7 +39,7 @@ const externalPromos = [
 export default function Footer() {
   const pathname = usePathname();
   const [showGoTop, setShowGoTop] = useState(false);
-  if (pathname?.startsWith('/auth')) return null;
+
   // Scroll event listener for "Go To Top" button
   useEffect(() => {
     const handleScroll = () => {
@@ -55,6 +53,9 @@ export default function Footer() {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // 🟢 FIXED: Hooks ke baad ab condition lagayi hai taake React ka rule break na ho!
+  if (pathname?.startsWith('/auth')) return null;
 
   // Smooth scroll to top function
   const scrollToTop = () => {
@@ -208,56 +209,18 @@ export default function Footer() {
         <i className="fas fa-arrow-up"></i>
       </button>
 
-      {/* Scoped CSS for the Go To Top Button */}
       <style jsx>{`
         .go-top-btn {
-          position: fixed;
-          right: 20px;
-          /* Mobile par bottom nav bar (65px) ke upar rakhne ke liye 85px diya hai */
-          bottom: 85px; 
-          width: 45px;
-          height: 45px;
-          background: linear-gradient(135deg, #f85606, #ff8a00);
-          color: white;
-          border: none;
-          border-radius: 50%;
-          font-size: 18px;
-          cursor: pointer;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          box-shadow: 0 4px 15px rgba(248, 86, 6, 0.4);
-          opacity: 0;
-          visibility: hidden;
-          transform: translateY(20px);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          z-index: 9998; /* Bottom nav se theek peechay, lekin content se upar */
+          position: fixed; right: 20px; bottom: 85px; width: 45px; height: 45px;
+          background: linear-gradient(135deg, #f85606, #ff8a00); color: white; border: none;
+          border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; justify-content: center;
+          align-items: center; box-shadow: 0 4px 15px rgba(248, 86, 6, 0.4); opacity: 0; visibility: hidden;
+          transform: translateY(20px); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 9998;
         }
-        
-        .go-top-btn.visible {
-          opacity: 1;
-          visibility: visible;
-          transform: translateY(0);
-        }
-
-        .go-top-btn:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 8px 20px rgba(248, 86, 6, 0.6);
-        }
-
-        .go-top-btn:active {
-          transform: translateY(0);
-        }
-
-        /* Desktop view adjustments */
+        .go-top-btn.visible { opacity: 1; visibility: visible; transform: translateY(0); }
+        .go-top-btn:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(248, 86, 6, 0.6); }
         @media (min-width: 1024px) {
-          .go-top-btn {
-            bottom: 40px; /* Desktop par bottom nav nahi hoti, isliye neeche kar diya */
-            right: 40px;
-            width: 50px;
-            height: 50px;
-            font-size: 20px;
-          }
+          .go-top-btn { bottom: 40px; right: 40px; width: 50px; height: 50px; font-size: 20px; }
         }
       `}</style>
     </>
