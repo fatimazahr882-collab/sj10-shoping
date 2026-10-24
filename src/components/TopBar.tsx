@@ -1,18 +1,19 @@
+// src/components/TopBar.tsx
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthProvider';
 import { useCart } from '@/context/CartContext'; 
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import AuthModal from './AuthModal';
 import ClientOnly from './ClientOnly';
 
 const DEFAULT_DP = "https://pub-1390981b409c46698da5dc6c45e08eaa.r2.dev/product/SJ10-285129/SJ10-285129-1-20260201-072541.webp";
 
-const SEARCH_KEYWORDS = [
-  "Women's Fashion", "Men's Collection", "Electronics", "Smart Watches", 
-  "Wireless Earbuds", "Sneakers", "Perfumes", "Makeup Kits", "Home Decor"
+const TRENDING_KEYWORDS = [
+  "Women's Fashion", "Smart Watches", "Airbuds", "Lawn Suits", 
+  "Men's Sneakers", "Perfumes", "Makeup Kits", "Home Decor", "Bags"
 ];
 
 export default function TopBar() {
@@ -20,18 +21,22 @@ export default function TopBar() {
   const { itemCount } = useCart();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [mounted, setMounted] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  // Search States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [isNavigatingSearch, setIsNavigatingSearch] = useState(false);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mobInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const suggestionListRef = useRef<HTMLDivElement>(null);
@@ -39,12 +44,14 @@ export default function TopBar() {
   const [showFullHeader, setShowFullHeader] = useState(true);
   const lastScrollY = useRef(0);
 
-  const showSearchBar = pathname === '/' || pathname.startsWith('/explore') || pathname.startsWith('/search');
-
+  // 🟢 FORAN CLOSE DROPDOWN JAB BHI URL YA ROUTE BADLE
   useEffect(() => {
     setIsNavigatingSearch(false);
-  }, [pathname]);
+    setShowSuggestions(false);
+    setSuggestions([]);
+  }, [pathname, searchParams]);
 
+  // Scroll hide/show
   useEffect(() => {
     let ticking = false;
     const handleScroll = () => {
@@ -64,7 +71,6 @@ export default function TopBar() {
         ticking = true;
       }
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -73,67 +79,87 @@ export default function TopBar() {
     setMounted(true); 
   }, []);
 
+  // Placeholder rotation
   useEffect(() => {
     const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % SEARCH_KEYWORDS.length);
-    }, 2500); 
+      setPlaceholderIndex((prev) => (prev + 1) % TRENDING_KEYWORDS.length);
+    }, 2800); 
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    setSelectedIndex(-1);
-  }, [suggestions]);
-
-  useEffect(() => {
-    if (selectedIndex >= 0 && suggestionListRef.current) {
-      const activeEl = suggestionListRef.current.children[selectedIndex] as HTMLElement;
-      if (activeEl) {
-        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
-    }
-  }, [selectedIndex]);
-
+  // Suggestions Fetcher
   const fetchSuggestions = useCallback(async (q: string) => {
-    if (q.length < 2) { 
-      setSuggestions([]); 
-      setShowSuggestions(false); 
+    const cleanQ = q.trim();
+    if (cleanQ.length < 2) { 
+      setSuggestions(TRENDING_KEYWORDS.slice(0, 5));
       return; 
     }
+
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/suggestions-text?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_PRODUCT_API_URL}/products/suggestions-text?q=${encodeURIComponent(cleanQ)}`);
       if (res.ok) {
         const data = await res.json();
-        setSuggestions(data);
-        setShowSuggestions(true);
+        const titles = Array.isArray(data) 
+          ? data.map(item => (typeof item === 'string' ? item : item.title || item.name || '')).filter(Boolean)
+          : [];
+
+        if (titles.length > 0) {
+          setSuggestions(titles.slice(0, 7));
+        } else {
+          const fallback = TRENDING_KEYWORDS.filter(k => k.toLowerCase().includes(cleanQ.toLowerCase()));
+          setSuggestions(fallback.length > 0 ? fallback : [cleanQ]);
+        }
+      } else {
+        const fallback = TRENDING_KEYWORDS.filter(k => k.toLowerCase().includes(cleanQ.toLowerCase()));
+        setSuggestions(fallback);
       }
     } catch (e) {
-      console.error(e);
+      const fallback = TRENDING_KEYWORDS.filter(k => k.toLowerCase().includes(cleanQ.toLowerCase()));
+      setSuggestions(fallback);
     }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchSuggestions(searchQuery), 200);
+    if (!showSuggestions) return;
+    const timer = setTimeout(() => {
+      fetchSuggestions(searchQuery);
+    }, 150);
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchSuggestions]);
+  }, [searchQuery, showSuggestions, fetchSuggestions]);
 
+  // Click outside to close
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setIsProfileOpen(false);
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowSuggestions(false);
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+        setSuggestions([]);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // 🟢 CORE SEARCH TRIGGER: INPUT UNFOCUS HOGA AUR SUGGESTIONS FORAN BAND HONGAY
   const triggerSearch = (queryToSearch: string) => {
+    const finalQ = queryToSearch.trim();
+    if (!finalQ) return;
+    
+    // Close & clear instantly
     setShowSuggestions(false);
+    setSuggestions([]);
     setIsNavigatingSearch(true);
-    router.push(`/search?q=${encodeURIComponent(queryToSearch)}`);
+    
+    // Unfocus input to prevent reopening
+    inputRef.current?.blur();
+    mobInputRef.current?.blur();
+
+    router.push(`/search?q=${encodeURIComponent(finalQ)}`);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const finalQuery = searchQuery.trim() || SEARCH_KEYWORDS[placeholderIndex];
+    const finalQuery = searchQuery.trim() || TRENDING_KEYWORDS[placeholderIndex];
     triggerSearch(finalQuery);
   };
 
@@ -157,7 +183,7 @@ export default function TopBar() {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-        handleSuggClick(suggestions[selectedIndex].title);
+        handleSuggClick(suggestions[selectedIndex]);
       } else {
         handleSearchSubmit(e);
       }
@@ -174,53 +200,71 @@ export default function TopBar() {
         </div>
       )}
 
-      <div className={`sj10-master-topbar ${showFullHeader ? 'header-visible' : 'header-hidden'}`} style={{ display: showSearchBar ? 'block' : 'none' }}>
+      {/* 🟢 NAVBAR IS NOW 100% GLOBAL ACROSS ALL PAGES */}
+      <div className={`sj10-master-topbar ${showFullHeader ? 'header-visible' : 'header-hidden'}`}>
 
-        {/* MOBILE VIEW SEARCH BAR */}
+        {/* ======================================================== */}
+        {/* 📱 MOBILE VIEW: SEARCH BAR (ALWAYS VISIBLE EVERYWHERE)    */}
+        {/* ======================================================== */}
         <div className="mobile-topbar-block">
-          <div style={{ position: 'relative', width: '100%' }} ref={searchRef}>
+          <div className="mob-search-wrapper" ref={searchRef}>
             <form className="mob-search-form" onSubmit={handleSearchSubmit}>
-              <i className="fas fa-search" style={{ color: '#94a3b8', fontSize: '14px', marginRight: '6px' }}></i>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" className="mob-search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
 
               <div className="mob-animated-placeholder" style={{ opacity: searchQuery ? 0 : 1 }}>
-                <div style={{ position: 'relative', width: '130px', height: '18px', overflow: 'hidden' }}>
-                  <strong className="animated-text-item" key={placeholderIndex} style={{ color: '#f85606' }}>
-                    "{SEARCH_KEYWORDS[placeholderIndex]}"
+                <span className="search-prefix">Search</span>
+                <div className="placeholder-mask">
+                  <strong className="animated-keyword" key={placeholderIndex}>
+                    "{TRENDING_KEYWORDS[placeholderIndex]}"
                   </strong>
                 </div>
               </div>
 
               <input 
+                ref={mobInputRef}
                 type="text" 
                 className="mob-search-input" 
                 value={searchQuery} 
                 autoComplete="off" 
-                aria-label="Search" 
+                aria-label="Search items" 
                 onChange={(e) => setSearchQuery(e.target.value)} 
-                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                onFocus={() => {
+                  fetchSuggestions(searchQuery);
+                  setShowSuggestions(true);
+                }}
                 onKeyDown={handleKeyDown}
               />
               
               {searchQuery && (
-                <button type="button" onClick={() => { setSearchQuery(''); setSuggestions([]); }} style={{ border:'none', background:'none', color:'#94a3b8', padding:'0 6px', zIndex:3, cursor:'pointer' }}>
-                  <i className="fas fa-times-circle"></i>
+                <button type="button" onClick={() => { setSearchQuery(''); setSuggestions([]); }} className="mob-clear-btn">
+                  ✕
                 </button>
               )}
 
-              <button type="submit" className="mob-search-btn" aria-label="Submit"><i className="fas fa-search"></i></button>
+              <button type="submit" className="mob-submit-btn" aria-label="Search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </button>
             </form>
 
+            {/* 🟢 MOBILE DROPDOWN (Click bug fixed with onMouseDown & onTouchEnd) */}
             {showSuggestions && suggestions.length > 0 && (
-              <div className="pro-suggestions" ref={suggestionListRef}>
-                {suggestions.map((s, i) => (
+              <div className="pro-suggestions-dropdown" ref={suggestionListRef}>
+                {!searchQuery.trim() && (
+                  <div className="suggestions-header-chip">
+                    🔥 Trending Searches
+                  </div>
+                )}
+
+                {suggestions.map((title, i) => (
                   <div 
                     key={i} 
-                    className={`sugg-item ${selectedIndex === i ? 'keyboard-selected' : ''}`} 
-                    onClick={() => handleSuggClick(s.title)}
+                    className={`sugg-row ${selectedIndex === i ? 'keyboard-selected' : ''}`} 
+                    onMouseDown={(e) => { e.preventDefault(); handleSuggClick(title); }}
+                    onTouchEnd={(e) => { e.preventDefault(); handleSuggClick(title); }}
                   >
-                    <i className="fas fa-search sugg-icon"></i>
-                    <span style={{ flex: 1 }}>{s.title}</span>
-                    <i className="fas fa-chevron-right" style={{ fontSize: '11px', color: '#cbd5e1' }}></i>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f85606" strokeWidth="2.5" className="sugg-row-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <span className="sugg-row-text">{title}</span>
+                    <span className="sugg-arrow-icon">→</span>
                   </div>
                 ))}
               </div>
@@ -228,14 +272,16 @@ export default function TopBar() {
           </div>
         </div>
 
-        {/* DESKTOP VIEW NAV BAR */}
+        {/* ======================================================== */}
+        {/* 💻 DESKTOP VIEW: MAIN NAVBAR (ALWAYS VISIBLE EVERYWHERE) */}
+        {/* ======================================================== */}
         <div className="desktop-topbar-block">
           <div className="main-nav-area">
             <div className="container nav-grid">
               
               <div className="nav-left">
-                <Link href="/" style={{ textDecoration: 'none' }} aria-label="Go to SJ10 Homepage">
-                  <span className="sr-only">SJ10 Homepage</span>
+                <Link href="/" style={{ textDecoration: 'none' }} aria-label="SJ10 Home">
+                  <span className="sr-only">SJ10 Home</span>
                   <video 
                     src="/logo.mp4" 
                     autoPlay 
@@ -251,44 +297,71 @@ export default function TopBar() {
               <div className="nav-center" ref={searchRef}>
                 <div className="search-cart-wrapper">
                   <form className="pro-search-box" onSubmit={handleSearchSubmit}>
+                    
                     <div className="animated-placeholder" style={{ opacity: searchQuery ? 0 : 1 }}>
-                      <i className="fas fa-search" style={{ marginRight: '8px' }}></i>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" style={{ marginRight: '8px' }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                       <span>Search </span>
-                      <div style={{ position: 'relative', width: '150px', height: '20px', marginLeft: '4px', overflow: 'hidden' }}>
-                        <strong className="animated-text-item" key={placeholderIndex} style={{ color: '#f85606' }}>
-                          "{SEARCH_KEYWORDS[placeholderIndex]}"
+                      <div className="placeholder-mask">
+                        <strong className="animated-keyword" key={placeholderIndex}>
+                          "{TRENDING_KEYWORDS[placeholderIndex]}"
                         </strong>
                       </div>
                     </div>
 
                     <input 
+                      ref={inputRef}
                       type="text" 
                       value={searchQuery} 
                       autoComplete="off" 
                       aria-label="Search" 
                       onChange={(e) => setSearchQuery(e.target.value)} 
-                      onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                      onFocus={() => {
+                        fetchSuggestions(searchQuery);
+                        setShowSuggestions(true);
+                      }}
                       onKeyDown={handleKeyDown}
                     />
-                    <button type="submit" className="pro-search-btn" aria-label="Submit"><i className="fas fa-search"></i></button>
+
+                    {searchQuery && (
+                      <button type="button" onClick={() => { setSearchQuery(''); setSuggestions([]); }} className="desktop-clear-btn">
+                        ✕
+                      </button>
+                    )}
+
+                    <button type="submit" className="pro-search-btn" aria-label="Submit Search">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f85606" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    </button>
                   </form>
 
+                  {/* Cart Icon */}
                   <Link href="/cart" className="cart-beside-search" aria-label="Shopping Cart">
-                    <i className="fas fa-shopping-cart"></i>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
                     <ClientOnly>
                       {itemCount > 0 && <span className="cart-badge-beside">{itemCount}</span>}
                     </ClientOnly>
                   </Link>
 
+                  {/* 🟢 DESKTOP DROPDOWN (Click Bug Fixed: onMouseDown closes and submits instantly) */}
                   {showSuggestions && suggestions.length > 0 && (
-                    <div className="pro-suggestions" ref={suggestionListRef}>
-                      {suggestions.map((s, i) => (
+                    <div className="pro-suggestions-dropdown" ref={suggestionListRef}>
+                      {!searchQuery.trim() && (
+                        <div className="suggestions-header-chip">
+                          🔥 Popular Searches in Pakistan
+                        </div>
+                      )}
+
+                      {suggestions.map((title, i) => (
                         <div 
                           key={i} 
-                          className={`sugg-item ${selectedIndex === i ? 'keyboard-selected' : ''}`} 
-                          onClick={() => handleSuggClick(s.title)}
+                          className={`sugg-row ${selectedIndex === i ? 'keyboard-selected' : ''}`} 
+                          onMouseDown={(e) => { 
+                            e.preventDefault(); 
+                            handleSuggClick(title); 
+                          }}
                         >
-                          <i className="fas fa-search sugg-icon"></i> {s.title}
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f85606" strokeWidth="2.5" className="sugg-row-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                          <span className="sugg-row-text">{title}</span>
+                          <span className="sugg-press-enter">Select ↵</span>
                         </div>
                       ))}
                     </div>
@@ -296,35 +369,40 @@ export default function TopBar() {
                 </div>
               </div>
 
+              {/* Navigation Links Right */}
               <div className="nav-right">
                 <Link href="/category" className="desktop-nav-item">
-                  <i className="fas fa-th-large"></i><span>Categories</span>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                  <span>Categories</span>
                 </Link>
                 
                 <Link href="/explore" className="desktop-nav-item">
-                  <i className="fas fa-compass"></i><span>Explore</span>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                  <span>Explore</span>
                 </Link>
                 
                 <Link href="/favorites" className="desktop-nav-item">
-                  <i className="fas fa-heart"></i><span>Favorites</span>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                  <span>Favorites</span>
                 </Link>
                 
-                <div className="auth-zone" ref={dropdownRef} style={{position:'relative'}}>
+                {/* User Auth Zone */}
+                <div className="auth-zone" ref={dropdownRef} style={{ position: 'relative' }}>
                   {!mounted || isLoading ? (
-                    <div style={{width:'80px', height:'35px', background:'rgba(255,255,255,0.2)', borderRadius:'50px'}}></div>
+                    <div style={{ width: '85px', height: '35px', background: 'rgba(255,255,255,0.2)', borderRadius: '50px' }}></div>
                   ) : user ? (
                     <div className="logged-in-pill" onClick={() => setIsProfileOpen(!isProfileOpen)}>
-                      <span style={{color:'white', fontSize:'13px', fontWeight:700, marginLeft:'6px'}}>ACCOUNT</span>
+                      <span style={{ color: 'white', fontSize: '13px', fontWeight: 700, marginLeft: '6px' }}>ACCOUNT</span>
                       <img src={user.profile_pic || DEFAULT_DP} alt="User" className="user-dp" />
                       
                       {isProfileOpen && (
                         <div className="pro-dropdown">
-                          <div style={{padding:'15px', background:'#f8fafc', borderBottom:'1px solid #f1f5f9'}}>
-                            <strong style={{fontSize:'14px', color:'#0f172a'}}>{user.full_name}</strong>
+                          <div style={{ padding: '14px 18px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                            <strong style={{ fontSize: '14px', color: '#0f172a' }}>{user.full_name}</strong>
                           </div>
-                          <Link href="/profile" onClick={() => setIsProfileOpen(false)}><i className="fas fa-user-circle"></i> Dashboard</Link>
-                          <Link href="/orders" onClick={() => setIsProfileOpen(false)}><i className="fas fa-box"></i> My Orders</Link>
-                          <button onClick={() => { setIsProfileOpen(false); signOut(); }} style={{color:'#ef4444'}}><i className="fas fa-sign-out-alt"></i> Logout</button>
+                          <Link href="/profile" onClick={() => setIsProfileOpen(false)}>Dashboard</Link>
+                          <Link href="/orders" onClick={() => setIsProfileOpen(false)}>My Orders</Link>
+                          <button onClick={() => { setIsProfileOpen(false); signOut(); }} style={{ color: '#ef4444' }}>Logout</button>
                         </div>
                       )}
                     </div>
@@ -337,6 +415,7 @@ export default function TopBar() {
             </div>
           </div>
         </div>
+
       </div>
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
