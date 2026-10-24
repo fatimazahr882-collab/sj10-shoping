@@ -87,12 +87,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </Suspense>
 
         <GoogleOAuthProvider clientId={googleClientId}>
-          <AuthProvider>
-            <CartProvider>
-              
-              <ConditionalTopBar />
-              <NotificationManager />
-              <Header />
+  <AuthProvider>
+    <CartProvider>
+      
+      {/* 🟢 FIX: Wrap ConditionalTopBar in Suspense to fix build error */}
+      <Suspense fallback={null}>
+        <ConditionalTopBar />
+      </Suspense>
+      
+      <NotificationManager />
+      <Header />
 
               {/* Main Content Area */}
               <main className="page-container relative z-0 min-h-[70vh] flex flex-col">
